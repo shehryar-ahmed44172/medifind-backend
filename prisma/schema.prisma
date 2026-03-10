@@ -1,0 +1,145 @@
+// This is a placeholder file for prisma schema configuration
+// Delete and/or modify as needed for your specific setup
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  PATIENT
+  RESPONDER
+  CAREGIVER
+  ADMIN
+}
+
+enum EmergencyStatus {
+  TRIGGERED
+  LOCATING
+  RESPONDER_ASSIGNED
+  IN_PROGRESS
+  ON_SITE
+  COMPLETED
+  ESCALATED
+  CANCELLED
+}
+
+model User {
+  id                    String                 @id @default(cuid())
+  fullName              String
+  email                 String                 @unique
+  phoneNumber           String                 @unique
+  passwordHash          String
+  role                  UserRole               @default(PATIENT)
+  isActive              Boolean                @default(true)
+  lastLogin             DateTime?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  
+  medicalProfile        MedicalProfile?
+  emergencies           Emergency[]            @relation("PatientEmergencies")
+  assignedEmergencies   Emergency[]            @relation("ResponderAssignment")
+  caregiverLinks        CaregiverLink[]        @relation("CaregiverTo")
+  caregiverEmployers    CaregiverLink[]        @relation("EmployerFrom")
+  
+  @@index([email])
+  @@index([phoneNumber])
+  @@index([role])
+  @@index([isActive])
+}
+
+model MedicalProfile {
+  id                 String      @id @default(cuid())
+  userId             String      @unique
+  bloodType          String?
+  chronicDiseases    Json?       @default("[]")
+  allergies          Json?       @default("[]")
+  medications        Json?       @default("[]")
+  emergencyContacts  Json?       @default("[]")
+  medicalHistory     String?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  
+  user               User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+}
+
+model Emergency {
+  id                      String              @id @default(cuid())
+  userId                  String
+  status                  EmergencyStatus     @default(TRIGGERED)
+  emergencyType           String              @default("MEDICAL")
+  latitude                Float
+  longitude               Float
+  accuracy                Float?
+  assignedResponderId     String?
+  estimatedArrivalTime    Int?                // In minutes
+  voiceAlertGenerated     Boolean             @default(false)
+  additionalInfo          String?
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
+  resolvedAt              DateTime?
+  
+  patient                 User                @relation("PatientEmergencies", fields: [userId], references: [id], onDelete: Cascade)
+  assignedResponder       User?               @relation("ResponderAssignment", fields: [assignedResponderId], references: [id], onDelete: SetNull)
+  locationUpdates         LocationUpdate[]
+  statusHistory           EmergencyStatusHistory[]
+  
+  @@index([userId])
+  @@index([status])
+  @@index([assignedResponderId])
+  @@index([createdAt])
+}
+
+model LocationUpdate {
+  id                String      @id @default(cuid())
+  emergencyId       String
+  latitude          Float
+  longitude         Float
+  accuracy          Float?
+  speed             Float?
+  heading           Float?
+  timestamp         DateTime    @default(now())
+  
+  emergency         Emergency   @relation(fields: [emergencyId], references: [id], onDelete: Cascade)
+  
+  @@index([emergencyId])
+  @@index([timestamp])
+}
+
+model EmergencyStatusHistory {
+  id              String              @id @default(cuid())
+  emergencyId     String
+  previousStatus  EmergencyStatus
+  newStatus       EmergencyStatus
+  reason          String?
+  changedBy       String?
+  createdAt       DateTime            @default(now())
+  
+  emergency       Emergency           @relation(fields: [emergencyId], references: [id], onDelete: Cascade)
+  
+  @@index([emergencyId])
+  @@index([createdAt])
+}
+
+model CaregiverLink {
+  id              String      @id @default(cuid())
+  caregiverId     String
+  patientId       String
+  relationship    String      // e.g., "family", "professional"
+  isActive        Boolean     @default(true)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  caregiver       User        @relation("CaregiverTo", fields: [caregiverId], references: [id], onDelete: Cascade)
+  patient         User        @relation("EmployerFrom", fields: [patientId], references: [id], onDelete: Cascade)
+  
+  @@unique([caregiverId, patientId])
+  @@index([caregiverId])
+  @@index([patientId])
+}

@@ -1,0 +1,177 @@
+import express, { Express, Request, Response } from 'express';
+import { Server as SocketIOServer } from 'socket.io';
+import http from 'http';
+import cors from 'cors';
+import helmet from 'helmet';
+import morgan from 'morgan';
+import 'dotenv/config';
+import logger from './utils/logger.js';
+
+// Initialize Express app
+const app: Express = express();
+const server = http.createServer(app);
+
+// Socket.io setup
+const io = new SocketIOServer(server, {
+  cors: {
+    origin: process.env.CORS_ORIGIN || 'http://localhost:3100',
+    methods: ['GET', 'POST'],
+    credentials: true,
+  },
+  pingInterval: parseInt(process.env.SOCKET_IO_PING_INTERVAL || '25000'),
+  pingTimeout: parseInt(process.env.SOCKET_IO_PING_TIMEOUT || '60000'),
+});
+
+// Environment variables
+const PORT = parseInt(process.env.PORT || '3000', 10);
+const NODE_ENV = process.env.NODE_ENV || 'development';
+const HOST = process.env.HOST || 'localhost';
+
+// Middleware
+app.use(helmet());
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || 'http://localhost:3100',
+  credentials: true,
+}));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
+app.use(morgan('combined', {
+  stream: {
+    write: (message: string) => logger.info(message.trim()),
+  },
+}));
+
+// Rate limiting middleware (basic)
+const requestCounts = new Map<string, number>();
+app.use((req: Request, res: Response, next) => {
+  const ip = req.ip || 'unknown';
+  const count = (requestCounts.get(ip) || 0) + 1;
+  requestCounts.set(ip, count);
+
+  if (count > 100) {
+    return res.status(429).json({ error: 'Too many requests' });
+  }
+
+  setTimeout(() => {
+    requestCounts.delete(ip);
+  }, 15 * 60 * 1000); // 15 minutes
+
+  next();
+});
+
+// Health check endpoint
+app.get('/health', (req: Request, res: Response) => {
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: NODE_ENV,
+  });
+});
+
+// Root endpoint
+app.get('/', (req: Request, res: Response) => {
+  res.json({
+    message: 'MediFind Backend API',
+    version: '1.0.0',
+    environment: NODE_ENV,
+    endpoints: {
+      health: '/health',
+      auth: '/api/auth',
+      emergencies: '/api/emergencies',
+      medical: '/api/medical-profiles',
+      users: '/api/users',
+    },
+    websocket: {
+      url: `ws://localhost:${PORT}`,
+      rooms: ['emergencies', 'locations', 'notifications', 'chat'],
+    },
+  });
+});
+
+// Socket.io connection handling
+io.on('connection', (socket) => {
+  logger.info(`Client connected: ${socket.id}`);
+
+  // Join room events
+  socket.on('join:emergency', (emergencyId: string) => {
+    socket.join(`emergency:${emergencyId}`);
+    logger.info(`Client ${socket.id} joined emergency ${emergencyId}`);
+  });
+
+  socket.on('join:location', (emergencyId: string) => {
+    socket.join(`location:${emergencyId}`);
+    logger.info(`Client ${socket.id} started tracking location ${emergencyId}`);
+  });
+
+  socket.on('join:notifications', (userId: string) => {
+    socket.join(`notifications:${userId}`);
+    logger.info(`Client ${socket.id} joined notifications for user ${userId}`);
+  });
+
+  // Leave room events
+  socket.on('leave:emergency', (emergencyId: string) => {
+    socket.leave(`emergency:${emergencyId}`);
+    logger.info(`Client ${socket.id} left emergency ${emergencyId}`);
+  });
+
+  socket.on('leave:location', (emergencyId: string) => {
+    socket.leave(`location:${emergencyId}`);
+    logger.info(`Client ${socket.id} stopped tracking location ${emergencyId}`);
+  });
+
+  // Error handling
+  socket.on('error', (error: Error) => {
+    logger.error(`Socket error: ${error.message}`);
+  });
+
+  // Disconnect handling
+  socket.on('disconnect', () => {
+    logger.info(`Client disconnected: ${socket.id}`);
+  });
+});
+
+// 404 handler
+app.use((req: Request, res: Response) => {
+  res.status(404).json({
+    error: 'Not Found',
+    path: req.path,
+    method: req.method,
+  });
+});
+
+// Error handler
+app.use((err: any, req: Request, res: Response, next) => {
+  logger.error(`Error: ${err.message}`);
+  res.status(err.status || 500).json({
+    error: 'Internal Server Error',
+    message: NODE_ENV === 'development' ? err.message : 'An error occurred',
+  });
+});
+
+// Graceful shutdown
+const gracefulShutdown = () => {
+  logger.info('Received shutdown signal, closing gracefully...');
+  server.close(async () => {
+    logger.info('HTTP server closed');
+    process.exit(0);
+  });
+
+  setTimeout(() => {
+    logger.error('Could not close connections in time, forcefully shutting down');
+    process.exit(1);
+  }, 10000);
+};
+
+process.on('SIGINT', gracefulShutdown);
+process.on('SIGTERM', gracefulShutdown);
+
+// Start server
+server.listen(PORT, HOST, () => {
+  logger.info(`🚀 Server running on http://${HOST}:${PORT}`);
+  logger.info(`📡 WebSocket available at ws://${HOST}:${PORT}`);
+  logger.info(`🔧 Environment: ${NODE_ENV}`);
+});
+
+// Export for testing
+export { app, io, server };
