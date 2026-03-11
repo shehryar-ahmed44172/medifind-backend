@@ -1,0 +1,748 @@
+{
+  "info": {
+    "_postman_id": "medifind-backend-api",
+    "name": "MediFind Backend API - Week 1",
+    "description": "Complete API testing collection for MediFind Authentication Module\n\nEndpoints: Register, Login, Refresh Token, Logout, Get Profile\n\nQuick Start:\n1. Import this collection into Postman\n2. Create environment variable: baseUrl = http://localhost:3000\n3. Start server: npm run dev\n4. Test endpoints in order (Register → Login → Get Profile → Logout)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health Check",
+      "item": [
+        {
+          "name": "Server Health",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has status field', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.eql('ok');",
+                  "});",
+                  "",
+                  "pm.test('Server is running', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.uptime).to.be.greaterThan(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "Check if backend server is running and healthy"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "1. Register User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201 Created', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Response has success true', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test('User ID is generated', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.id).to.exist;",
+                  "    pm.environment.set('userId', jsonData.data.id);",
+                  "});",
+                  "",
+                  "pm.test('Email matches request', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.email).to.eql('john.doe@medifind.com');",
+                  "});",
+                  "",
+                  "pm.test('Role is PATIENT', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.role).to.eql('PATIENT');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"John Doe\",\n  \"email\": \"john.doe@medifind.com\",\n  \"phoneNumber\": \"+1-234-567-8900\",\n  \"password\": \"SecurePassword123!\",\n  \"role\": \"PATIENT\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "description": "Register a new user account\n\nRequired fields:\n- fullName: Full name of user\n- email: Valid email address (unique)\n- phoneNumber: Phone number with country code\n- password: Min 8 characters\n- role: PATIENT, RESPONDER, CAREGIVER, or ADMIN"
+          },
+          "response": []
+        },
+        {
+          "name": "2. Login User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has success true', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test('Access token generated', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.accessToken).to.exist;",
+                  "    pm.expect(jsonData.data.accessToken.length).to.be.greaterThan(0);",
+                  "    pm.environment.set('accessToken', jsonData.data.accessToken);",
+                  "});",
+                  "",
+                  "pm.test('Refresh token generated', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.refreshToken).to.exist;",
+                  "    pm.expect(jsonData.data.refreshToken.length).to.be.greaterThan(0);",
+                  "    pm.environment.set('refreshToken', jsonData.data.refreshToken);",
+                  "});",
+                  "",
+                  "pm.test('Token expires in 24 hours', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.expiresIn).to.eql(86400);",
+                  "});",
+                  "",
+                  "pm.test('User data in response', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.user.email).to.eql('john.doe@medifind.com');",
+                  "    pm.expect(jsonData.data.user.role).to.eql('PATIENT');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john.doe@medifind.com\",\n  \"password\": \"SecurePassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Login user and receive access + refresh tokens\n\nReturns:\n- accessToken: Use for API requests (24h expiry)\n- refreshToken: Use to get new accessToken (30d expiry)\n- expiresIn: Token expiry in seconds (86400 = 24 hours)"
+          },
+          "response": []
+        },
+        {
+          "name": "3. Get User Profile (Protected)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has success true', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test('User profile returned', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.userId).to.exist;",
+                  "    pm.expect(jsonData.data.email).to.eql('john.doe@medifind.com');",
+                  "    pm.expect(jsonData.data.role).to.eql('PATIENT');",
+                  "});",
+                  "",
+                  "pm.test('No password in response', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.password).to.not.exist;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "me"
+              ]
+            },
+            "description": "Get current logged-in user profile\n\nRequires Authorization header with accessToken\n\nResponse includes:\n- userId: User unique identifier\n- email: User email\n- role: User role (PATIENT, RESPONDER, CAREGIVER, ADMIN)"
+          },
+          "response": []
+        },
+        {
+          "name": "4. Refresh Access Token ⭐ CRITICAL",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has success true', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test('New access token generated', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.accessToken).to.exist;",
+                  "    var newToken = jsonData.data.accessToken;",
+                  "    var oldToken = pm.environment.get('accessToken');",
+                  "    pm.expect(newToken).to.not.eql(oldToken);",
+                  "    pm.environment.set('accessToken', newToken);",
+                  "});",
+                  "",
+                  "pm.test('Token expires in 24 hours', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.expiresIn).to.eql(86400);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/refresh-token",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "refresh-token"
+              ]
+            },
+            "description": "Get new access token using refresh token\n\n⭐ CRITICAL for mobile apps - call when access token expires\n\nUse to:\n- Keep user session alive without re-login\n- Get new access token after 24h expiry\n- Maintain long-running sessions (30 days)\n\nRefresh token remains valid until:\n- User logs out\n- 30 days pass"
+          },
+          "response": []
+        },
+        {
+          "name": "5. Logout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has success true', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test('Logout message displayed', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.message).to.include('Logout successful');",
+                  "});",
+                  "",
+                  "pm.test('Clear tokens from environment', function () {",
+                  "    pm.environment.unset('accessToken');",
+                  "    pm.environment.unset('refreshToken');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Logout and revoke refresh token\n\nAfter logout:\n- Refresh token is invalidated\n- Cannot use token to login again\n- Must login fresh to get new tokens"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Error Testing",
+      "item": [
+        {
+          "name": "Error: Duplicate Email Registration",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 400 Bad Request', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test('Success is false', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.false;",
+                  "});",
+                  "",
+                  "pm.test('Error message about duplicate user', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.message).to.include('already exists');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Another User\",\n  \"email\": \"john.doe@medifind.com\",\n  \"phoneNumber\": \"+9876543210\",\n  \"password\": \"AnotherPass456!\",\n  \"role\": \"PATIENT\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "description": "Try to register with email that already exists\n\nExpected: 400 Bad Request with \"User already exists\" error"
+          },
+          "response": []
+        },
+        {
+          "name": "Error: Wrong Password",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 401 Unauthorized', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "pm.test('Success is false', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.false;",
+                  "});",
+                  "",
+                  "pm.test('Error message about invalid credentials', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.message).to.include('Invalid credentials');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john.doe@medifind.com\",\n  \"password\": \"WrongPassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Try to login with wrong password\n\nExpected: 401 Unauthorized with \"Invalid credentials\" error"
+          },
+          "response": []
+        },
+        {
+          "name": "Error: No Authorization Header",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 401 Unauthorized', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "pm.test('Error message about missing token', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.message).to.include('Missing or invalid authorization');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "me"
+              ]
+            },
+            "description": "Try to access protected endpoint without Authorization header\n\nExpected: 401 Unauthorized with error about missing token"
+          },
+          "response": []
+        },
+        {
+          "name": "Error: Invalid Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 401 Unauthorized', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "pm.test('Error message about invalid token', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.message).to.include('Invalid or expired token');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer invalid_token_here_xyz123"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "me"
+              ]
+            },
+            "description": "Try to access protected endpoint with invalid token\n\nExpected: 401 Unauthorized with \"Invalid or expired token\" error"
+          },
+          "response": []
+        },
+        {
+          "name": "Error: Short Password",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 400 Bad Request', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test('Error about password length', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.message).to.include('Password must be at least 8 characters');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Test User\",\n  \"email\": \"test@medifind.com\",\n  \"phoneNumber\": \"+1234567890\",\n  \"password\": \"short\",\n  \"role\": \"PATIENT\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "description": "Try to register with password shorter than 8 characters\n\nExpected: 400 Bad Request with password length error"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Multi-User Testing",
+      "item": [
+        {
+          "name": "Register Responder User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201 Created', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Responder registered', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.role).to.eql('RESPONDER');",
+                  "    pm.environment.set('responderId', jsonData.data.id);",
+                  "    pm.environment.set('responderEmail', jsonData.data.email);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Emergency Responder\",\n  \"email\": \"responder@medifind.com\",\n  \"phoneNumber\": \"+1-987-654-3210\",\n  \"password\": \"ResponderPass123!\",\n  \"role\": \"RESPONDER\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "description": "Register a RESPONDER user for emergency response testing"
+          },
+          "response": []
+        },
+        {
+          "name": "Register Caregiver User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201 Created', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Caregiver registered', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.role).to.eql('CAREGIVER');",
+                  "    pm.environment.set('caregiverId', jsonData.data.id);",
+                  "    pm.environment.set('caregiverEmail', jsonData.data.email);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Family Caregiver\",\n  \"email\": \"caregiver@medifind.com\",\n  \"phoneNumber\": \"+1-555-666-7777\",\n  \"password\": \"CaregiverPass123!\",\n  \"role\": \"CAREGIVER\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "description": "Register a CAREGIVER user for family caregiver testing"
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Ensure baseUrl is set",
+          "if (!pm.environment.get('baseUrl')) {",
+          "    pm.environment.set('baseUrl', 'http://localhost:3000');",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string",
+      "description": "Backend server base URL"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string",
+      "description": "JWT access token (24h expiry)"
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "type": "string",
+      "description": "JWT refresh token (30d expiry)"
+    },
+    {
+      "key": "userId",
+      "value": "",
+      "type": "string",
+      "description": "Current user ID"
+    },
+    {
+      "key": "responderId",
+      "value": "",
+      "type": "string",
+      "description": "Responder user ID"
+    },
+    {
+      "key": "caregiverId",
+      "value": "",
+      "type": "string",
+      "description": "Caregiver user ID"
+    }
+  ]
+}

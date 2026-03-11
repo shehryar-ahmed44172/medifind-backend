@@ -1,5 +1,6 @@
-// This is a placeholder file for prisma schema configuration
-// Delete and/or modify as needed for your specific setup
+// MediFind Mobile Application - Complete Prisma Schema
+// Based on Backend Engineers Guide specifications
+// All 10 tables with geospatial support
 
 generator client {
   provider = "prisma-client-js"
@@ -10,6 +11,10 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ============================================
+// ENUMS
+// ============================================
+
 enum UserRole {
   PATIENT
   RESPONDER
@@ -18,15 +23,37 @@ enum UserRole {
 }
 
 enum EmergencyStatus {
-  TRIGGERED
-  LOCATING
-  RESPONDER_ASSIGNED
-  IN_PROGRESS
-  ON_SITE
-  COMPLETED
-  ESCALATED
+  ACTIVE
+  RESOLVED
   CANCELLED
 }
+
+enum EmergencyRequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  COMPLETED
+}
+
+enum TrackingStatus {
+  EN_ROUTE
+  ARRIVED
+  TREATING
+  TRANSPORTED
+}
+
+enum MedicalReportType {
+  LAB
+  IMAGING
+  PRESCRIPTION
+  DISCHARGE_SUMMARY
+  VITAL_SIGNS
+  OTHER
+}
+
+// ============================================
+// TABLE 1: users
+// ============================================
 
 model User {
   id                    String                 @id @default(cuid())
@@ -35,16 +62,21 @@ model User {
   phoneNumber           String                 @unique
   passwordHash          String
   role                  UserRole               @default(PATIENT)
+  profileImageUrl       String?
   isActive              Boolean                @default(true)
   lastLogin             DateTime?
   createdAt             DateTime               @default(now())
   updatedAt             DateTime               @updatedAt
   
+  // Relations
   medicalProfile        MedicalProfile?
+  responder             Responder?
   emergencies           Emergency[]            @relation("PatientEmergencies")
-  assignedEmergencies   Emergency[]            @relation("ResponderAssignment")
   caregiverLinks        CaregiverLink[]        @relation("CaregiverTo")
   caregiverEmployers    CaregiverLink[]        @relation("EmployerFrom")
+  medicalReports        MedicalReport[]
+  refreshTokens         RefreshToken[]
+  auditLogs             AuditLog[]
   
   @@index([email])
   @@index([phoneNumber])
@@ -52,14 +84,19 @@ model User {
   @@index([isActive])
 }
 
+// ============================================
+// TABLE 2: medical_profiles
+// ============================================
+
 model MedicalProfile {
   id                 String      @id @default(cuid())
   userId             String      @unique
   bloodType          String?
-  chronicDiseases    Json?       @default("[]")
-  allergies          Json?       @default("[]")
-  medications        Json?       @default("[]")
-  emergencyContacts  Json?       @default("[]")
+  chronicDiseases    Json?       @default("[]")  // Array of strings
+  allergies          Json?       @default("[]")  // Array of strings
+  medications        Json?       @default("[]")  // Array of objects with name, dosage
+  emergencyContacts  Json?       @default("[]")  // Array of contact objects
+  disabilities       Json?       @default("[]")  // Array of strings
   medicalHistory     String?
   createdAt          DateTime    @default(now())
   updatedAt          DateTime    @updatedAt
@@ -69,77 +106,209 @@ model MedicalProfile {
   @@index([userId])
 }
 
+// ============================================
+// TABLE 3: emergencies
+// ============================================
+
 model Emergency {
   id                      String              @id @default(cuid())
-  userId                  String
-  status                  EmergencyStatus     @default(TRIGGERED)
+  patientId               String
   emergencyType           String              @default("MEDICAL")
   latitude                Float
   longitude               Float
   accuracy                Float?
-  assignedResponderId     String?
-  estimatedArrivalTime    Int?                // In minutes
+  status                  EmergencyStatus     @default(ACTIVE)
   voiceAlertGenerated     Boolean             @default(false)
   additionalInfo          String?
+  cancellationDeadline    DateTime            // CreatedAt + 10 seconds
   createdAt               DateTime            @default(now())
   updatedAt               DateTime            @updatedAt
   resolvedAt              DateTime?
   
-  patient                 User                @relation("PatientEmergencies", fields: [userId], references: [id], onDelete: Cascade)
-  assignedResponder       User?               @relation("ResponderAssignment", fields: [assignedResponderId], references: [id], onDelete: SetNull)
-  locationUpdates         LocationUpdate[]
-  statusHistory           EmergencyStatusHistory[]
+  // Relations
+  patient                 User                @relation("PatientEmergencies", fields: [patientId], references: [id], onDelete: Cascade)
+  emergencyRequests       EmergencyRequest[]
+  emergencyTracking       EmergencyTracking[]
+  medicalReports          MedicalReport[]
+  
+  @@index([patientId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([cancellationDeadline])
+}
+
+// ============================================
+// TABLE 4: responders
+// ============================================
+
+model Responder {
+  id                      String      @id @default(cuid())
+  userId                  String      @unique
+  licenseNumber           String      @unique
+  specialization          Json?       @default("[]")  // Array of specializations
+  currentLatitude         Float?
+  currentLongitude        Float?
+  isAvailable             Boolean     @default(true)
+  averageResponseTime     Int?        // In seconds
+  totalResponsesHandled   Int         @default(0)
+  rating                  Float       @default(5.0)
+  totalRatings            Int         @default(0)
+  createdAt               DateTime    @default(now())
+  updatedAt               DateTime    @updatedAt
+  
+  // Relations
+  user                    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emergencyRequests       EmergencyRequest[]
+  emergencyTracking       EmergencyTracking[]
   
   @@index([userId])
-  @@index([status])
-  @@index([assignedResponderId])
+  @@index([isAvailable])
+  @@index([currentLatitude, currentLongitude])
   @@index([createdAt])
 }
 
-model LocationUpdate {
-  id                String      @id @default(cuid())
+// ============================================
+// TABLE 5: emergency_requests (CRITICAL)
+// ============================================
+
+model EmergencyRequest {
+  id                      String              @id @default(cuid())
+  emergencyId             String
+  responderId             String
+  status                  EmergencyRequestStatus @default(PENDING)
+  distanceKm              Float?
+  estimatedArrivalMinutes Int?
+  sentAt                  DateTime            @default(now())
+  acceptedAt              DateTime?
+  rejectedAt              DateTime?
+  rejectionReason         String?
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
+  
+  // Relations
+  emergency               Emergency           @relation(fields: [emergencyId], references: [id], onDelete: Cascade)
+  responder               Responder           @relation(fields: [responderId], references: [userId], onDelete: Cascade)
+  
+  @@unique([emergencyId, responderId])
+  @@index([emergencyId])
+  @@index([responderId])
+  @@index([status])
+  @@index([sentAt])
+}
+
+// ============================================
+// TABLE 6: emergency_tracking
+// ============================================
+
+model EmergencyTracking {
+  id                String          @id @default(cuid())
   emergencyId       String
+  responderId       String
   latitude          Float
   longitude         Float
   accuracy          Float?
-  speed             Float?
-  heading           Float?
-  timestamp         DateTime    @default(now())
+  status            TrackingStatus  @default(EN_ROUTE)
+  timestamp         DateTime        @default(now())
+  createdAt         DateTime        @default(now())
   
-  emergency         Emergency   @relation(fields: [emergencyId], references: [id], onDelete: Cascade)
+  // Relations
+  emergency         Emergency       @relation(fields: [emergencyId], references: [id], onDelete: Cascade)
+  responder         Responder       @relation(fields: [responderId], references: [userId], onDelete: Cascade)
   
   @@index([emergencyId])
+  @@index([responderId])
+  @@index([status])
   @@index([timestamp])
 }
 
-model EmergencyStatusHistory {
-  id              String              @id @default(cuid())
-  emergencyId     String
-  previousStatus  EmergencyStatus
-  newStatus       EmergencyStatus
-  reason          String?
-  changedBy       String?
-  createdAt       DateTime            @default(now())
-  
-  emergency       Emergency           @relation(fields: [emergencyId], references: [id], onDelete: Cascade)
-  
-  @@index([emergencyId])
-  @@index([createdAt])
-}
+// ============================================
+// TABLE 7: caregiver_links
+// ============================================
 
 model CaregiverLink {
   id              String      @id @default(cuid())
   caregiverId     String
   patientId       String
-  relationship    String      // e.g., "family", "professional"
+  relationship    String      // PARENT, SIBLING, SPOUSE, FRIEND
   isActive        Boolean     @default(true)
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
   
+  // Relations
   caregiver       User        @relation("CaregiverTo", fields: [caregiverId], references: [id], onDelete: Cascade)
   patient         User        @relation("EmployerFrom", fields: [patientId], references: [id], onDelete: Cascade)
   
   @@unique([caregiverId, patientId])
   @@index([caregiverId])
   @@index([patientId])
+}
+
+// ============================================
+// TABLE 8: medical_reports
+// ============================================
+
+model MedicalReport {
+  id              String            @id @default(cuid())
+  emergencyId     String
+  userId          String
+  reportType      MedicalReportType
+  fileName        String
+  fileUrl         String            // Azure Blob Storage URL
+  fileSizeBytes   Int
+  uploadedAt      DateTime          @default(now())
+  createdAt       DateTime          @default(now())
+  
+  // Relations
+  emergency       Emergency         @relation(fields: [emergencyId], references: [id], onDelete: Cascade)
+  uploadedBy      User              @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  @@index([emergencyId])
+  @@index([userId])
+  @@index([reportType])
+  @@index([uploadedAt])
+}
+
+// ============================================
+// TABLE 9: refresh_tokens
+// ============================================
+
+model RefreshToken {
+  id              String      @id @default(cuid())
+  userId          String
+  tokenHash       String      @unique
+  expiresAt       DateTime
+  revokedAt       DateTime?   // Set when user logs out
+  createdAt       DateTime    @default(now())
+  
+  // Relations
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([revokedAt])
+}
+
+// ============================================
+// TABLE 10: audit_logs
+// ============================================
+
+model AuditLog {
+  id              String      @id @default(cuid())
+  userId          String?
+  action          String      // Created, Updated, Deleted
+  entity          String      // Table name
+  entityId        String      // Record ID
+  oldValues       Json?
+  newValues       Json?
+  ipAddress       String?
+  userAgent       String?
+  createdAt       DateTime    @default(now())
+  
+  // Relations
+  user            User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  @@index([userId])
+  @@index([entity])
+  @@index([entityId])
+  @@index([createdAt])
 }

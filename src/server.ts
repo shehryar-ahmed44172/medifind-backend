@@ -5,7 +5,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import 'dotenv/config';
-import logger from './utils/logger.js';
+import logger from './utils/logger';
+import authRoutes from './routes/auth';
 
 // Initialize Express app
 const app: Express = express();
@@ -43,13 +44,14 @@ app.use(morgan('combined', {
 
 // Rate limiting middleware (basic)
 const requestCounts = new Map<string, number>();
-app.use((req: Request, res: Response, next) => {
+app.use((req: Request, res: Response, next: any) => {
   const ip = req.ip || 'unknown';
   const count = (requestCounts.get(ip) || 0) + 1;
   requestCounts.set(ip, count);
 
   if (count > 100) {
-    return res.status(429).json({ error: 'Too many requests' });
+    res.status(429).json({ error: 'Too many requests' });
+    return;
   }
 
   setTimeout(() => {
@@ -60,7 +62,7 @@ app.use((req: Request, res: Response, next) => {
 });
 
 // Health check endpoint
-app.get('/health', (req: Request, res: Response) => {
+app.get('/health', (_req: Request, res: Response) => {
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
@@ -70,7 +72,7 @@ app.get('/health', (req: Request, res: Response) => {
 });
 
 // Root endpoint
-app.get('/', (req: Request, res: Response) => {
+app.get('/', (_req: Request, res: Response) => {
   res.json({
     message: 'MediFind Backend API',
     version: '1.0.0',
@@ -131,6 +133,9 @@ io.on('connection', (socket) => {
   });
 });
 
+// API Routes
+app.use('/api/auth', authRoutes);
+
 // 404 handler
 app.use((req: Request, res: Response) => {
   res.status(404).json({
@@ -141,7 +146,7 @@ app.use((req: Request, res: Response) => {
 });
 
 // Error handler
-app.use((err: any, req: Request, res: Response, next) => {
+app.use((err: any, _req: Request, res: Response, _next: any) => {
   logger.error(`Error: ${err.message}`);
   res.status(err.status || 500).json({
     error: 'Internal Server Error',

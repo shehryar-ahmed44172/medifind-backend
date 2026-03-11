@@ -1,2 +1,2 @@
-// Routes placeholder
-// Implement authentication, emergency, medical profile, and user routes here
+// Export all route modules
+export { default as authRoutes } from './auth';

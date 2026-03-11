@@ -1,2 +1,2 @@
-// Configuration placeholder
-// Implement database, Redis, and environment configuration here
+// Configuration modules will be exported here
+// Database, Redis, and environment configuration
