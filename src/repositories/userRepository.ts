@@ -57,4 +57,44 @@ export const userRepository = {
       data: { revokedAt: new Date() },
     });
   },
+
+  updatePassword: async (userId: string, hashedPassword: string) => {
+    return await prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash: hashedPassword },
+    });
+  },
+
+  updateLoginAttempts: async (
+    userId: string,
+    failedAttempts: number,
+    lastFailedLoginAt: Date,
+    accountLockedUntil: Date | null
+  ) => {
+    return await prisma.user.update({
+      where: { id: userId },
+      data: {
+        failedLoginAttempts: failedAttempts,
+        lastFailedLoginAt,
+        accountLockedUntil,
+      },
+    });
+  },
+
+  resetFailedLoginAttempts: async (userId: string) => {
+    return await prisma.user.update({
+      where: { id: userId },
+      data: {
+        failedLoginAttempts: 0,
+        accountLockedUntil: null,
+      },
+    });
+  },
+
+  update: async (userId: string, data: any) => {
+    return await prisma.user.update({
+      where: { id: userId },
+      data,
+    });
+  },
 };

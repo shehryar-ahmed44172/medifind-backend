@@ -51,3 +51,4 @@ if (process.env.NODE_ENV === 'test') {
 }
 
 export default logger;
+export { logger };

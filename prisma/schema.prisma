@@ -68,6 +68,14 @@ model User {
   createdAt             DateTime               @default(now())
   updatedAt             DateTime               @updatedAt
   
+  // Security fields for login tracking and account lockout
+  isEmailVerified       Boolean                @default(false)
+  failedLoginAttempts   Int                    @default(0)
+  lastFailedLoginAt     DateTime?
+  accountLockedUntil    DateTime?
+  lastLoginAt           DateTime?
+  lastLoginIp           String?
+  
   // Relations
   medicalProfile        MedicalProfile?
   responder             Responder?
@@ -76,6 +84,7 @@ model User {
   caregiverEmployers    CaregiverLink[]        @relation("EmployerFrom")
   medicalReports        MedicalReport[]
   refreshTokens         RefreshToken[]
+  passwordResets        PasswordReset[]
   auditLogs             AuditLog[]
   
   @@index([email])
@@ -286,6 +295,27 @@ model RefreshToken {
   @@index([userId])
   @@index([expiresAt])
   @@index([revokedAt])
+}
+
+// ============================================
+// TABLE 9B: password_resets
+// ============================================
+
+model PasswordReset {
+  id              String      @id @default(cuid())
+  userId          String
+  tokenHash       String      @unique
+  expiresAt       DateTime
+  usedAt          DateTime?   // Set when password is reset
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  // Relations
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([createdAt])
 }
 
 // ============================================

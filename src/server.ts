@@ -7,6 +7,12 @@ import morgan from 'morgan';
 import 'dotenv/config';
 import logger from './utils/logger';
 import authRoutes from './routes/auth';
+import passwordRoutes from './routes/password';
+import userRoutes from './routes/users';
+import medicalProfileRoutes from './routes/medicalProfile';
+import emergencyRoutes from './routes/emergencies';
+import responderRoutes from './routes/responders';
+import trackingRoutes from './routes/tracking';
 
 // Initialize Express app
 const app: Express = express();
@@ -135,6 +141,12 @@ io.on('connection', (socket) => {
 
 // API Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/password', passwordRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/medical-profile', medicalProfileRoutes);
+app.use('/api/emergencies', emergencyRoutes);
+app.use('/api/responders', responderRoutes);
+app.use('/api/tracking', trackingRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {

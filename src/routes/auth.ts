@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import * as authController from '../controllers/auth';
 import { authMiddleware } from '../middleware/authMiddleware';
+import { loginRateLimitMiddleware } from '../middleware/loginRateLimitMiddleware';
 
 const router = Router();
 
@@ -8,7 +9,7 @@ const router = Router();
  * Public endpoints
  */
 router.post('/register', authController.register);
-router.post('/login', authController.login);
+router.post('/login', loginRateLimitMiddleware, authController.login);
 router.post('/refresh-token', authController.refreshToken);
 router.post('/logout', authController.logout);
 

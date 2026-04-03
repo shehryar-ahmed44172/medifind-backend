@@ -2,6 +2,7 @@ import { hashPassword, verifyPassword } from '../utils/password';
 import { generateAccessToken, generateRefreshToken, decodeToken } from '../utils/jwt';
 import { userRepository } from '../repositories/userRepository';
 import { RegisterRequest, AuthResponse } from '../types/auth';
+import { recordFailedLoginAttempt, recordSuccessfulLogin } from '../middleware/loginRateLimitMiddleware';
 
 /**
  * Register a new user
@@ -32,18 +33,34 @@ export const register = async (data: RegisterRequest) => {
 };
 
 /**
- * Login user and return tokens
+ * Login user and return tokens with rate limiting
  */
-export const login = async (email: string, password: string): Promise<AuthResponse> => {
+export const login = async (email: string, password: string, ipAddress?: string): Promise<AuthResponse> => {
   const user = await userRepository.findByEmail(email);
   if (!user) {
     throw new Error('Invalid credentials');
   }
 
+  // Check account lockout
+  if (user.accountLockedUntil && user.accountLockedUntil > new Date()) {
+    const minutesRemaining = Math.ceil(
+      (user.accountLockedUntil.getTime() - new Date().getTime()) / 60000
+    );
+    throw new Error(`Account is locked. Try again in ${minutesRemaining} minutes.`);
+  } else if (user.accountLockedUntil) {
+    // Lockout expired, reset counter
+    await userRepository.resetFailedLoginAttempts(user.id);
+  }
+
   const passwordMatch = await verifyPassword(password, user.passwordHash);
   if (!passwordMatch) {
+    // Track failed login attempt
+    await recordFailedLoginAttempt(user.id);
     throw new Error('Invalid credentials');
   }
+
+  // Password is correct - record successful login
+  await recordSuccessfulLogin(user.id, ipAddress || 'unknown');
 
   const payload = {
     userId: user.id,

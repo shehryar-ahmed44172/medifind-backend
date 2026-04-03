@@ -44,7 +44,8 @@ export const login = async (req: Request, res: Response) => {
       return sendError(res, 'Email and password required', 400);
     }
 
-    const result = await authService.login(email, password);
+    const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
+    const result = await authService.login(email, password, ipAddress);
     sendSuccess(res, result, 'Login successful', 200);
   } catch (error: any) {
     sendError(res, error.message, 401);
