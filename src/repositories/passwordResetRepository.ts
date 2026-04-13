@@ -1,4 +1,5 @@
-import { prisma } from '../config';
+import { PrismaClient } from '@prisma/client';
+const prisma = new PrismaClient();
 
 export class PasswordResetRepository {
 	/**

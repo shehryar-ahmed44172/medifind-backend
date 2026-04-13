@@ -20,3 +20,13 @@ export const updateUserProfile = async (userId: string, data: any) => {
   
   return safeUser;
 };
+
+export const verifyResponder = async (userId: string) => {
+  const user = await userRepository.findById(userId);
+  if (!user) throw new Error('User not found');
+  if (user.role !== 'RESPONDER') throw new Error('User is not a RESPONDER');
+
+  // Using isEmailVerified as the verified flag according to backend specs FR5.2
+  const updatedUser = await userRepository.update(userId, { isEmailVerified: true, isActive: true });
+  return updatedUser;
+};

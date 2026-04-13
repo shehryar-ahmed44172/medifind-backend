@@ -42,3 +42,19 @@ export const updateProfile = async (req: Request, res: Response) => {
     sendError(res, error.message, 400);
   }
 };
+
+/**
+ * PATCH /api/users/:id/verify
+ * Administrator verification of responder identity (FR5.2)
+ */
+export const verifyResponder = async (req: Request, res: Response) => {
+  try {
+    if (!req.user || req.user.role !== 'ADMIN') return sendError(res, 'Unauthorized - Admin only', 403);
+    const { id } = req.params;
+
+    await userService.verifyResponder(id);
+    sendSuccess(res, null, 'Responder verified successfully');
+  } catch (error: any) {
+    sendError(res, error.message, 400);
+  }
+};

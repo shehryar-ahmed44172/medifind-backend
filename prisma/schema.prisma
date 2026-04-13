@@ -22,8 +22,22 @@ enum UserRole {
   ADMIN
 }
 
+enum PatientType {
+  NORMAL
+  DEAF
+}
+
+enum ResponderType {
+  AMBULANCE
+  PARAMEDIC
+  DOCTOR
+  VOLUNTEER
+  EMERGENCY_RESPONDER
+}
+
 enum EmergencyStatus {
   ACTIVE
+  ASSIGNED
   RESOLVED
   CANCELLED
 }
@@ -78,6 +92,7 @@ model User {
   
   // Relations
   medicalProfile        MedicalProfile?
+  caregiverProfile      CaregiverProfile?
   responder             Responder?
   emergencies           Emergency[]            @relation("PatientEmergencies")
   caregiverLinks        CaregiverLink[]        @relation("CaregiverTo")
@@ -86,6 +101,7 @@ model User {
   refreshTokens         RefreshToken[]
   passwordResets        PasswordReset[]
   auditLogs             AuditLog[]
+  notificationLogs      NotificationLog[]
   
   @@index([email])
   @@index([phoneNumber])
@@ -100,6 +116,8 @@ model User {
 model MedicalProfile {
   id                 String      @id @default(cuid())
   userId             String      @unique
+  cnic               String?     @unique
+  patientType        PatientType @default(NORMAL)
   bloodType          String?
   chronicDiseases    Json?       @default("[]")  // Array of strings
   allergies          Json?       @default("[]")  // Array of strings
@@ -107,6 +125,22 @@ model MedicalProfile {
   emergencyContacts  Json?       @default("[]")  // Array of contact objects
   disabilities       Json?       @default("[]")  // Array of strings
   medicalHistory     String?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  
+  user               User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+}
+
+// ============================================
+// TABLE 2B: caregiver_profiles
+// ============================================
+
+model CaregiverProfile {
+  id                 String      @id @default(cuid())
+  userId             String      @unique
+  cnic               String?     @unique
   createdAt          DateTime    @default(now())
   updatedAt          DateTime    @updatedAt
   
@@ -153,7 +187,12 @@ model Emergency {
 model Responder {
   id                      String      @id @default(cuid())
   userId                  String      @unique
+  cnic                    String?     @unique
   licenseNumber           String      @unique
+  organization            String?
+  responderType           ResponderType @default(VOLUNTEER)
+  vehicleType             String?
+  isVerified              Boolean     @default(false)
   specialization          Json?       @default("[]")  // Array of specializations
   currentLatitude         Float?
   currentLongitude        Float?
@@ -341,4 +380,28 @@ model AuditLog {
   @@index([entity])
   @@index([entityId])
   @@index([createdAt])
+}
+
+// ============================================
+// TABLE 11: notification_logs
+// ============================================
+
+model NotificationLog {
+  id              String      @id @default(cuid())
+  userId          String
+  type            String
+  channels        Json        // Array of channels (IN_APP, EMAIL, PUSH)
+  title           String
+  body            String
+  status          String      // pending, delivered, failed
+  deliveredAt     DateTime?
+  failureReason   String?
+  createdAt       DateTime    @default(now())
+  
+  // Relations
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([createdAt])
+  @@index([status])
 }

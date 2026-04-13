@@ -21,6 +21,8 @@ export const responderRepository = {
       FROM "Responder" r
       JOIN "User" u ON u.id = r."userId"
       WHERE r."isAvailable" = true
+        AND u."isActive" = true
+        AND u."isEmailVerified" = true
         AND r."currentLatitude" IS NOT NULL
         AND r."currentLongitude" IS NOT NULL
         AND earth_distance(

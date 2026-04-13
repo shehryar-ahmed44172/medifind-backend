@@ -46,8 +46,8 @@ export async function loginRateLimitMiddleware(
 				);
 				sendError(
 					res,
-					429,
-					`Account is temporarily locked. Try again in ${minutesRemaining} minutes.`
+					`Account is temporarily locked. Try again in ${minutesRemaining} minutes.`,
+					429
 				);
 				return;
 			} else {

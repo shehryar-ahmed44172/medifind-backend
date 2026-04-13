@@ -1,5 +1,6 @@
 import { trackingRepository } from '../repositories/trackingRepository';
 import { responderRepository } from '../repositories/responderRepository';
+import { io } from '../server';
 import logger from '../utils/logger';
 
 /**
@@ -21,6 +22,20 @@ export const submitLocationUpdate = async (data: {
   await responderRepository.updateLocation(data.responderId, data.latitude, data.longitude);
 
   logger.info(`Tracking update for emergency ${data.emergencyId}: responder at [${data.latitude}, ${data.longitude}]`);
+
+  // Broadcast location update (FR7.4)
+  io.to(`location:${data.emergencyId}`).emit('LOCATION_UPDATE', {
+    type: "LOCATION_UPDATE",
+    data: {
+      emergencyId: data.emergencyId,
+      responderId: data.responderId,
+      latitude: data.latitude,
+      longitude: data.longitude,
+      status: data.status,
+      // For now, ETA is recalculated based on progress (static speed assumption)
+      estimatedArrivalMinutes: Math.max(0, Math.ceil((1.0 / 40) * 60)) // Placeholder Progress indicator
+    }
+  });
 
   return tracking;
 };

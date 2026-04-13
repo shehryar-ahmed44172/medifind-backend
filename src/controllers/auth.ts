@@ -9,11 +9,16 @@ import { RegisterRequest, LoginRequest, RefreshTokenRequest } from '../types/aut
  */
 export const register = async (req: Request, res: Response) => {
   try {
-    const { fullName, email, phoneNumber, password, role } = req.body as RegisterRequest;
+    const {
+      fullName, email, phoneNumber, password, role,
+      // Optional role-specific fields
+      cnic, patientType,
+      organization, licenseNumber, responderType, vehicleType,
+    } = req.body as RegisterRequest;
 
-    // Validation
+    // Basic validation
     if (!fullName || !email || !phoneNumber || !password || !role) {
-      return sendError(res, 'Missing required fields', 400);
+      return sendError(res, 'Missing required fields: fullName, email, phoneNumber, password, role', 400);
     }
 
     if (password.length < 8) {
@@ -22,10 +27,15 @@ export const register = async (req: Request, res: Response) => {
 
     const validRoles = ['PATIENT', 'RESPONDER', 'CAREGIVER', 'ADMIN'];
     if (!validRoles.includes(role)) {
-      return sendError(res, 'Invalid role', 400);
+      return sendError(res, `Invalid role. Must be one of: ${validRoles.join(', ')}`, 400);
     }
 
-    const result = await authService.register({ fullName, email, phoneNumber, password, role });
+    const result = await authService.register({
+      fullName, email, phoneNumber, password, role,
+      cnic, patientType,
+      organization, licenseNumber, responderType, vehicleType,
+    });
+
     sendSuccess(res, result, 'Registration successful', 201);
   } catch (error: any) {
     sendError(res, error.message, 400);

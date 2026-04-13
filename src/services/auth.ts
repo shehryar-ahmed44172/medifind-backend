@@ -15,6 +15,11 @@ export const register = async (data: RegisterRequest) => {
 
   const passwordHash = await hashPassword(data.password);
 
+  // Validate RESPONDER has a license number
+  if (data.role === 'RESPONDER' && !data.licenseNumber) {
+    throw new Error('Responders must provide a license number');
+  }
+
   const user = await userRepository.create({
     fullName: data.fullName,
     email: data.email,
@@ -22,10 +27,34 @@ export const register = async (data: RegisterRequest) => {
     passwordHash,
     role: data.role,
     isActive: true,
+    // Pass all optional role-specific fields
+    cnic: data.cnic,
+    patientType: data.patientType,
+    organization: data.organization,
+    licenseNumber: data.licenseNumber,
+    responderType: data.responderType,
+    vehicleType: data.vehicleType,
   });
 
+  // Generate tokens for automatic login after registration
+  const payload = {
+    userId: user.id,
+    email: user.email,
+    role: user.role,
+  };
+
+  const accessToken = generateAccessToken(payload);
+  const refreshToken = generateRefreshToken(payload);
+  const refreshTokenHash = await hashPassword(refreshToken);
+
+  // Store refresh token
+  await userRepository.createRefreshToken(user.id, refreshTokenHash);
+
   return {
-    id: user.id,
+    userId: user.id,
+    token: accessToken,
+    refreshToken: refreshToken,
+    expiresIn: 86400, // 24 hours
     email: user.email,
     fullName: user.fullName,
     role: user.role,
@@ -76,22 +105,20 @@ export const login = async (email: string, password: string, ipAddress?: string)
   await userRepository.updateLastLogin(user.id);
 
   return {
-    user: {
-      id: user.id,
-      email: user.email,
-      fullName: user.fullName,
-      role: user.role,
-    },
-    accessToken,
+    userId: user.id,
+    token: accessToken,
     refreshToken,
     expiresIn: 86400, // 24 hours in seconds
+    email: user.email,
+    fullName: user.fullName,
+    role: user.role,
   };
 };
 
 /**
  * Refresh access token
  */
-export const refreshAccessToken = async (refreshToken: string): Promise<Omit<AuthResponse, 'refreshToken'>> => {
+export const refreshAccessToken = async (refreshToken: string): Promise<AuthResponse> => {
   const decoded = decodeToken(refreshToken);
   if (!decoded) {
     throw new Error('Invalid refresh token');
@@ -116,14 +143,13 @@ export const refreshAccessToken = async (refreshToken: string): Promise<Omit<Aut
   };
 
   return {
-    user: {
-      id: decoded.userId,
-      email: decoded.email,
-      fullName: '',
-      role: decoded.role,
-    },
-    accessToken: generateAccessToken(payload),
+    userId: decoded.userId,
+    token: generateAccessToken(payload),
+    refreshToken: refreshToken, // Return the same refresh token or empty string if not rotated
     expiresIn: 86400,
+    email: decoded.email,
+    fullName: '', // Full name might not be in JWT, could be empty or fetched from DB
+    role: decoded.role,
   };
 };
 

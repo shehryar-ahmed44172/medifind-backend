@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { getProfile, updateProfile } from '../controllers/userController';
-import { authMiddleware } from '../middleware/authMiddleware';
+import { getProfile, updateProfile, verifyResponder } from '../controllers/userController';
+import { authMiddleware, roleMiddleware } from '../middleware/authMiddleware';
 
 const router = Router();
 
@@ -18,5 +18,11 @@ router.get('/profile', getProfile);
  * Update current user's profile
  */
 router.put('/profile', updateProfile);
+
+/**
+ * PATCH /api/users/:id/verify
+ * Administrator verification for responders (FR5.2)
+ */
+router.patch('/:id/verify', roleMiddleware('ADMIN'), verifyResponder);
 
 export default router;

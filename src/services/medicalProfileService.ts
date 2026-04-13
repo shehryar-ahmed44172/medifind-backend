@@ -14,6 +14,8 @@ export const getMedicalProfile = async (userId: string) => {
     profile = {
       id: '',
       userId: userId,
+      cnic: null,
+      patientType: 'NORMAL' as const,
       bloodType: null,
       chronicDiseases: [],
       allergies: [],

@@ -13,6 +13,12 @@ import medicalProfileRoutes from './routes/medicalProfile';
 import emergencyRoutes from './routes/emergencies';
 import responderRoutes from './routes/responders';
 import trackingRoutes from './routes/tracking';
+import reportRoutes from './routes/reports';
+import caregiverRoutes from './routes/caregivers';
+import adminRoutes from './routes/admin';
+import notificationRoutes from './routes/notification';
+import { initializeNotifications } from './services/notification';
+import path from 'path';
 
 // Initialize Express app
 const app: Express = express();
@@ -139,6 +145,8 @@ io.on('connection', (socket) => {
   });
 });
 
+// Initialize notification service with Socket.io
+initializeNotifications(io);
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/password', passwordRoutes);
@@ -147,6 +155,13 @@ app.use('/api/medical-profile', medicalProfileRoutes);
 app.use('/api/emergencies', emergencyRoutes);
 app.use('/api/responders', responderRoutes);
 app.use('/api/tracking', trackingRoutes);
+app.use('/api/reports', reportRoutes);
+app.use('/api/caregivers', caregiverRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/notifications', notificationRoutes);
+
+// Static route for serving uploaded files
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // 404 handler
 app.use((req: Request, res: Response) => {

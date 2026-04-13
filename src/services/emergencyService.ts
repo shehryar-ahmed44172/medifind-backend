@@ -3,6 +3,9 @@ import { responderRepository } from '../repositories/responderRepository';
 import { medicalProfileRepository } from '../repositories/medicalProfileRepository';
 import logger from '../utils/logger';
 
+import { io } from '../server';
+import { caregiverRepository } from '../repositories/caregiverRepository';
+
 const CANCELLATION_WINDOW_SECONDS = 10;
 
 /**
@@ -19,6 +22,10 @@ export const createEmergency = async (data: {
 }) => {
   const cancellationDeadline = new Date(Date.now() + CANCELLATION_WINDOW_SECONDS * 1000);
 
+  // Fetch Patient Name for alerts
+  const patientUser = await (await import('../repositories/userRepository')).userRepository.findById(data.patientId);
+  const patientName = patientUser?.fullName || 'Unknown Patient';
+
   const emergency = await emergencyRepository.create({
     patientId: data.patientId,
     emergencyType: data.emergencyType || 'MEDICAL',
@@ -32,9 +39,25 @@ export const createEmergency = async (data: {
   // Attach medical profile to emergency context (non-blocking)
   const medicalProfile = await medicalProfileRepository.findByUserId(data.patientId);
   logger.info(`Emergency ${emergency.id} created for patient ${data.patientId}`);
+  
+  // Voice Alert Summary Generation (FR6.1 - FR6.3)
+  const allergies = medicalProfile?.allergies ? JSON.parse(medicalProfile.allergies as string) : [];
+  const chronic = medicalProfile?.chronicDiseases ? JSON.parse(medicalProfile.chronicDiseases as string) : [];
+  const voiceSummary = `Emergency Type: ${emergency.emergencyType}. ` +
+    (allergies.length > 0 ? `Patient has allergies: ${allergies.join(', ')}. ` : '') +
+    (chronic.length > 0 ? `Chronic conditions: ${chronic.join(', ')}.` : '');
+
+  // Notify caregivers immediately via socket
+  notifyCaregivers(data.patientId, {
+    emergencyId: emergency.id,
+    emergencyType: emergency.emergencyType,
+    latitude: emergency.latitude,
+    longitude: emergency.longitude,
+    patientName
+  }).catch((err) => logger.error(`Failed to notify caregivers: ${err.message}`));
 
   // Notify nearby responders asynchronously
-  notifyNearbyResponders(emergency.id, data.latitude, data.longitude).catch((err) =>
+  notifyNearbyResponders(emergency.id, data.latitude, data.longitude, data.patientId, patientName, voiceSummary).catch((err) =>
     logger.error(`Failed to notify responders: ${err.message}`)
   );
 
@@ -43,6 +66,7 @@ export const createEmergency = async (data: {
     cancellationDeadline,
     cancellationWindowSeconds: CANCELLATION_WINDOW_SECONDS,
     medicalProfile,
+    voiceSummary
   };
 };
 
@@ -62,7 +86,19 @@ export const cancelEmergency = async (emergencyId: string, patientId: string) =>
     throw new Error('Cancellation window has expired. Emergency cannot be cancelled.');
   }
 
-  return await emergencyRepository.cancel(emergencyId);
+  const cancelled = await emergencyRepository.cancel(emergencyId);
+
+  // Notify caregivers and responders about cancellation (FR4.6)
+  io.to(`emergency:${emergencyId}`).emit('EMERGENCY_STATUS_CHANGE', {
+    type: "EMERGENCY_STATUS_CHANGE",
+    data: {
+      emergencyId,
+      newStatus: "CANCELLED",
+      timestamp: new Date().toISOString()
+    }
+  });
+
+  return cancelled;
 };
 
 /**
@@ -87,7 +123,10 @@ export const getActiveEmergencies = async () => {
 const notifyNearbyResponders = async (
   emergencyId: string,
   latitude: number,
-  longitude: number
+  longitude: number,
+  patientId: string,
+  patientName: string = 'Patient',
+  voiceSummary: string = ''
 ) => {
   const nearbyResponders = await responderRepository.findNearbyAvailable(latitude, longitude, 5);
 
@@ -107,10 +146,40 @@ const notifyNearbyResponders = async (
           distanceKm: responder.distanceKm,
           estimatedArrivalMinutes: Math.ceil((responder.distanceKm / 40) * 60), // Estimate at 40km/h
         });
+        
+        // Emit Socket.io EMERGENCY_ALERT (MUST HAVE FORMAT)
+        io.to(`notifications:${responder.userId}`).emit('EMERGENCY_ALERT', {
+          type: "EMERGENCY_ALERT",
+          data: {
+            emergencyId,
+            emergencyType: "MEDICAL",
+            patientName,
+            latitude,
+            longitude,
+            distanceKm: responder.distanceKm,
+            estimatedArrivalMinutes: Math.ceil((responder.distanceKm / 40) * 60),
+            messageExpiry: 60,
+            voiceSummary // FR6 Voice Alert
+          }
+        });
+        
         logger.info(`Notified responder ${responder.userId} of emergency ${emergencyId}`);
       }
     } catch (err: any) {
       logger.error(`Failed to create request for responder ${responder.userId}: ${err.message}`);
     }
+  }
+};
+
+/**
+ * Notify Caregivers (FR8 Caregiver Monitoring Module)
+ */
+const notifyCaregivers = async (patientId: string, emergencyData: any) => {
+  const caregivers = await caregiverRepository.getCaregiversForPatient(patientId);
+  for (const link of caregivers) {
+    io.to(`notifications:${link.caregiverId}`).emit('CAREGIVER_ALERT', {
+      type: "CAREGIVER_ALERT",
+      data: emergencyData
+    });
   }
 };
