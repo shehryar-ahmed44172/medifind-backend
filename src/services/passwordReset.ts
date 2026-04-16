@@ -8,6 +8,7 @@ import {
 } from '../utils/resetTokenUtils';
 import { hashPassword, verifyPassword } from '../utils/password';
 import { logger } from '../utils/logger';
+import { sendEmail } from '../utils/email';
 
 export class PasswordResetService {
   /**
@@ -69,9 +70,30 @@ export class PasswordResetService {
       // Generate reset link
       const resetLink = generateResetLink(resetToken);
 
-      // TODO: In real implementation, send email via Mailgun
-      logger.info(`Password reset link generated for user: ${user.email}`);
-      console.log(`\n🔗 Reset Link (for testing): ${resetLink}\n`);
+      // Send email via SMTP
+      await sendEmail({
+        to: user.email,
+        subject: 'Reset Your MediFind Password',
+        text: `You requested a password reset. Click the link below to reset your password:\n\n${resetLink}\n\nThis link will expire in 30 minutes.`,
+        html: `
+          <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 8px;">
+            <h2 style="color: #2c3e50;">Password Reset Request</h2>
+            <p>Hello,</p>
+            <p>We received a request to reset your password for your <strong>MediFind</strong> account.</p>
+            <p>Click the button below to set a new password:</p>
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${resetLink}" style="background-color: #3498db; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">Reset Password</a>
+            </div>
+            <p>Or copy and paste this link into your browser:</p>
+            <p style="word-break: break-all; color: #3498db;">${resetLink}</p>
+            <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
+            <p style="font-size: 0.8em; color: #777;">If you didn't request this, you can safely ignore this email. The link will expire in 30 minutes.</p>
+          </div>
+        `,
+      });
+
+      logger.info(`Password reset email sent to user: ${user.email}`);
+      console.log(`\n🔗 Reset Link (for fallback/logging): ${resetLink}\n`);
 
       return {
         success: true,

@@ -110,13 +110,17 @@ export const getProfile = async (req: Request, res: Response) => {
       return sendError(res, 'User not authenticated', 401);
     }
 
-    const user = {
-      userId: req.user.userId,
-      email: req.user.email,
-      role: req.user.role,
-    };
+    const { userRepository } = await import('../repositories/userRepository');
+    const user = await userRepository.findById(req.user.userId);
+    
+    if (!user) {
+      return sendError(res, 'User not found', 404);
+    }
 
-    sendSuccess(res, user, 'User profile retrieved', 200);
+    // Remove sensitive data
+    const { passwordHash, failedLoginAttempts, accountLockedUntil, ...safeUser } = user;
+
+    sendSuccess(res, safeUser, 'User profile retrieved', 200);
   } catch (error: any) {
     sendError(res, error.message, 400);
   }
@@ -141,6 +145,44 @@ export const updateFcmToken = async (req: Request, res: Response) => {
     await userRepository.updateFcmToken(req.user.userId, fcmToken);
     
     sendSuccess(res, null, 'FCM token updated successfully', 200);
+  } catch (error: any) {
+    sendError(res, error.message, 400);
+  }
+};
+
+/**
+ * POST /api/auth/forgot-password
+ * Initiate password reset flow
+ */
+export const forgotPassword = async (req: Request, res: Response) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return sendError(res, 'Email is required', 400);
+    }
+
+    const result = await authService.requestPasswordReset(email);
+    sendSuccess(res, result, 'Reset email sent successfully', 200);
+  } catch (error: any) {
+    // If user not found, we still return 404 so frontend can show specific alert
+    const statusCode = error.message === 'Email is not registered' ? 404 : 400;
+    sendError(res, error.message, statusCode);
+  }
+};
+
+/**
+ * POST /api/auth/reset-password
+ * Reset password with token
+ */
+export const resetPassword = async (req: Request, res: Response) => {
+  try {
+    const { email, token, newPassword } = req.body;
+    if (!email || !token || !newPassword) {
+      return sendError(res, 'Missing required fields: email, token, newPassword', 400);
+    }
+
+    const result = await authService.resetUserPassword(email, token, newPassword);
+    sendSuccess(res, result, 'Password reset successfully', 200);
   } catch (error: any) {
     sendError(res, error.message, 400);
   }

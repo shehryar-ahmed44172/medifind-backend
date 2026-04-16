@@ -18,6 +18,8 @@ export enum NotificationType {
   // Caregiver notifications
   PATIENT_EMERGENCY = 'PATIENT_EMERGENCY',
   PATIENT_SAFE = 'PATIENT_SAFE',
+  CAREGIVER_INVITATION = 'CAREGIVER_INVITATION',
+  CAREGIVER_RESPONSE = 'CAREGIVER_RESPONSE',
 }
 
 export enum NotificationChannel {

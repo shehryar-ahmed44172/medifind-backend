@@ -44,6 +44,34 @@ export const updateProfile = async (req: Request, res: Response) => {
 };
 
 /**
+ * POST /api/users/profile/image
+ * Upload the authenticated user's profile image
+ */
+export const uploadProfileImage = async (req: Request, res: Response) => {
+  try {
+    if (!req.user) return sendError(res, 'Unauthorized', 401);
+    
+    if (!req.file) {
+      return sendError(res, 'No image file provided', 400);
+    }
+
+    // Create the static URL for the image
+    // The server serves 'uploads' folder as static /uploads
+    // So if filename is image-123.jpg, url is /uploads/reports/image-123.jpg 
+    // (since path.join(process.cwd(), 'uploads', 'reports') was used in middleware)
+    const profileImageUrl = `/uploads/reports/${req.file.filename}`;
+
+    const updated = await userService.updateUserProfile(req.user.userId, {
+      profileImageUrl: profileImageUrl
+    });
+
+    sendSuccess(res, updated, 'Profile image uploaded successfully');
+  } catch (error: any) {
+    sendError(res, error.message, 400);
+  }
+};
+
+/**
  * PATCH /api/users/:id/verify
  * Administrator verification of responder identity (FR5.2)
  */
@@ -75,5 +103,38 @@ export const upgradePlan = async (req: Request, res: Response) => {
     sendSuccess(res, result, `Subscription upgraded to ${plan}`);
   } catch (error: any) {
     sendError(res, error.message, 400);
+  }
+};
+
+/**
+ * GET /api/users/:id
+ * Get a user's public profile details
+ */
+export const getUserById = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const profile = await userService.getUserProfile(id);
+    
+    // Map backend User object to the UserProfile structure frontend expects
+    const userProfile = {
+      userId: profile.id,
+      fullName: profile.fullName,
+      email: profile.email,
+      phoneNumber: profile.phoneNumber,
+      role: profile.role,
+      profileImageUrl: profile.profileImageUrl,
+      lastUpdated: (profile as any).updatedAt,
+      // Include role-specific fields if available
+      cnic: (profile as any).cnic,
+      patientType: (profile as any).patientType,
+      organization: (profile as any).organization,
+      licenseNumber: (profile as any).licenseNumber,
+      responderType: (profile as any).responderType,
+      vehicleType: (profile as any).vehicleType,
+    };
+
+    sendSuccess(res, userProfile, 'User profile retrieved successfully');
+  } catch (error: any) {
+    sendError(res, error.message, 404);
   }
 };

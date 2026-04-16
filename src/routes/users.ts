@@ -1,6 +1,7 @@
 import { Router } from 'express';
-import { getProfile, updateProfile, verifyResponder, upgradePlan } from '../controllers/userController';
+import { getProfile, updateProfile, verifyResponder, upgradePlan, getUserById, uploadProfileImage } from '../controllers/userController';
 import { authMiddleware, roleMiddleware } from '../middleware/authMiddleware';
+import { upload } from '../middleware/uploadMiddleware';
 
 const router = Router();
 
@@ -14,10 +15,22 @@ router.use(authMiddleware);
 router.get('/profile', getProfile);
 
 /**
+ * GET /api/users/:id
+ * Get specific user's public profile
+ */
+router.get('/:id', getUserById);
+
+/**
  * PUT /api/users/profile
  * Update current user's profile
  */
 router.put('/profile', updateProfile);
+
+/**
+ * POST /api/users/profile/image
+ * Upload current user's profile image
+ */
+router.post('/profile/image', upload.single('image'), uploadProfileImage);
 
 /**
  * PATCH /api/users/upgrade

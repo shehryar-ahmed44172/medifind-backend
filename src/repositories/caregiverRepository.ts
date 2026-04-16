@@ -66,6 +66,23 @@ export const caregiverRepository = {
     });
   },
 
+  getAllPatientsForCaregiver: async (caregiverId: string) => {
+    return await prisma.caregiverLink.findMany({
+      where: { caregiverId } as any,
+      include: {
+        patient: { select: { id: true, fullName: true, email: true, phoneNumber: true, profileImageUrl: true } },
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+  },
+
+  updateStatusToPending: async (caregiverId: string, patientId: string) => {
+    return await prisma.caregiverLink.update({
+      where: { caregiverId_patientId: { caregiverId, patientId } },
+      data: { status: 'PENDING' } as any,
+    });
+  },
+
   removeLink: async (caregiverId: string, patientId: string) => {
     return await prisma.caregiverLink.delete({
       where: {

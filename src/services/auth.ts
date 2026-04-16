@@ -1,8 +1,11 @@
 import { hashPassword, verifyPassword } from '../utils/password';
 import { generateAccessToken, generateRefreshToken, decodeToken } from '../utils/jwt';
 import { userRepository } from '../repositories/userRepository';
+import { passwordResetRepository } from '../repositories/passwordResetRepository';
 import { RegisterRequest, AuthResponse } from '../types/auth';
 import { recordFailedLoginAttempt, recordSuccessfulLogin } from '../middleware/loginRateLimitMiddleware';
+import { sendEmail } from '../utils/email';
+import crypto from 'crypto';
 
 /**
  * Register a new user
@@ -162,4 +165,95 @@ export const logout = async (refreshToken: string) => {
   const refreshTokenHash = await hashPassword(refreshToken);
   await userRepository.revokeRefreshToken(refreshTokenHash);
   return { success: true };
+};
+
+/**
+ * Request password reset (Forgot Password)
+ */
+export const requestPasswordReset = async (email: string) => {
+  const user = await userRepository.findByEmail(email);
+  if (!user) {
+    throw new Error('Email is not registered');
+  }
+
+  // 1. Generate random token
+  const resetToken = crypto.randomBytes(32).toString('hex');
+  const tokenHash = await hashPassword(resetToken);
+  
+  // 2. Set expiration (1 hour)
+  const expiresAt = new Date();
+  expiresAt.setHours(expiresAt.getHours() + 1);
+
+  // 3. Save to database
+  await passwordResetRepository.createResetToken(user.id, tokenHash, expiresAt);
+
+  // 4. Send email
+  const resetLink = `medifind://reset-password?token=${resetToken}&email=${email}`;
+  
+  await sendEmail({
+    to: user.email,
+    subject: 'MediFind Password Reset',
+    html: `
+      <div style="font-family: sans-serif; padding: 20px; color: #333;">
+        <h2 style="color: #0E9AA7;">Password Reset Request</h2>
+        <p>Hello ${user.fullName},</p>
+        <p>You requested a password reset for your MediFind account. Use the code below or click the link to reset your password:</p>
+        <div style="background: #f4f4f4; padding: 15px; border-radius: 8px; font-size: 24px; font-weight: bold; text-align: center; margin: 20px 0;">
+          ${resetToken.substring(0, 6).toUpperCase()}
+        </div>
+        <p>This code will expire in 1 hour.</p>
+        <p>If you didn't request this, you can safely ignore this email.</p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+        <p style="font-size: 12px; color: #999;">MediFind - Your Health, Our Priority</p>
+      </div>
+    `
+  });
+
+  return { success: true, message: 'Reset email sent' };
+};
+
+/**
+ * Reset user password with token
+ */
+export const resetUserPassword = async (email: string, token: string, newPassword: string) => {
+  const user = await userRepository.findByEmail(email);
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  // Tokens are hashed in DB, but the one sent is raw. 
+  // We need to verify which token matches by iterating or using a more direct lookup if possible.
+  // Actually, the findActiveToken logic in repository needs the hash.
+  
+  // For simplicity and security, we lookup by the raw token provided (verified via hash)
+  // But wait, the repository uses findFirst with tokenHash.
+  // We should fetch active tokens for this user and verify the hash.
+  
+  const tokens = await passwordResetRepository.getRecentResetRequests(user.id, 1);
+  let validToken = null;
+  
+  for (const t of tokens) {
+    if (!t.usedAt && t.expiresAt > new Date()) {
+      const match = await verifyPassword(token, t.tokenHash);
+      if (match) {
+        validToken = t;
+        break;
+      }
+    }
+  }
+
+  if (!validToken) {
+    throw new Error('Invalid or expired reset token');
+  }
+
+  // 1. Hash new password
+  const newPasswordHash = await hashPassword(newPassword);
+
+  // 2. Update user
+  await userRepository.updatePassword(user.id, newPasswordHash);
+
+  // 3. Mark token as used
+  await passwordResetRepository.markTokenAsUsed(validToken.id);
+
+  return { success: true, message: 'Password has been reset successfully' };
 };

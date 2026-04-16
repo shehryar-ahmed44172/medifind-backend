@@ -305,6 +305,7 @@ model CaregiverLink {
   patientId       String
   relationship    String      // PARENT, SIBLING, SPOUSE, FRIEND
   status          InvitationStatus @default(PENDING)
+  requesterId     String?     // ID of the user who initiated the link
   isActive        Boolean     @default(true)
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
