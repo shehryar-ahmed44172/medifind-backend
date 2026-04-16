@@ -7,7 +7,7 @@ export const medicalReportRepository = {
    * Create a new medical report record
    */
   create: async (data: {
-    emergencyId: string;
+    emergencyId?: string | null;
     userId: string;
     reportType: MedicalReportType;
     fileName: string;
@@ -15,7 +15,7 @@ export const medicalReportRepository = {
     fileSizeBytes: number;
   }) => {
     return await prisma.medicalReport.create({
-      data,
+      data: data as any,
     });
   },
 
@@ -25,6 +25,16 @@ export const medicalReportRepository = {
   findByEmergencyId: async (emergencyId: string) => {
     return await prisma.medicalReport.findMany({
       where: { emergencyId },
+      orderBy: { uploadedAt: 'desc' },
+    });
+  },
+
+  /**
+   * Find reports by user ID
+   */
+  findByUserId: async (userId: string) => {
+    return await prisma.medicalReport.findMany({
+      where: { userId },
       orderBy: { uploadedAt: 'desc' },
     });
   },

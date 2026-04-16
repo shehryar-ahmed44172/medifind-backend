@@ -22,10 +22,11 @@ export const getMedicalProfile = async (userId: string) => {
       medications: [],
       emergencyContacts: [],
       disabilities: [],
+      predefinedMessages: [],
       medicalHistory: null,
       createdAt: new Date(),
       updatedAt: new Date()
-    };
+    } as any;
   }
 
   return profile;
@@ -44,7 +45,8 @@ export const updateMedicalProfile = async (userId: string, profileData: any) => 
     allergies: profileData.allergies || [],
     medications: profileData.medications || [],
     emergencyContacts: profileData.emergencyContacts || [],
-    disabilities: profileData.disabilities || []
+    disabilities: profileData.disabilities || [],
+    predefinedMessages: profileData.predefinedMessages || []
   };
 
   return await medicalProfileRepository.upsert(userId, dataToUpsert);

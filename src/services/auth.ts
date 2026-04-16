@@ -34,6 +34,8 @@ export const register = async (data: RegisterRequest) => {
     licenseNumber: data.licenseNumber,
     responderType: data.responderType,
     vehicleType: data.vehicleType,
+    cnicImageUrl: data.cnicImageUrl,
+    employeeCardImageUrl: data.employeeCardImageUrl,
   });
 
   // Generate tokens for automatic login after registration

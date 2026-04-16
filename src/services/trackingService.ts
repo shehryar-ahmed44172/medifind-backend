@@ -37,8 +37,40 @@ export const submitLocationUpdate = async (data: {
     }
   });
 
+  // Handle arrival logic and metrics (The Perfect Approach)
+  if (data.status === 'ARRIVED') {
+    handleArrival(data.emergencyId, data.responderId).catch(err => 
+      logger.error(`Failed to handle arrival metrics: ${err.message}`)
+    );
+  }
+
   return tracking;
 };
+
+/**
+ * Internal logic for arrival: Notify and calculate metrics
+ */
+async function handleArrival(emergencyId: string, responderId: string) {
+  // 1. Notify patient and caregivers
+  io.to(`emergency:${emergencyId}`).emit('RESPONDER_ARRIVED', {
+    type: 'RESPONDER_ARRIVED',
+    data: { emergencyId, responderId, timestamp: new Date().toISOString() }
+  });
+
+  // 2. Calculate Response Time Metrics
+  const { responderRepository } = await import('../repositories/responderRepository');
+  const request = await responderRepository.findEmergencyRequest(emergencyId, responderId);
+  
+  if (request && request.sentAt) {
+    const arrivalTime = new Date();
+    const responseTimeSeconds = Math.round((arrivalTime.getTime() - new Date(request.sentAt).getTime()) / 1000);
+    
+    logger.info(`Emergency ${emergencyId}: Responder ${responderId} arrived in ${responseTimeSeconds}s`);
+    
+    // Update the running average in the database
+    await responderRepository.updateResponderStats(responderId, responseTimeSeconds);
+  }
+}
 
 /**
  * Get the full tracking history for an emergency.

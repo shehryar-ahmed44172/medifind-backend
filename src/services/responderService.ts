@@ -13,7 +13,10 @@ export const acceptEmergencyRequest = async (emergencyId: string, responderId: s
     // 1. Check if the emergency is still ACTIVE and unassigned
     const emergency = await tx.emergency.findUnique({
       where: { id: emergencyId },
-      include: { emergencyRequests: true }
+      include: { 
+        emergencyRequests: true,
+        medicalReports: true
+      }
     });
 
     if (!emergency) throw new Error('Emergency not found');
@@ -42,7 +45,7 @@ export const acceptEmergencyRequest = async (emergencyId: string, responderId: s
     // 4. Update the Emergency status to ASSIGNED and assign this responder
     await tx.emergency.update({
       where: { id: emergencyId },
-      data: { status: 'ASSIGNED' as any } // Needs type mapping if enum not updated yet
+      data: { status: 'ASSIGNED' }
     });
 
     // 5. Systematically CLOSE (mark as COMPLETED/EXPIRED) all other pending requests for this SOS
@@ -78,7 +81,57 @@ export const acceptEmergencyRequest = async (emergencyId: string, responderId: s
       }
     });
 
-    return acceptedRequest;
+    return {
+      ...acceptedRequest,
+      emergency: {
+        id: emergency.id,
+        latitude: emergency.latitude,
+        longitude: emergency.longitude,
+        emergencyType: emergency.emergencyType,
+        additionalInfo: emergency.additionalInfo,
+        voiceSummary: (emergency as any).voiceSummary, // Explicitly pull if available
+        medicalProfile: emergency.medicalReports, // Or actual profile data
+      }
+    };
+  });
+};
+
+/**
+ * Mark an emergency as RESOLVED (Completed).
+ */
+export const resolveEmergency = async (emergencyId: string, responderId: string) => {
+  return await prisma.$transaction(async (tx) => {
+    const emergency = await tx.emergency.findUnique({ where: { id: emergencyId } });
+    if (!emergency) throw new Error('Emergency not found');
+    
+    // Update emergency status
+    const updatedEmergency = await tx.emergency.update({
+      where: { id: emergencyId },
+      data: {
+        status: 'RESOLVED',
+        resolvedAt: new Date()
+      }
+    });
+
+    // Update the request status (the one for this responder)
+    await tx.emergencyRequest.updateMany({
+      where: { emergencyId, responderId, status: 'ACCEPTED' },
+      data: { status: 'COMPLETED' }
+    });
+
+    // Set responder back to available
+    await tx.responder.update({
+      where: { userId: responderId },
+      data: { isAvailable: true }
+    });
+
+    // Broadcast resolution
+    io.to(`emergency:${emergencyId}`).emit('EMERGENCY_STATUS_CHANGE', {
+      type: 'EMERGENCY_STATUS_CHANGE',
+      data: { emergencyId, newStatus: 'RESOLVED' }
+    });
+
+    return updatedEmergency;
   });
 };
 

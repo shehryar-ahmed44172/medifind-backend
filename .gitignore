@@ -58,3 +58,5 @@ redis_data/
 # Misc
 *.temp
 *.tmp
+
+firebase-adminsdk.json

@@ -117,8 +117,18 @@ async function sendPush(userId: string, payload: NotificationPayload) {
     return;
   }
 
-  const tokens = payload.data?.deviceTokens?.split(',').filter(Boolean);
-  if (!tokens || tokens.length === 0) {
+  let tokens = payload.data?.deviceTokens?.split(',').filter(Boolean) || [];
+  
+  if (tokens.length === 0) {
+    const { userRepository } = await import('../../repositories/userRepository');
+    const user = await userRepository.findById(userId) as any;
+    if (user && user.fcmTokens) {
+      const fcmList = Array.isArray(user.fcmTokens) ? (user.fcmTokens as string[]) : [];
+      tokens = fcmList.filter(Boolean);
+    }
+  }
+
+  if (tokens.length === 0) {
     logger.warn(`No device tokens for user ${userId}, skipping push`);
     return;
   }

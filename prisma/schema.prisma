@@ -65,6 +65,24 @@ enum MedicalReportType {
   OTHER
 }
 
+enum SubscriptionPlan {
+  FREE
+  PROFESSIONAL
+  EXECUTIVE
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
 // ============================================
 // TABLE 1: users
 // ============================================
@@ -78,6 +96,7 @@ model User {
   role                  UserRole               @default(PATIENT)
   profileImageUrl       String?
   isActive              Boolean                @default(true)
+  subscriptionPlan      SubscriptionPlan       @default(FREE)
   lastLogin             DateTime?
   createdAt             DateTime               @default(now())
   updatedAt             DateTime               @updatedAt
@@ -89,6 +108,7 @@ model User {
   accountLockedUntil    DateTime?
   lastLoginAt           DateTime?
   lastLoginIp           String?
+  fcmTokens             Json?                  @default("[]") // Array of device tokens
   
   // Relations
   medicalProfile        MedicalProfile?
@@ -124,6 +144,7 @@ model MedicalProfile {
   medications        Json?       @default("[]")  // Array of objects with name, dosage
   emergencyContacts  Json?       @default("[]")  // Array of contact objects
   disabilities       Json?       @default("[]")  // Array of strings
+  predefinedMessages Json?       @default("[]")  // Array of text messages
   medicalHistory     String?
   createdAt          DateTime    @default(now())
   updatedAt          DateTime    @updatedAt
@@ -162,6 +183,7 @@ model Emergency {
   accuracy                Float?
   status                  EmergencyStatus     @default(ACTIVE)
   voiceAlertGenerated     Boolean             @default(false)
+  voiceSummary            String?
   additionalInfo          String?
   cancellationDeadline    DateTime            // CreatedAt + 10 seconds
   createdAt               DateTime            @default(now())
@@ -192,7 +214,11 @@ model Responder {
   organization            String?
   responderType           ResponderType @default(VOLUNTEER)
   vehicleType             String?
-  isVerified              Boolean     @default(false)
+  isVerified              Boolean             @default(false)
+  verificationStatus      VerificationStatus  @default(PENDING)
+  rejectionReason         String?
+  cnicImageUrl            String?             // URL to CNIC document
+  employeeCardImageUrl    String?             // URL to Employee Card document
   specialization          Json?       @default("[]")  // Array of specializations
   currentLatitude         Float?
   currentLongitude        Float?
@@ -278,6 +304,7 @@ model CaregiverLink {
   caregiverId     String
   patientId       String
   relationship    String      // PARENT, SIBLING, SPOUSE, FRIEND
+  status          InvitationStatus @default(PENDING)
   isActive        Boolean     @default(true)
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
@@ -297,7 +324,7 @@ model CaregiverLink {
 
 model MedicalReport {
   id              String            @id @default(cuid())
-  emergencyId     String
+  emergencyId     String?
   userId          String
   reportType      MedicalReportType
   fileName        String
@@ -307,7 +334,7 @@ model MedicalReport {
   createdAt       DateTime          @default(now())
   
   // Relations
-  emergency       Emergency         @relation(fields: [emergencyId], references: [id], onDelete: Cascade)
+  emergency       Emergency?        @relation(fields: [emergencyId], references: [id], onDelete: SetNull)
   uploadedBy      User              @relation(fields: [userId], references: [id], onDelete: SetNull)
   
   @@index([emergencyId])

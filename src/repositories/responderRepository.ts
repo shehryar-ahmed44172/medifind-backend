@@ -21,6 +21,7 @@ export const responderRepository = {
       FROM "Responder" r
       JOIN "User" u ON u.id = r."userId"
       WHERE r."isAvailable" = true
+        AND r."isVerified" = true
         AND u."isActive" = true
         AND u."isEmailVerified" = true
         AND r."currentLatitude" IS NOT NULL
@@ -77,6 +78,36 @@ export const responderRepository = {
         rejectedAt: status === 'REJECTED' ? new Date() : undefined,
         rejectionReason: extra?.rejectionReason,
       },
+    });
+  },
+
+  updateResponderStats: async (userId: string, responseTimeSeconds: number) => {
+    const responder = await prisma.responder.findUnique({ where: { userId } });
+    if (!responder) return;
+
+    const totalHandled = responder.totalResponsesHandled + 1;
+    let newAverage = responseTimeSeconds;
+
+    if (responder.averageResponseTime) {
+      newAverage = Math.round(
+        (responder.averageResponseTime * responder.totalResponsesHandled + responseTimeSeconds) /
+          totalHandled
+      );
+    }
+
+    return await prisma.responder.update({
+      where: { userId },
+      data: {
+        totalResponsesHandled: totalHandled,
+        averageResponseTime: newAverage,
+      },
+    });
+  },
+
+  markAsVerified: async (userId: string) => {
+    return await prisma.responder.update({
+      where: { userId },
+      data: { isVerified: true },
     });
   },
 };

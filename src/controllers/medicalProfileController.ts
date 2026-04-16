@@ -31,6 +31,7 @@ export const updateMedicalProfile = async (req: Request, res: Response) => {
       medications,
       emergencyContacts,
       disabilities,
+      predefinedMessages,
       medicalHistory,
     } = req.body;
 
@@ -41,6 +42,7 @@ export const updateMedicalProfile = async (req: Request, res: Response) => {
       medications,
       emergencyContacts,
       disabilities,
+      predefinedMessages,
       medicalHistory,
     });
 

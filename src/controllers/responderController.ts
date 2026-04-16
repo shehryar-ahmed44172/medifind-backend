@@ -73,6 +73,21 @@ export const rejectEmergency = async (req: Request, res: Response) => {
 };
 
 /**
+ * POST /api/responders/emergencies/:emergencyId/resolve
+ * Mark emergency as resolved/completed
+ */
+export const resolveEmergency = async (req: Request, res: Response) => {
+  try {
+    if (!req.user) return sendError(res, 'Unauthorized', 401);
+    const { emergencyId } = req.params;
+    const result = await responderService.resolveEmergency(emergencyId, req.user.userId);
+    sendSuccess(res, result, 'Emergency resolved and closed successfully');
+  } catch (error: any) {
+    sendError(res, error.message, 400);
+  }
+};
+
+/**
  * GET /api/responders/nearby
  * Get nearby available responders (Admin use)
  */

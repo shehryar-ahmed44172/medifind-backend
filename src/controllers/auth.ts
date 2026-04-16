@@ -121,3 +121,27 @@ export const getProfile = async (req: Request, res: Response) => {
     sendError(res, error.message, 400);
   }
 };
+
+/**
+ * PUT /api/auth/fcm-token
+ * Update FCM device token for push notifications
+ */
+export const updateFcmToken = async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return sendError(res, 'User not authenticated', 401);
+    }
+
+    const { fcmToken } = req.body;
+    if (!fcmToken) {
+      return sendError(res, 'FCM token required', 400);
+    }
+
+    const { userRepository } = await import('../repositories/userRepository');
+    await userRepository.updateFcmToken(req.user.userId, fcmToken);
+    
+    sendSuccess(res, null, 'FCM token updated successfully', 200);
+  } catch (error: any) {
+    sendError(res, error.message, 400);
+  }
+};

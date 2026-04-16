@@ -22,6 +22,8 @@ export interface RegisterRequest {
   licenseNumber?: string;
   responderType?: 'AMBULANCE' | 'PARAMEDIC' | 'DOCTOR' | 'VOLUNTEER' | 'EMERGENCY_RESPONDER';
   vehicleType?: string;
+  cnicImageUrl?: string;
+  employeeCardImageUrl?: string;
 }
 
 export interface LoginRequest {

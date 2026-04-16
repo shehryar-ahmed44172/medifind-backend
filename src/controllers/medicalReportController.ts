@@ -22,6 +22,24 @@ export const uploadReport = async (req: Request, res: Response) => {
 };
 
 /**
+ * POST /api/reports/profile
+ * Upload a medical report directly to user profile
+ */
+export const uploadProfileReport = async (req: Request, res: Response) => {
+  try {
+    if (!req.user) return sendError(res, 'Unauthorized', 401);
+    if (!req.file) return sendError(res, 'No file uploaded', 400);
+
+    const { reportType } = req.body;
+
+    const report = await medicalReportService.uploadProfileReport(req.user.userId, req.file, reportType || 'OTHER');
+    sendSuccess(res, report, 'Profile report uploaded successfully', 201);
+  } catch (error: any) {
+    sendError(res, error.message, 400);
+  }
+};
+
+/**
  * GET /api/reports/:emergencyId
  * Get all reports for an emergency
  */
@@ -32,6 +50,21 @@ export const getReports = async (req: Request, res: Response) => {
 
     const reports = await medicalReportService.getReportsForEmergency(emergencyId, req.user.userId, req.user.role);
     sendSuccess(res, reports, 'Reports retrieved');
+  } catch (error: any) {
+    sendError(res, error.message, 403);
+  }
+};
+
+/**
+ * GET /api/reports/profile
+ * Get all reports for a user's profile
+ */
+export const getProfileReports = async (req: Request, res: Response) => {
+  try {
+    if (!req.user) return sendError(res, 'Unauthorized', 401);
+
+    const reports = await medicalReportService.getProfileReports(req.user.userId);
+    sendSuccess(res, reports, 'Profile reports retrieved');
   } catch (error: any) {
     sendError(res, error.message, 403);
   }

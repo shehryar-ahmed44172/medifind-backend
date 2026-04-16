@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { updateLocation, setAvailability, acceptEmergency, rejectEmergency, getNearbyResponders } from '../controllers/responderController';
+import { updateLocation, setAvailability, acceptEmergency, rejectEmergency, getNearbyResponders, resolveEmergency } from '../controllers/responderController';
 import { authMiddleware, roleMiddleware } from '../middleware/authMiddleware';
 
 const router = Router();
@@ -16,6 +16,9 @@ router.post('/emergencies/:emergencyId/accept', roleMiddleware('RESPONDER'), acc
 
 // POST /api/responders/emergencies/:emergencyId/reject
 router.post('/emergencies/:emergencyId/reject', roleMiddleware('RESPONDER'), rejectEmergency);
+
+// POST /api/responders/emergencies/:emergencyId/resolve
+router.post('/emergencies/:emergencyId/resolve', roleMiddleware('RESPONDER'), resolveEmergency);
 
 // GET /api/responders/nearby — Admin sees nearby responders
 router.get('/nearby', roleMiddleware('ADMIN', 'RESPONDER'), getNearbyResponders);

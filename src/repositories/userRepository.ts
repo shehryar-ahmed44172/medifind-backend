@@ -31,8 +31,10 @@ export const userRepository = {
     patientType?: 'NORMAL' | 'DEAF';
     organization?: string;
     licenseNumber?: string;
-    responderType?: 'AMBULANCE' | 'PARAMEDIC' | 'DOCTOR' | 'VOLUNTEER';
+    responderType?: 'AMBULANCE' | 'PARAMEDIC' | 'DOCTOR' | 'VOLUNTEER' | 'EMERGENCY_RESPONDER';
     vehicleType?: string;
+    cnicImageUrl?: string;
+    employeeCardImageUrl?: string;
   }) => {
     return await prisma.$transaction(async (tx) => {
       // 1. Create the base User
@@ -72,7 +74,9 @@ export const userRepository = {
             organization: data.organization,
             responderType: data.responderType ?? 'VOLUNTEER',
             vehicleType: data.vehicleType,
-          },
+            cnicImageUrl: data.cnicImageUrl,
+            employeeCardImageUrl: data.employeeCardImageUrl,
+          } as any,
         });
       }
 
@@ -147,6 +151,33 @@ export const userRepository = {
     return await prisma.user.update({
       where: { id: userId },
       data,
+    });
+  },
+
+  updateFcmToken: async (userId: string, token: string) => {
+    const user = await prisma.user.findUnique({ where: { id: userId } }) as any;
+    if (!user) return null;
+    
+    // Manage array of tokens (deduplicate and add new)
+    let tokens: string[] = [];
+    if (user.fcmTokens) {
+      tokens = Array.isArray(user.fcmTokens) ? (user.fcmTokens as string[]) : [];
+    }
+    
+    if (!tokens.includes(token)) {
+      tokens.push(token);
+    }
+    
+    return await prisma.user.update({
+      where: { id: userId },
+      data: { fcmTokens: tokens } as any,
+    });
+  },
+
+  updateSubscription: async (userId: string, plan: 'FREE' | 'PROFESSIONAL' | 'EXECUTIVE') => {
+    return await prisma.user.update({
+      where: { id: userId },
+      data: { subscriptionPlan: plan } as any,
     });
   },
 };

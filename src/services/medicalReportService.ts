@@ -36,6 +36,29 @@ export const uploadReport = async (
   return report;
 };
 
+export const uploadProfileReport = async (
+  userId: string,
+  file: Express.Multer.File,
+  reportType: string
+) => {
+  const validTypes = ['LAB', 'IMAGING', 'PRESCRIPTION', 'DISCHARGE_SUMMARY', 'VITAL_SIGNS', 'OTHER'];
+  const typeToUse = validTypes.includes(reportType) ? (reportType as MedicalReportType) : 'OTHER';
+
+  const fileUrl = `/uploads/reports/${file.filename}`;
+
+  const report = await medicalReportRepository.create({
+    emergencyId: null,
+    userId,
+    reportType: typeToUse,
+    fileName: file.originalname,
+    fileUrl,
+    fileSizeBytes: file.size,
+  });
+
+  logger.info(`User ${userId} uploaded profile report ${report.id}`);
+  return report;
+};
+
 export const getReportsForEmergency = async (emergencyId: string, requestingUserId: string, role: string) => {
   // Access control based on Complete_Requirements "Only assigned responders shall view"
   const emergency = await emergencyRepository.findById(emergencyId);
@@ -52,6 +75,10 @@ export const getReportsForEmergency = async (emergencyId: string, requestingUser
   }
 
   return await medicalReportRepository.findByEmergencyId(emergencyId);
+};
+
+export const getProfileReports = async (userId: string) => {
+  return await medicalReportRepository.findByUserId(userId);
 };
 
 export const deleteReport = async (reportId: string, userId: string) => {

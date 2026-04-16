@@ -17,5 +17,6 @@ router.post('/logout', authController.logout);
  * Protected endpoints
  */
 router.get('/me', authMiddleware, authController.getProfile);
+router.put('/fcm-token', authMiddleware, authController.updateFcmToken);
 
 export default router;

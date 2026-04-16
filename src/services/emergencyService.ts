@@ -5,6 +5,8 @@ import logger from '../utils/logger';
 
 import { io } from '../server';
 import { caregiverRepository } from '../repositories/caregiverRepository';
+import { sendNotification } from './notification';
+import { NotificationType, NotificationChannel } from '../types/notification';
 
 const CANCELLATION_WINDOW_SECONDS = 10;
 
@@ -26,6 +28,16 @@ export const createEmergency = async (data: {
   const patientUser = await (await import('../repositories/userRepository')).userRepository.findById(data.patientId);
   const patientName = patientUser?.fullName || 'Unknown Patient';
 
+  // Attach medical profile to emergency context
+  const medicalProfile = await medicalProfileRepository.findByUserId(data.patientId);
+
+  // Voice Alert Summary Generation (FR6.1 - FR6.3)
+  const allergies = medicalProfile?.allergies ? JSON.parse(medicalProfile.allergies as string) : [];
+  const chronic = medicalProfile?.chronicDiseases ? JSON.parse(medicalProfile.chronicDiseases as string) : [];
+  const voiceSummary = `Emergency Type: ${data.emergencyType || 'MEDICAL'}. ` +
+    (allergies.length > 0 ? `Patient has allergies: ${allergies.join(', ')}. ` : '') +
+    (chronic.length > 0 ? `Chronic conditions: ${chronic.join(', ')}.` : '');
+
   const emergency = await emergencyRepository.create({
     patientId: data.patientId,
     emergencyType: data.emergencyType || 'MEDICAL',
@@ -34,18 +46,8 @@ export const createEmergency = async (data: {
     accuracy: data.accuracy,
     additionalInfo: data.additionalInfo,
     cancellationDeadline,
+    voiceSummary,
   });
-
-  // Attach medical profile to emergency context (non-blocking)
-  const medicalProfile = await medicalProfileRepository.findByUserId(data.patientId);
-  logger.info(`Emergency ${emergency.id} created for patient ${data.patientId}`);
-  
-  // Voice Alert Summary Generation (FR6.1 - FR6.3)
-  const allergies = medicalProfile?.allergies ? JSON.parse(medicalProfile.allergies as string) : [];
-  const chronic = medicalProfile?.chronicDiseases ? JSON.parse(medicalProfile.chronicDiseases as string) : [];
-  const voiceSummary = `Emergency Type: ${emergency.emergencyType}. ` +
-    (allergies.length > 0 ? `Patient has allergies: ${allergies.join(', ')}. ` : '') +
-    (chronic.length > 0 ? `Chronic conditions: ${chronic.join(', ')}.` : '');
 
   // Notify caregivers immediately via socket
   notifyCaregivers(data.patientId, {
@@ -88,7 +90,22 @@ export const cancelEmergency = async (emergencyId: string, patientId: string) =>
 
   const cancelled = await emergencyRepository.cancel(emergencyId);
 
-  // Notify caregivers and responders about cancellation (FR4.6)
+  // Notify caregivers and responders about cancellation (The Perfect Solution)
+  // Fetch all responders who were notified about this SOS
+  const notifiedResponderIds = await emergencyRepository.getNotifiedResponderIds(emergencyId);
+  
+  // Use notification service for reliable broadcast (Clears alert from mobile UI)
+  for (const responderId of notifiedResponderIds) {
+    sendNotification(responderId, {
+      type: NotificationType.EMERGENCY_RESOLVED, // Or create a specific CANCELLED type if preferred
+      title: "ALERT CANCELLED",
+      body: "The patient has cancelled the SOS request.",
+      channels: [NotificationChannel.IN_APP, NotificationChannel.PUSH],
+      priority: 'high',
+      data: { emergencyId, status: "CANCELLED" }
+    }).catch(err => logger.error(`Failed to notify responder ${responderId} of cancellation: ${err.message}`));
+  }
+
   io.to(`emergency:${emergencyId}`).emit('EMERGENCY_STATUS_CHANGE', {
     type: "EMERGENCY_STATUS_CHANGE",
     data: {
@@ -147,18 +164,22 @@ const notifyNearbyResponders = async (
           estimatedArrivalMinutes: Math.ceil((responder.distanceKm / 40) * 60), // Estimate at 40km/h
         });
         
-        // Emit Socket.io EMERGENCY_ALERT (MUST HAVE FORMAT)
-        io.to(`notifications:${responder.userId}`).emit('EMERGENCY_ALERT', {
-          type: "EMERGENCY_ALERT",
+        // Use full notification system (IN_APP + PUSH via Firebase and logs to db)
+        await sendNotification(responder.userId, {
+          type: NotificationType.SOS_TRIGGERED,
+          title: "EMERGENCY ALERT",
+          body: `Emergency reported nearby by ${patientName}. ETA: ${Math.ceil((responder.distanceKm / 40) * 60)} mins.`,
+          channels: [NotificationChannel.IN_APP, NotificationChannel.PUSH],
+          priority: 'emergency',
           data: {
             emergencyId,
             emergencyType: "MEDICAL",
             patientName,
-            latitude,
-            longitude,
-            distanceKm: responder.distanceKm,
-            estimatedArrivalMinutes: Math.ceil((responder.distanceKm / 40) * 60),
-            messageExpiry: 60,
+            latitude: latitude.toString(),
+            longitude: longitude.toString(),
+            distanceKm: responder.distanceKm.toString(),
+            estimatedArrivalMinutes: Math.ceil((responder.distanceKm / 40) * 60).toString(),
+            messageExpiry: "60",
             voiceSummary // FR6 Voice Alert
           }
         });
@@ -177,9 +198,46 @@ const notifyNearbyResponders = async (
 const notifyCaregivers = async (patientId: string, emergencyData: any) => {
   const caregivers = await caregiverRepository.getCaregiversForPatient(patientId);
   for (const link of caregivers) {
-    io.to(`notifications:${link.caregiverId}`).emit('CAREGIVER_ALERT', {
-      type: "CAREGIVER_ALERT",
-      data: emergencyData
+    await sendNotification(link.caregiverId, {
+      type: NotificationType.PATIENT_EMERGENCY,
+      title: "Patient Emergency!",
+      body: `SOS Triggered by ${emergencyData.patientName}`,
+      channels: [NotificationChannel.IN_APP, NotificationChannel.PUSH],
+      priority: 'high',
+      data: {
+        emergencyId: emergencyData.emergencyId,
+        emergencyType: emergencyData.emergencyType,
+        latitude: emergencyData.latitude.toString(),
+        longitude: emergencyData.longitude.toString(),
+        patientName: emergencyData.patientName
+      }
     });
+  }
+};
+
+/**
+ * Periodically check for active emergencies that haven't been accepted (FR5.8 Escalation)
+ */
+export const checkAndEscalate = async () => {
+  const activeEmergencies = await emergencyRepository.findAllActive();
+  const now = new Date();
+
+  for (const emergency of activeEmergencies) {
+    const ageSeconds = (now.getTime() - new Date(emergency.createdAt).getTime()) / 1000;
+    
+    // If not accepted within 2 minutes (120s), escalate
+    if (ageSeconds > 120) {
+      logger.warn(`Escalating emergency ${emergency.id} - no responder accepted within 2 minutes`);
+      
+      // Notify admins and re-broadcast to a wider radius or specific escalation channel
+      io.emit('SYSTEM_ESCALATION', {
+        type: 'SYSTEM_ESCALATION',
+        data: {
+          emergencyId: emergency.id,
+          patientName: (emergency.patient as any)?.fullName || 'Patient',
+          ageSeconds
+        }
+      });
+    }
   }
 };

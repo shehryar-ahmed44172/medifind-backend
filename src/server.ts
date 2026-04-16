@@ -11,6 +11,7 @@ import passwordRoutes from './routes/password';
 import userRoutes from './routes/users';
 import medicalProfileRoutes from './routes/medicalProfile';
 import emergencyRoutes from './routes/emergencies';
+import { checkAndEscalate } from './services/emergencyService';
 import responderRoutes from './routes/responders';
 import trackingRoutes from './routes/tracking';
 import reportRoutes from './routes/reports';
@@ -203,6 +204,11 @@ server.listen(PORT, HOST, () => {
   logger.info(`🚀 Server running on http://${HOST}:${PORT}`);
   logger.info(`📡 WebSocket available at ws://${HOST}:${PORT}`);
   logger.info(`🔧 Environment: ${NODE_ENV}`);
+
+  // Start the background escalation checker (Module 5 - FR5.8)
+  setInterval(() => {
+    checkAndEscalate().catch(err => logger.error(`Escalation check failed: ${err.message}`));
+  }, 60000); // Check every minute
 });
 
 // Export for testing

@@ -59,3 +59,34 @@ export const unlinkCaregiver = async (req: Request, res: Response) => {
     sendError(res, error.message, 400);
   }
 };
+
+/**
+ * GET /api/caregivers/invitations
+ */
+export const getPendingInvitations = async (req: Request, res: Response) => {
+  try {
+    if (!req.user || req.user.role !== 'CAREGIVER') return sendError(res, 'Unauthorized', 403);
+    const invitations = await caregiverService.getPendingInvitations(req.user.userId);
+    sendSuccess(res, invitations, 'Pending invitations retrieved');
+  } catch (error: any) {
+    sendError(res, error.message, 500);
+  }
+};
+
+/**
+ * POST /api/caregivers/invitations/:patientId/respond
+ */
+export const respondToInvitation = async (req: Request, res: Response) => {
+  try {
+    if (!req.user || req.user.role !== 'CAREGIVER') return sendError(res, 'Unauthorized', 403);
+    const { patientId } = req.params;
+    const { accept } = req.body;
+
+    if (accept === undefined) return sendError(res, 'accept (boolean) is required', 400);
+
+    const result = await caregiverService.respondToInvitation(req.user.userId, patientId, accept);
+    sendSuccess(res, result, accept ? 'Invitation accepted' : 'Invitation rejected');
+  } catch (error: any) {
+    sendError(res, error.message, 400);
+  }
+};

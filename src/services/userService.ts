@@ -30,3 +30,7 @@ export const verifyResponder = async (userId: string) => {
   const updatedUser = await userRepository.update(userId, { isEmailVerified: true, isActive: true });
   return updatedUser;
 };
+
+export const upgradeSubscription = async (userId: string, plan: 'FREE' | 'PROFESSIONAL' | 'EXECUTIVE') => {
+  return await userRepository.updateSubscription(userId, plan);
+};

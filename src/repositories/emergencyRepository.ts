@@ -11,8 +11,9 @@ export const emergencyRepository = {
     accuracy?: number;
     additionalInfo?: string;
     cancellationDeadline: Date;
+    voiceSummary?: string;
   }) => {
-    return await prisma.emergency.create({ data });
+    return await prisma.emergency.create({ data: data as any });
   },
 
   findById: async (id: string) => {
@@ -58,5 +59,13 @@ export const emergencyRepository = {
       where: { id },
       data: { status: 'CANCELLED', resolvedAt: new Date() },
     });
+  },
+
+  getNotifiedResponderIds: async (emergencyId: string) => {
+    const requests = await prisma.emergencyRequest.findMany({
+      where: { emergencyId },
+      select: { responderId: true },
+    });
+    return requests.map((r) => r.responderId);
   },
 };
