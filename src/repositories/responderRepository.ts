@@ -15,8 +15,8 @@ export const responderRepository = {
     return await prisma.$queryRaw<any[]>`
       SELECT r.*, u."fullName", u."phoneNumber", u."email",
         earth_distance(
-          ll_to_earth(r."currentLatitude", r."currentLongitude"),
-          ll_to_earth(${latitude}, ${longitude})
+          ll_to_earth(r."currentLatitude"::double precision, r."currentLongitude"::double precision),
+          ll_to_earth(${latitude}::double precision, ${longitude}::double precision)
         ) / 1000 AS "distanceKm"
       FROM "Responder" r
       JOIN "User" u ON u.id = r."userId"
@@ -27,9 +27,9 @@ export const responderRepository = {
         AND r."currentLatitude" IS NOT NULL
         AND r."currentLongitude" IS NOT NULL
         AND earth_distance(
-              ll_to_earth(r."currentLatitude", r."currentLongitude"),
-              ll_to_earth(${latitude}, ${longitude})
-            ) <= ${radiusKm * 1000}
+              ll_to_earth(r."currentLatitude"::double precision, r."currentLongitude"::double precision),
+              ll_to_earth(${latitude}::double precision, ${longitude}::double precision)
+            ) <= ${radiusKm * 1000}::double precision
       ORDER BY "distanceKm" ASC
       LIMIT 10
     `;

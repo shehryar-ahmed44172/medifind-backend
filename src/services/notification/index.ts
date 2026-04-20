@@ -1,5 +1,7 @@
 import { Server as SocketIOServer } from 'socket.io';
 import * as admin from 'firebase-admin';
+import path from 'path';
+import fs from 'fs';
 import { NotificationPayload, NotificationChannel, NotificationType } from '../../types/notification';
 import { notificationRepository } from '../../repositories/notificationRepository';
 import { sendEmail } from '../../utils/email';
@@ -13,13 +15,43 @@ let firebaseInitialized = false;
 function initFirebase() {
   if (firebaseInitialized) return;
   try {
-    admin.initializeApp({
-      credential: admin.credential.applicationDefault(),
-    });
+    // 1. Prioritize project-specific MEDIFIND_FIREBASE_CREDENTIALS
+    // 2. Fallback to GOOGLE_APPLICATION_CREDENTIALS
+    // 3. Last fallback: look for firebase-adminsdk.json in the root
+    let credPathRaw = process.env.MEDIFIND_FIREBASE_CREDENTIALS || process.env.GOOGLE_APPLICATION_CREDENTIALS;
+    let credPath: string | null = null;
+    
+    if (credPathRaw) {
+      credPath = path.resolve(process.cwd(), credPathRaw.replace(/^"(.*)"$/, '$1'));
+    } else {
+      const defaultPath = path.resolve(process.cwd(), 'firebase-adminsdk.json');
+      if (fs.existsSync(defaultPath)) {
+        credPath = defaultPath;
+        logger.info('Using default firebase-adminsdk.json from project root');
+      }
+    }
+    
+    if (credPath) {
+      logger.info(`Attempting Firebase initialization with file: ${credPath}`);
+      
+      if (!fs.existsSync(credPath)) {
+        throw new Error(`Service account file not found at: ${credPath}`);
+      }
+
+      admin.initializeApp({
+        credential: admin.credential.cert(credPath),
+      });
+      logger.info('✅ Firebase Admin SDK initialized successfully');
+    } else {
+      admin.initializeApp({
+        credential: admin.credential.applicationDefault(),
+      });
+      logger.info('Firebase Admin SDK initialized using default credentials');
+    }
+    
     firebaseInitialized = true;
-    logger.info('Firebase Admin SDK initialized successfully');
   } catch (error: any) {
-    logger.warn(`Firebase Admin SDK not initialized: ${error.message}. Push notifications will be skipped.`);
+    logger.warn(`❌ Firebase Admin SDK not initialized: ${error.message}. Push notifications will be skipped.`);
   }
 }
 
@@ -139,6 +171,9 @@ async function sendPush(userId: string, payload: NotificationPayload) {
     tokens,
     data: {
       type: payload.type,
+      legacy_type: payload.type === 'SOS_TRIGGERED' ? 'EMERGENCY_REQUEST' : payload.type, // Support legacy mobile logic
+      click_action: "FLUTTER_NOTIFICATION_CLICK", // Critical for Flutter Android background handling
+      channel_id: "medifind_emergency", // Match your app's notification channel
       ...(payload.data || {}),
     },
     notification: {
@@ -146,7 +181,12 @@ async function sendPush(userId: string, payload: NotificationPayload) {
       body: payload.body,
     },
     android: {
-      priority: payload.priority === 'emergency' ? 'high' : 'normal',
+      priority: 'high', // Use literal string 'high' for delivery speed
+      notification: {
+        channelId: "medifind_emergency",
+        priority: "max", // Max priority for system tray visibility
+        clickAction: "FLUTTER_NOTIFICATION_CLICK"
+      }
     },
   };
 

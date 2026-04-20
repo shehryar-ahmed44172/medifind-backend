@@ -48,7 +48,7 @@ export const linkCaregiver = async (requesterId: string, targetEmail: string, re
     throw new Error('A link or invitation already exists between these users.');
   }
 
-  const link = await caregiverRepository.createLink(caregiverId, patientId, relationship);
+  const link = await caregiverRepository.createLink(caregiverId, patientId, relationship, requesterId);
 
   // Notify the target user about the invitation
   const requester = await userRepository.findById(requesterId);

@@ -1,7 +1,3 @@
-// MediFind Mobile Application - Complete Prisma Schema
-// Based on Backend Engineers Guide specifications
-// All 10 tables with geospatial support
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,9 +7,287 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ============================================
-// ENUMS
-// ============================================
+model User {
+  id                  String            @id @default(cuid())
+  fullName            String
+  email               String            @unique
+  phoneNumber         String            @unique
+  passwordHash        String
+  role                UserRole          @default(PATIENT)
+  profileImageUrl     String?
+  isActive            Boolean           @default(true)
+  lastLogin           DateTime?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  accountLockedUntil  DateTime?
+  failedLoginAttempts Int               @default(0)
+  isEmailVerified     Boolean           @default(false)
+  lastFailedLoginAt   DateTime?
+  lastLoginAt         DateTime?
+  lastLoginIp         String?
+  fcmTokens           Json?             @default("[]")
+  subscriptionPlan    SubscriptionPlan  @default(FREE)
+  auditLogs           AuditLog[]
+  caregiverLinks      CaregiverLink[]   @relation("CaregiverTo")
+  caregiverEmployers  CaregiverLink[]   @relation("EmployerFrom")
+  caregiverProfile    CaregiverProfile?
+  emergencies         Emergency[]       @relation("PatientEmergencies")
+  medicalProfile      MedicalProfile?
+  medicalReports      MedicalReport[]
+  notificationLogs    NotificationLog[]
+  passwordResets      PasswordReset[]
+  refreshTokens       RefreshToken[]
+  responder           Responder?
+
+  @@index([email])
+  @@index([phoneNumber])
+  @@index([role])
+  @@index([isActive])
+}
+
+model MedicalProfile {
+  id                 String      @id @default(cuid())
+  userId             String      @unique
+  bloodType          String?
+  chronicDiseases    Json?       @default("[]")
+  allergies          Json?       @default("[]")
+  medications        Json?       @default("[]")
+  emergencyContacts  Json?       @default("[]")
+  disabilities       Json?       @default("[]")
+  medicalHistory     String?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  cnic               String?     @unique
+  patientType        PatientType @default(NORMAL)
+  predefinedMessages Json?       @default("[]")
+  user               User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model CaregiverProfile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  cnic      String?  @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Emergency {
+  id                   String              @id @default(cuid())
+  patientId            String
+  emergencyType        String              @default("MEDICAL")
+  latitude             Float
+  longitude            Float
+  accuracy             Float?
+  status               EmergencyStatus     @default(ACTIVE)
+  voiceAlertGenerated  Boolean             @default(false)
+  additionalInfo       String?
+  cancellationDeadline DateTime
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  resolvedAt           DateTime?
+  voiceSummary         String?
+  patient              User                @relation("PatientEmergencies", fields: [patientId], references: [id], onDelete: Cascade)
+  emergencyRequests    EmergencyRequest[]
+  emergencyTracking    EmergencyTracking[]
+  medicalReports       MedicalReport[]
+
+  @@index([patientId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([cancellationDeadline])
+}
+
+model Responder {
+  id                    String              @id @default(cuid())
+  userId                String              @unique
+  licenseNumber         String              @unique
+  specialization        Json?               @default("[]")
+  currentLatitude       Float?
+  currentLongitude      Float?
+  isAvailable           Boolean             @default(true)
+  averageResponseTime   Int?
+  totalResponsesHandled Int                 @default(0)
+  rating                Float               @default(5.0)
+  totalRatings          Int                 @default(0)
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  cnic                  String?             @unique
+  isVerified            Boolean             @default(false)
+  organization          String?
+  responderType         ResponderType       @default(VOLUNTEER)
+  vehicleType           String?
+  cnicImageUrl          String?
+  employeeCardImageUrl  String?
+  rejectionReason       String?
+  verificationStatus    VerificationStatus  @default(PENDING)
+  emergencyRequests     EmergencyRequest[]
+  emergencyTracking     EmergencyTracking[]
+  user                  User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isAvailable])
+  @@index([currentLatitude, currentLongitude])
+  @@index([createdAt])
+}
+
+model EmergencyRequest {
+  id                      String                 @id @default(cuid())
+  emergencyId             String
+  responderId             String
+  status                  EmergencyRequestStatus @default(PENDING)
+  distanceKm              Float?
+  estimatedArrivalMinutes Int?
+  sentAt                  DateTime               @default(now())
+  acceptedAt              DateTime?
+  rejectedAt              DateTime?
+  rejectionReason         String?
+  createdAt               DateTime               @default(now())
+  updatedAt               DateTime               @updatedAt
+  emergency               Emergency              @relation(fields: [emergencyId], references: [id], onDelete: Cascade)
+  responder               Responder              @relation(fields: [responderId], references: [userId], onDelete: Cascade)
+
+  @@unique([emergencyId, responderId])
+  @@index([emergencyId])
+  @@index([responderId])
+  @@index([status])
+  @@index([sentAt])
+}
+
+model EmergencyTracking {
+  id          String         @id @default(cuid())
+  emergencyId String
+  responderId String
+  latitude    Float
+  longitude   Float
+  accuracy    Float?
+  status      TrackingStatus @default(EN_ROUTE)
+  timestamp   DateTime       @default(now())
+  createdAt   DateTime       @default(now())
+  emergency   Emergency      @relation(fields: [emergencyId], references: [id], onDelete: Cascade)
+  responder   Responder      @relation(fields: [responderId], references: [userId], onDelete: Cascade)
+
+  @@index([emergencyId])
+  @@index([responderId])
+  @@index([status])
+  @@index([timestamp])
+}
+
+model CaregiverLink {
+  id           String           @id @default(cuid())
+  caregiverId  String
+  patientId    String
+  relationship String
+  isActive     Boolean          @default(true)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  status       InvitationStatus @default(PENDING)
+  requesterId  String?
+  caregiver    User             @relation("CaregiverTo", fields: [caregiverId], references: [id], onDelete: Cascade)
+  patient      User             @relation("EmployerFrom", fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@unique([caregiverId, patientId])
+  @@index([caregiverId])
+  @@index([patientId])
+}
+
+model MedicalReport {
+  id            String            @id @default(cuid())
+  emergencyId   String?
+  userId        String
+  reportType    MedicalReportType
+  fileName      String
+  fileUrl       String
+  fileSizeBytes Int
+  uploadedAt    DateTime          @default(now())
+  createdAt     DateTime          @default(now())
+  emergency     Emergency?        @relation(fields: [emergencyId], references: [id])
+  uploadedBy    User              @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([emergencyId])
+  @@index([userId])
+  @@index([reportType])
+  @@index([uploadedAt])
+}
+
+model RefreshToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([revokedAt])
+}
+
+model PasswordReset {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  entity    String
+  entityId  String
+  oldValues Json?
+  newValues Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([entity])
+  @@index([entityId])
+  @@index([createdAt])
+}
+
+model NotificationLog {
+  id            String    @id @default(cuid())
+  userId        String
+  type          String
+  channels      Json
+  title         String
+  body          String
+  status        String
+  deliveredAt   DateTime?
+  failureReason String?
+  createdAt     DateTime  @default(now())
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([status])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model spatial_ref_sys {
+  srid      Int     @id
+  auth_name String? @db.VarChar(256)
+  auth_srid Int?
+  srtext    String? @db.VarChar(2048)
+  proj4text String? @db.VarChar(2048)
+}
 
 enum UserRole {
   PATIENT
@@ -37,9 +311,9 @@ enum ResponderType {
 
 enum EmergencyStatus {
   ACTIVE
-  ASSIGNED
   RESOLVED
   CANCELLED
+  ASSIGNED
 }
 
 enum EmergencyRequestStatus {
@@ -81,355 +355,4 @@ enum VerificationStatus {
   PENDING
   VERIFIED
   REJECTED
-}
-
-// ============================================
-// TABLE 1: users
-// ============================================
-
-model User {
-  id                    String                 @id @default(cuid())
-  fullName              String
-  email                 String                 @unique
-  phoneNumber           String                 @unique
-  passwordHash          String
-  role                  UserRole               @default(PATIENT)
-  profileImageUrl       String?
-  isActive              Boolean                @default(true)
-  subscriptionPlan      SubscriptionPlan       @default(FREE)
-  lastLogin             DateTime?
-  createdAt             DateTime               @default(now())
-  updatedAt             DateTime               @updatedAt
-  
-  // Security fields for login tracking and account lockout
-  isEmailVerified       Boolean                @default(false)
-  failedLoginAttempts   Int                    @default(0)
-  lastFailedLoginAt     DateTime?
-  accountLockedUntil    DateTime?
-  lastLoginAt           DateTime?
-  lastLoginIp           String?
-  fcmTokens             Json?                  @default("[]") // Array of device tokens
-  
-  // Relations
-  medicalProfile        MedicalProfile?
-  caregiverProfile      CaregiverProfile?
-  responder             Responder?
-  emergencies           Emergency[]            @relation("PatientEmergencies")
-  caregiverLinks        CaregiverLink[]        @relation("CaregiverTo")
-  caregiverEmployers    CaregiverLink[]        @relation("EmployerFrom")
-  medicalReports        MedicalReport[]
-  refreshTokens         RefreshToken[]
-  passwordResets        PasswordReset[]
-  auditLogs             AuditLog[]
-  notificationLogs      NotificationLog[]
-  
-  @@index([email])
-  @@index([phoneNumber])
-  @@index([role])
-  @@index([isActive])
-}
-
-// ============================================
-// TABLE 2: medical_profiles
-// ============================================
-
-model MedicalProfile {
-  id                 String      @id @default(cuid())
-  userId             String      @unique
-  cnic               String?     @unique
-  patientType        PatientType @default(NORMAL)
-  bloodType          String?
-  chronicDiseases    Json?       @default("[]")  // Array of strings
-  allergies          Json?       @default("[]")  // Array of strings
-  medications        Json?       @default("[]")  // Array of objects with name, dosage
-  emergencyContacts  Json?       @default("[]")  // Array of contact objects
-  disabilities       Json?       @default("[]")  // Array of strings
-  predefinedMessages Json?       @default("[]")  // Array of text messages
-  medicalHistory     String?
-  createdAt          DateTime    @default(now())
-  updatedAt          DateTime    @updatedAt
-  
-  user               User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  @@index([userId])
-}
-
-// ============================================
-// TABLE 2B: caregiver_profiles
-// ============================================
-
-model CaregiverProfile {
-  id                 String      @id @default(cuid())
-  userId             String      @unique
-  cnic               String?     @unique
-  createdAt          DateTime    @default(now())
-  updatedAt          DateTime    @updatedAt
-  
-  user               User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  @@index([userId])
-}
-
-// ============================================
-// TABLE 3: emergencies
-// ============================================
-
-model Emergency {
-  id                      String              @id @default(cuid())
-  patientId               String
-  emergencyType           String              @default("MEDICAL")
-  latitude                Float
-  longitude               Float
-  accuracy                Float?
-  status                  EmergencyStatus     @default(ACTIVE)
-  voiceAlertGenerated     Boolean             @default(false)
-  voiceSummary            String?
-  additionalInfo          String?
-  cancellationDeadline    DateTime            // CreatedAt + 10 seconds
-  createdAt               DateTime            @default(now())
-  updatedAt               DateTime            @updatedAt
-  resolvedAt              DateTime?
-  
-  // Relations
-  patient                 User                @relation("PatientEmergencies", fields: [patientId], references: [id], onDelete: Cascade)
-  emergencyRequests       EmergencyRequest[]
-  emergencyTracking       EmergencyTracking[]
-  medicalReports          MedicalReport[]
-  
-  @@index([patientId])
-  @@index([status])
-  @@index([createdAt])
-  @@index([cancellationDeadline])
-}
-
-// ============================================
-// TABLE 4: responders
-// ============================================
-
-model Responder {
-  id                      String      @id @default(cuid())
-  userId                  String      @unique
-  cnic                    String?     @unique
-  licenseNumber           String      @unique
-  organization            String?
-  responderType           ResponderType @default(VOLUNTEER)
-  vehicleType             String?
-  isVerified              Boolean             @default(false)
-  verificationStatus      VerificationStatus  @default(PENDING)
-  rejectionReason         String?
-  cnicImageUrl            String?             // URL to CNIC document
-  employeeCardImageUrl    String?             // URL to Employee Card document
-  specialization          Json?       @default("[]")  // Array of specializations
-  currentLatitude         Float?
-  currentLongitude        Float?
-  isAvailable             Boolean     @default(true)
-  averageResponseTime     Int?        // In seconds
-  totalResponsesHandled   Int         @default(0)
-  rating                  Float       @default(5.0)
-  totalRatings            Int         @default(0)
-  createdAt               DateTime    @default(now())
-  updatedAt               DateTime    @updatedAt
-  
-  // Relations
-  user                    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  emergencyRequests       EmergencyRequest[]
-  emergencyTracking       EmergencyTracking[]
-  
-  @@index([userId])
-  @@index([isAvailable])
-  @@index([currentLatitude, currentLongitude])
-  @@index([createdAt])
-}
-
-// ============================================
-// TABLE 5: emergency_requests (CRITICAL)
-// ============================================
-
-model EmergencyRequest {
-  id                      String              @id @default(cuid())
-  emergencyId             String
-  responderId             String
-  status                  EmergencyRequestStatus @default(PENDING)
-  distanceKm              Float?
-  estimatedArrivalMinutes Int?
-  sentAt                  DateTime            @default(now())
-  acceptedAt              DateTime?
-  rejectedAt              DateTime?
-  rejectionReason         String?
-  createdAt               DateTime            @default(now())
-  updatedAt               DateTime            @updatedAt
-  
-  // Relations
-  emergency               Emergency           @relation(fields: [emergencyId], references: [id], onDelete: Cascade)
-  responder               Responder           @relation(fields: [responderId], references: [userId], onDelete: Cascade)
-  
-  @@unique([emergencyId, responderId])
-  @@index([emergencyId])
-  @@index([responderId])
-  @@index([status])
-  @@index([sentAt])
-}
-
-// ============================================
-// TABLE 6: emergency_tracking
-// ============================================
-
-model EmergencyTracking {
-  id                String          @id @default(cuid())
-  emergencyId       String
-  responderId       String
-  latitude          Float
-  longitude         Float
-  accuracy          Float?
-  status            TrackingStatus  @default(EN_ROUTE)
-  timestamp         DateTime        @default(now())
-  createdAt         DateTime        @default(now())
-  
-  // Relations
-  emergency         Emergency       @relation(fields: [emergencyId], references: [id], onDelete: Cascade)
-  responder         Responder       @relation(fields: [responderId], references: [userId], onDelete: Cascade)
-  
-  @@index([emergencyId])
-  @@index([responderId])
-  @@index([status])
-  @@index([timestamp])
-}
-
-// ============================================
-// TABLE 7: caregiver_links
-// ============================================
-
-model CaregiverLink {
-  id              String      @id @default(cuid())
-  caregiverId     String
-  patientId       String
-  relationship    String      // PARENT, SIBLING, SPOUSE, FRIEND
-  status          InvitationStatus @default(PENDING)
-  requesterId     String?     // ID of the user who initiated the link
-  isActive        Boolean     @default(true)
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-  
-  // Relations
-  caregiver       User        @relation("CaregiverTo", fields: [caregiverId], references: [id], onDelete: Cascade)
-  patient         User        @relation("EmployerFrom", fields: [patientId], references: [id], onDelete: Cascade)
-  
-  @@unique([caregiverId, patientId])
-  @@index([caregiverId])
-  @@index([patientId])
-}
-
-// ============================================
-// TABLE 8: medical_reports
-// ============================================
-
-model MedicalReport {
-  id              String            @id @default(cuid())
-  emergencyId     String?
-  userId          String
-  reportType      MedicalReportType
-  fileName        String
-  fileUrl         String            // Azure Blob Storage URL
-  fileSizeBytes   Int
-  uploadedAt      DateTime          @default(now())
-  createdAt       DateTime          @default(now())
-  
-  // Relations
-  emergency       Emergency?        @relation(fields: [emergencyId], references: [id], onDelete: SetNull)
-  uploadedBy      User              @relation(fields: [userId], references: [id], onDelete: SetNull)
-  
-  @@index([emergencyId])
-  @@index([userId])
-  @@index([reportType])
-  @@index([uploadedAt])
-}
-
-// ============================================
-// TABLE 9: refresh_tokens
-// ============================================
-
-model RefreshToken {
-  id              String      @id @default(cuid())
-  userId          String
-  tokenHash       String      @unique
-  expiresAt       DateTime
-  revokedAt       DateTime?   // Set when user logs out
-  createdAt       DateTime    @default(now())
-  
-  // Relations
-  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  @@index([userId])
-  @@index([expiresAt])
-  @@index([revokedAt])
-}
-
-// ============================================
-// TABLE 9B: password_resets
-// ============================================
-
-model PasswordReset {
-  id              String      @id @default(cuid())
-  userId          String
-  tokenHash       String      @unique
-  expiresAt       DateTime
-  usedAt          DateTime?   // Set when password is reset
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-  
-  // Relations
-  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  @@index([userId])
-  @@index([expiresAt])
-  @@index([createdAt])
-}
-
-// ============================================
-// TABLE 10: audit_logs
-// ============================================
-
-model AuditLog {
-  id              String      @id @default(cuid())
-  userId          String?
-  action          String      // Created, Updated, Deleted
-  entity          String      // Table name
-  entityId        String      // Record ID
-  oldValues       Json?
-  newValues       Json?
-  ipAddress       String?
-  userAgent       String?
-  createdAt       DateTime    @default(now())
-  
-  // Relations
-  user            User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
-  
-  @@index([userId])
-  @@index([entity])
-  @@index([entityId])
-  @@index([createdAt])
-}
-
-// ============================================
-// TABLE 11: notification_logs
-// ============================================
-
-model NotificationLog {
-  id              String      @id @default(cuid())
-  userId          String
-  type            String
-  channels        Json        // Array of channels (IN_APP, EMAIL, PUSH)
-  title           String
-  body            String
-  status          String      // pending, delivered, failed
-  deliveredAt     DateTime?
-  failureReason   String?
-  createdAt       DateTime    @default(now())
-  
-  // Relations
-  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  @@index([userId])
-  @@index([createdAt])
-  @@index([status])
 }

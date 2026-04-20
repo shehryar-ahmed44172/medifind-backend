@@ -3,7 +3,7 @@ import { responderRepository } from '../repositories/responderRepository';
 import { medicalProfileRepository } from '../repositories/medicalProfileRepository';
 import logger from '../utils/logger';
 
-import { io } from '../server';
+import { getIo } from '../server';
 import { caregiverRepository } from '../repositories/caregiverRepository';
 import { sendNotification } from './notification';
 import { NotificationType, NotificationChannel } from '../types/notification';
@@ -106,7 +106,7 @@ export const cancelEmergency = async (emergencyId: string, patientId: string) =>
     }).catch(err => logger.error(`Failed to notify responder ${responderId} of cancellation: ${err.message}`));
   }
 
-  io.to(`emergency:${emergencyId}`).emit('EMERGENCY_STATUS_CHANGE', {
+  getIo().to(`emergency:${emergencyId}`).emit('EMERGENCY_STATUS_CHANGE', {
     type: "EMERGENCY_STATUS_CHANGE",
     data: {
       emergencyId,
@@ -172,7 +172,11 @@ const notifyNearbyResponders = async (
           channels: [NotificationChannel.IN_APP, NotificationChannel.PUSH],
           priority: 'emergency',
           data: {
+            id: emergencyId, // Map to entity id
             emergencyId,
+            userId: patientId, // Map to entity userId
+            patientId,
+            status: "ACTIVE", // Current state
             emergencyType: "MEDICAL",
             patientName,
             latitude: latitude.toString(),
@@ -180,7 +184,8 @@ const notifyNearbyResponders = async (
             distanceKm: responder.distanceKm.toString(),
             estimatedArrivalMinutes: Math.ceil((responder.distanceKm / 40) * 60).toString(),
             messageExpiry: "60",
-            voiceSummary // FR6 Voice Alert
+            voiceSummary, // FR6 Voice Alert
+            createdAt: new Date().toISOString(),
           }
         });
         
@@ -230,7 +235,7 @@ export const checkAndEscalate = async () => {
       logger.warn(`Escalating emergency ${emergency.id} - no responder accepted within 2 minutes`);
       
       // Notify admins and re-broadcast to a wider radius or specific escalation channel
-      io.emit('SYSTEM_ESCALATION', {
+      getIo().emit('SYSTEM_ESCALATION', {
         type: 'SYSTEM_ESCALATION',
         data: {
           emergencyId: emergency.id,

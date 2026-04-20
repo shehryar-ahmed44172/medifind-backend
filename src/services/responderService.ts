@@ -1,6 +1,6 @@
 import { responderRepository } from '../repositories/responderRepository';
 import { emergencyRepository } from '../repositories/emergencyRepository';
-import { io } from '../server';
+import { getIo } from '../server';
 import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
@@ -66,20 +66,32 @@ export const acceptEmergencyRequest = async (emergencyId: string, responderId: s
 
     // 7. REAL-TIME: Notify all other responders to clear the notification from their screens
     // We broadcast to the generic 'emergencies' room or specific responder IDs
-    io.emit('EMERGENCY_ASSIGNED', {
+    getIo().emit('EMERGENCY_ASSIGNED', {
       type: 'EMERGENCY_ASSIGNED',
       data: { emergencyId, assignedTo: responderId }
     });
 
     // Notify the patient and caregivers that help is on the way (FR7.4)
-    io.to(`emergency:${emergencyId}`).emit('EMERGENCY_STATUS_CHANGE', {
+    // Plan v6: Include responder profile details so they can be displayed on the map
+    const responderDetails = await tx.responder.findUnique({
+      where: { userId: responderId },
+      include: { user: { select: { fullName: true, phoneNumber: true } } }
+    });
+
+    getIo().to(`emergency:${emergencyId}`).emit('EMERGENCY_STATUS_CHANGE', {
       type: 'EMERGENCY_STATUS_CHANGE',
       data: { 
         emergencyId, 
         newStatus: 'ASSIGNED',
-        responderId
+        responderId,
+        responderName: responderDetails?.user.fullName,
+        responderPhone: responderDetails?.user.phoneNumber
       }
     });
+
+    // Also join responder to the location room for this emergency automatically
+    // Note: We'll do this via the socket listener in server.ts if they join room explicitly,
+    // but here we ensure the room exists.
 
     return {
       ...acceptedRequest,
@@ -126,7 +138,7 @@ export const resolveEmergency = async (emergencyId: string, responderId: string)
     });
 
     // Broadcast resolution
-    io.to(`emergency:${emergencyId}`).emit('EMERGENCY_STATUS_CHANGE', {
+    getIo().to(`emergency:${emergencyId}`).emit('EMERGENCY_STATUS_CHANGE', {
       type: 'EMERGENCY_STATUS_CHANGE',
       data: { emergencyId, newStatus: 'RESOLVED' }
     });
@@ -167,7 +179,33 @@ export const updateResponderLocation = async (
   latitude: number,
   longitude: number
 ) => {
-  return await responderRepository.updateLocation(userId, latitude, longitude);
+  const updated = await responderRepository.updateLocation(userId, latitude, longitude);
+  
+  // Plan v6: Broadcast location to the active emergency room
+  // 1. Find the active emergency request for this responder
+  const activeRequest = await prisma.emergencyRequest.findFirst({
+    where: { responderId: userId, status: 'ACCEPTED' },
+    select: { emergencyId: true }
+  });
+
+  if (activeRequest) {
+    getIo().to(`location:${activeRequest.emergencyId}`).emit('RESPONDER_LOCATION_UPDATE', {
+      emergencyId: activeRequest.emergencyId,
+      responderId: userId,
+      latitude,
+      longitude,
+      timestamp: new Date().toISOString()
+    });
+    
+    // Also emit to the specific emergency room for general UI updates
+    getIo().to(`emergency:${activeRequest.emergencyId}`).emit('RESPONDER_LOCATION_UPDATE', {
+      emergencyId: activeRequest.emergencyId,
+      latitude,
+      longitude
+    });
+  }
+
+  return updated;
 };
 
 /**

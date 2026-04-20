@@ -3,9 +3,9 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 export const caregiverRepository = {
-  createLink: async (caregiverId: string, patientId: string, relationship: string) => {
+  createLink: async (caregiverId: string, patientId: string, relationship: string, requesterId: string) => {
     return await prisma.caregiverLink.create({
-      data: { caregiverId, patientId, relationship, status: 'PENDING' } as any,
+      data: { caregiverId, patientId, relationship, requesterId, status: 'PENDING' } as any,
     });
   },
 
@@ -29,11 +29,21 @@ export const caregiverRepository = {
     });
   },
 
-  getPendingInvitations: async (caregiverId: string) => {
+  getPendingInvitations: async (userId: string) => {
+    // Show invitations where the user is the target (i.e., not the requester)
+    // AND they are either the caregiverId or patientId in the record.
     return await prisma.caregiverLink.findMany({
-      where: { caregiverId, status: 'PENDING' } as any,
+      where: { 
+        OR: [
+          { caregiverId: userId },
+          { patientId: userId }
+        ],
+        status: 'PENDING',
+        requesterId: { not: userId } // Must NOT be the one who sent it
+      } as any,
       include: {
         patient: { select: { id: true, fullName: true, email: true } },
+        caregiver: { select: { id: true, fullName: true, email: true } },
       },
     });
   },
