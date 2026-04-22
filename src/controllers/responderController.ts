@@ -88,6 +88,21 @@ export const resolveEmergency = async (req: Request, res: Response) => {
 };
 
 /**
+ * POST /api/responders/emergencies/:emergencyId/cancel
+ * Cancel an accepted emergency assignment
+ */
+export const cancelAssignment = async (req: Request, res: Response) => {
+  try {
+    if (!req.user) return sendError(res, 'Unauthorized', 401);
+    const { emergencyId } = req.params;
+    const result = await responderService.cancelAcceptedEmergency(emergencyId, req.user.userId);
+    sendSuccess(res, result, 'Assignment cancelled successfully');
+  } catch (error: any) {
+    sendError(res, error.message, 400);
+  }
+};
+
+/**
  * GET /api/responders/nearby
  * Get nearby available responders (Admin use)
  */
@@ -103,6 +118,20 @@ export const getNearbyResponders = async (req: Request, res: Response) => {
       radius ? parseFloat(radius as string) : 5
     );
     sendSuccess(res, responders, 'Nearby responders retrieved');
+  } catch (error: any) {
+    sendError(res, error.message, 500);
+  }
+};
+
+/**
+ * GET /api/responders/history
+ * Get responder's emergency response history
+ */
+export const getHistory = async (req: Request, res: Response) => {
+  try {
+    if (!req.user) return sendError(res, 'Unauthorized', 401);
+    const history = await responderService.getResponderHistory(req.user.userId);
+    sendSuccess(res, history, 'Responder history retrieved');
   } catch (error: any) {
     sendError(res, error.message, 500);
   }

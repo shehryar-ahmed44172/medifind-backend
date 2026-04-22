@@ -10,7 +10,12 @@ export const getProfile = async (req: Request, res: Response) => {
   try {
     if (!req.user) return sendError(res, 'Unauthorized', 401);
     const profile = await userService.getUserProfile(req.user.userId);
-    sendSuccess(res, profile, 'Profile retrieved successfully');
+    // Include availability status for responders
+    const responseData = {
+      ...profile,
+      isActive: profile.role === 'RESPONDER' ? (profile as any).responder?.isAvailable : profile.isActive
+    };
+    sendSuccess(res, responseData, 'Profile retrieved successfully');
   } catch (error: any) {
     sendError(res, error.message, 404);
   }
@@ -131,10 +136,46 @@ export const getUserById = async (req: Request, res: Response) => {
       licenseNumber: (profile as any).licenseNumber,
       responderType: (profile as any).responderType,
       vehicleType: (profile as any).vehicleType,
+      isActive: profile.role === 'RESPONDER' ? (profile as any).responder?.isAvailable : profile.isActive
     };
 
     sendSuccess(res, userProfile, 'User profile retrieved successfully');
   } catch (error: any) {
     sendError(res, error.message, 404);
+  }
+};
+
+/**
+ * GET /api/users/debug/:userId
+ * Get internal user details for diagnostic purposes
+ */
+export const getDebugInfo = async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    const { userRepository } = await import('../repositories/userRepository');
+    const user = await userRepository.findById(userId);
+    
+    if (!user) return sendError(res, 'User not found', 404);
+
+    const debugInfo = {
+      id: user.id,
+      fullName: user.fullName,
+      email: user.email,
+      role: user.role,
+      isActive: user.isActive,
+      isEmailVerified: user.isEmailVerified,
+      fcmTokens: (user as any).fcmTokens || [],
+      responder: (user as any).responder ? {
+        isAvailable: (user as any).responder.isAvailable,
+        isVerified: (user as any).responder.isVerified,
+        currentLatitude: (user as any).responder.currentLatitude,
+        currentLongitude: (user as any).responder.currentLongitude,
+        lastLocationUpdate: (user as any).responder.updatedAt
+      } : null
+    };
+
+    sendSuccess(res, debugInfo, 'Diagnostic info retrieved');
+  } catch (error: any) {
+    sendError(res, error.message, 500);
   }
 };

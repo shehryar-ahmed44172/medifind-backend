@@ -12,6 +12,11 @@ export const userRepository = {
   findById: async (userId: string) => {
     return await prisma.user.findUnique({
       where: { id: userId },
+      include: {
+        responder: true,
+        medicalProfile: true,
+        caregiverProfile: true,
+      }
     });
   },
 
@@ -148,9 +153,11 @@ export const userRepository = {
   },
 
   update: async (userId: string, data: any) => {
+    // SECURITY: Prevent modification of sensitive fields via general update
+    const { email, role, id, ...allowedData } = data;
     return await prisma.user.update({
       where: { id: userId },
-      data,
+      data: allowedData,
     });
   },
 

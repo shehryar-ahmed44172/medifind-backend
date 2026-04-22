@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getProfile, updateProfile, verifyResponder, upgradePlan, getUserById, uploadProfileImage } from '../controllers/userController';
+import { getProfile, updateProfile, verifyResponder, upgradePlan, getUserById, uploadProfileImage, getDebugInfo } from '../controllers/userController';
 import { authMiddleware, roleMiddleware } from '../middleware/authMiddleware';
 import { upload } from '../middleware/uploadMiddleware';
 
@@ -43,5 +43,11 @@ router.patch('/upgrade', roleMiddleware('PATIENT'), upgradePlan);
  * Administrator verification for responders (FR5.2)
  */
 router.patch('/:id/verify', roleMiddleware('ADMIN'), verifyResponder);
+
+/**
+ * GET /api/users/debug/:userId
+ * Diagnostic endpoint
+ */
+router.get('/debug/:userId', getDebugInfo);
 
 export default router;

@@ -10,6 +10,7 @@
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
     "db:seed": "ts-node prisma/seed.ts",
+    "db:clean-seed": "ts-node prisma/clean_seed.ts",
     "db:studio": "prisma studio",
     "test": "jest",
     "test:watch": "jest --watch",

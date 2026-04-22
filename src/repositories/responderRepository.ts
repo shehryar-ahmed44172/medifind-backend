@@ -12,7 +12,9 @@ export const responderRepository = {
 
   findNearbyAvailable: async (latitude: number, longitude: number, radiusKm = 5) => {
     // Use raw SQL for PostGIS earth_distance calculation
-    return await prisma.$queryRaw<any[]>`
+    console.log(`[Geospatial Search] Looking for responders near ${latitude}, ${longitude} within ${radiusKm}km`);
+    
+    const results = await prisma.$queryRaw<any[]>`
       SELECT r.*, u."fullName", u."phoneNumber", u."email",
         earth_distance(
           ll_to_earth(r."currentLatitude"::double precision, r."currentLongitude"::double precision),
@@ -21,9 +23,9 @@ export const responderRepository = {
       FROM "Responder" r
       JOIN "User" u ON u.id = r."userId"
       WHERE r."isAvailable" = true
-        AND r."isVerified" = true
+        AND (r."isVerified" = true OR ${process.env.NODE_ENV === 'development'})
         AND u."isActive" = true
-        AND u."isEmailVerified" = true
+        AND (u."isEmailVerified" = true OR ${process.env.NODE_ENV === 'development'})
         AND r."currentLatitude" IS NOT NULL
         AND r."currentLongitude" IS NOT NULL
         AND earth_distance(
@@ -33,6 +35,18 @@ export const responderRepository = {
       ORDER BY "distanceKm" ASC
       LIMIT 10
     `;
+
+    console.log(`[Geospatial Search] Found ${results.length} eligible responders`);
+    if (results.length === 0) {
+      // Log why they might be missing
+      const allResponders = await prisma.responder.findMany({ select: { userId: true, isAvailable: true, isVerified: true, currentLatitude: true } });
+      console.log(`[Geospatial Search] Total Responders in DB: ${allResponders.length}`);
+      allResponders.forEach(r => {
+        console.log(`  - Responder ${r.userId}: available=${r.isAvailable}, verified=${r.isVerified}, hasLocation=${r.currentLatitude != null}`);
+      });
+    }
+
+    return results;
   },
 
   updateLocation: async (userId: string, latitude: number, longitude: number) => {
@@ -108,6 +122,27 @@ export const responderRepository = {
     return await prisma.responder.update({
       where: { userId },
       data: { isVerified: true },
+    });
+  },
+
+  getHistory: async (responderId: string) => {
+    return await prisma.emergencyRequest.findMany({
+      where: { responderId },
+      include: {
+        emergency: {
+          include: {
+            patient: {
+              select: {
+                id: true,
+                fullName: true,
+                phoneNumber: true,
+                email: true,
+              }
+            }
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
     });
   },
 };

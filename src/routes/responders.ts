@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { updateLocation, setAvailability, acceptEmergency, rejectEmergency, getNearbyResponders, resolveEmergency } from '../controllers/responderController';
+import { updateLocation, setAvailability, acceptEmergency, rejectEmergency, getNearbyResponders, resolveEmergency, getHistory, cancelAssignment } from '../controllers/responderController';
 import { authMiddleware, roleMiddleware } from '../middleware/authMiddleware';
 
 const router = Router();
@@ -20,7 +20,13 @@ router.post('/emergencies/:emergencyId/reject', roleMiddleware('RESPONDER'), rej
 // POST /api/responders/emergencies/:emergencyId/resolve
 router.post('/emergencies/:emergencyId/resolve', roleMiddleware('RESPONDER'), resolveEmergency);
 
+// POST /api/responders/emergencies/:emergencyId/cancel
+router.post('/emergencies/:emergencyId/cancel', roleMiddleware('RESPONDER'), cancelAssignment);
+
 // GET /api/responders/nearby — Admin sees nearby responders
 router.get('/nearby', roleMiddleware('ADMIN', 'RESPONDER'), getNearbyResponders);
+
+// GET /api/responders/history — Responder sees their past requests
+router.get('/history', roleMiddleware('RESPONDER'), getHistory);
 
 export default router;

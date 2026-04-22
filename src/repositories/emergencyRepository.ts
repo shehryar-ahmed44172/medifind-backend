@@ -20,7 +20,15 @@ export const emergencyRepository = {
     return await prisma.emergency.findUnique({
       where: { id },
       include: {
-        patient: { select: { id: true, fullName: true, phoneNumber: true, email: true } },
+        patient: { 
+          select: { 
+            id: true, 
+            fullName: true, 
+            phoneNumber: true, 
+            email: true,
+            medicalProfile: true // Include medical profile here
+          } 
+        },
         emergencyRequests: { include: { responder: { include: { user: { select: { fullName: true } } } } } },
         medicalReports: true,
       },
@@ -38,7 +46,20 @@ export const emergencyRepository = {
     return await prisma.emergency.findMany({
       where: { status: 'ACTIVE' },
       include: {
-        patient: { select: { id: true, fullName: true, phoneNumber: true } },
+        patient: { 
+          select: { 
+            id: true, 
+            fullName: true, 
+            phoneNumber: true,
+            medicalProfile: {
+              select: {
+                bloodType: true,
+                allergies: true,
+                chronicDiseases: true
+              }
+            }
+          } 
+        },
       },
       orderBy: { createdAt: 'desc' },
     });

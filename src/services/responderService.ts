@@ -149,6 +149,7 @@ export const resolveEmergency = async (emergencyId: string, responderId: string)
 
 /**
  * Responder rejects an emergency request.
+ * Idempotent: returns success even if already rejected or completed by someone else.
  */
 export const rejectEmergencyRequest = async (
   emergencyId: string,
@@ -157,10 +158,70 @@ export const rejectEmergencyRequest = async (
 ) => {
   const request = await responderRepository.findEmergencyRequest(emergencyId, responderId);
   if (!request) throw new Error('Emergency request not found');
-  if (request.status !== 'PENDING') throw new Error('Request is no longer pending');
+  
+  // If already rejected, just return the existing record
+  if (request.status === 'REJECTED') return request;
+  
+  // If already completed/accepted by others, we still allow marking as REJECTED for this responder
+  // to clear their UI, but we don't throw an error.
+  if (request.status !== 'PENDING') {
+    return request; // Or we could update to REJECTED anyway
+  }
 
   return await responderRepository.updateEmergencyRequest(emergencyId, responderId, 'REJECTED', {
     rejectionReason: reason,
+  });
+};
+
+/**
+ * Responder cancels an already accepted assignment.
+ */
+export const cancelAcceptedEmergency = async (emergencyId: string, responderId: string) => {
+  return await prisma.$transaction(async (tx) => {
+    // 1. Verify the request is currently ACCEPTED by this responder
+    const request = await tx.emergencyRequest.findUnique({
+      where: { emergencyId_responderId: { emergencyId, responderId } }
+    });
+
+    if (!request || request.status !== 'ACCEPTED') {
+      throw new Error('You do not have an active accepted request for this emergency.');
+    }
+
+    // 2. Mark request as REJECTED (or CANCELLED if we had that status)
+    await tx.emergencyRequest.update({
+      where: { emergencyId_responderId: { emergencyId, responderId } },
+      data: { status: 'REJECTED' }
+    });
+
+    // 3. Set responder back to available
+    await tx.responder.update({
+      where: { userId: responderId },
+      data: { isAvailable: true }
+    });
+
+    // 4. Check if we should revert the emergency to ACTIVE
+    // We only do this if NO other responder has accepted it (which should be true if this one was ACCEPTED)
+    // AND if there are no other responders currently responding.
+    const emergency = await tx.emergency.findUnique({ where: { id: emergencyId } });
+    
+    if (emergency && emergency.status === 'ASSIGNED') {
+      await tx.emergency.update({
+        where: { id: emergencyId },
+        data: { status: 'ACTIVE' }
+      });
+    }
+
+    // 5. Notify the patient that the responder has cancelled
+    getIo().to(`emergency:${emergencyId}`).emit('EMERGENCY_STATUS_CHANGE', {
+      type: 'EMERGENCY_STATUS_CHANGE',
+      data: { 
+        emergencyId, 
+        newStatus: 'ACTIVE',
+        message: 'The assigned responder is no longer available. Re-broadcasting your request.'
+      }
+    });
+
+    return { success: true };
   });
 };
 
@@ -213,4 +274,11 @@ export const updateResponderLocation = async (
  */
 export const setResponderAvailability = async (userId: string, isAvailable: boolean) => {
   return await responderRepository.setAvailability(userId, isAvailable);
+};
+
+/**
+ * Get all emergency history for a responder.
+ */
+export const getResponderHistory = async (responderId: string) => {
+  return await responderRepository.getHistory(responderId);
 };

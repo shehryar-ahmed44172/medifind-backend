@@ -15,21 +15,21 @@ let firebaseInitialized = false;
 function initFirebase() {
   if (firebaseInitialized) return;
   try {
-    // 1. Prioritize project-specific MEDIFIND_FIREBASE_CREDENTIALS
-    // 2. Fallback to GOOGLE_APPLICATION_CREDENTIALS
-    // 3. Last fallback: look for firebase-adminsdk.json in the root
     let credPathRaw = process.env.MEDIFIND_FIREBASE_CREDENTIALS || process.env.GOOGLE_APPLICATION_CREDENTIALS;
     let credPath: string | null = null;
-    
-    if (credPathRaw) {
-      credPath = path.resolve(process.cwd(), credPathRaw.replace(/^"(.*)"$/, '$1'));
-    } else {
-      const defaultPath = path.resolve(process.cwd(), 'firebase-adminsdk.json');
-      if (fs.existsSync(defaultPath)) {
-        credPath = defaultPath;
-        logger.info('Using default firebase-adminsdk.json from project root');
+
+    // 1. Check local project root explicitly
+    const localPath = path.resolve(process.cwd(), 'firebase-adminsdk.json');
+    if (fs.existsSync(localPath)) {
+      credPath = localPath;
+      logger.info('Using firebase-adminsdk.json from project root');
+    } else if (credPathRaw) {
+      // 2. Fallback to ENV pointed path if it exists
+      const envPath = path.resolve(process.cwd(), credPathRaw.replace(/^"(.*)"$/, '$1'));
+      if (fs.existsSync(envPath)) {
+        credPath = envPath;
       }
-    }
+    } 
     
     if (credPath) {
       logger.info(`Attempting Firebase initialization with file: ${credPath}`);
@@ -163,18 +163,28 @@ async function sendPush(userId: string, payload: NotificationPayload) {
   }
 
   if (tokens.length === 0) {
-    logger.warn(`No device tokens for user ${userId}, skipping push`);
+    logger.warn(`⚠️ No device tokens for user ${userId}, skipping push notification`);
+    console.warn(`[Notification Service] User ${userId} has no FCM tokens in DB.`);
     return;
   }
+
+  console.log(`[Notification Service] Sending FCM to user ${userId} on ${tokens.length} tokens...`);
 
   const message: admin.messaging.MulticastMessage = {
     tokens,
     data: {
+      ...payload.data,
       type: payload.type,
-      legacy_type: payload.type === 'SOS_TRIGGERED' ? 'EMERGENCY_REQUEST' : payload.type, // Support legacy mobile logic
-      click_action: "FLUTTER_NOTIFICATION_CLICK", // Critical for Flutter Android background handling
-      channel_id: "medifind_emergency", // Match your app's notification channel
-      ...(payload.data || {}),
+      legacy_type: payload.type === 'SOS_TRIGGERED' ? 'EMERGENCY_REQUEST' : payload.type,
+      click_action: "FLUTTER_NOTIFICATION_CLICK",
+      channel_id: "medifind_emergency",
+      // Explicit mapping for Flutter UI stability
+      id: payload.data?.emergencyId || '',
+      emergencyId: payload.data?.emergencyId || '',
+      distance: payload.data?.distance || '0',
+      distanceKm: payload.data?.distance || '0',
+      priority: payload.data?.priority || 'HIGH',
+      emergencyType: payload.data?.emergencyType || 'OTHER',
     },
     notification: {
       title: payload.title,
