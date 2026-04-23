@@ -58,4 +58,24 @@ export const notificationRepository = {
       },
     });
   },
+
+  /**
+   * Mark a notification as read.
+   */
+  markAsRead: async (notificationId: string) => {
+    return await prisma.notificationLog.update({
+      where: { id: notificationId } as any,
+      data: { isRead: true } as any,
+    });
+  },
+
+  /**
+   * Mark all notifications for a user as read.
+   */
+  markAllAsRead: async (userId: string) => {
+    return await prisma.notificationLog.updateMany({
+      where: { userId, isRead: false } as any,
+      data: { isRead: true } as any,
+    });
+  },
 };

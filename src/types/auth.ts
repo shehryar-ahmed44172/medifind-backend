@@ -11,8 +11,10 @@ export interface RegisterRequest {
   password: string;
   role: 'PATIENT' | 'RESPONDER' | 'CAREGIVER' | 'ADMIN';
 
-  // Common optional field (all roles)
+  // Common optional fields (all roles)
   cnic?: string;
+  city?: string;
+  address?: string;
 
   // PATIENT specific
   patientType?: 'NORMAL' | 'DEAF';

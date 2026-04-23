@@ -12,7 +12,7 @@ export const register = async (req: Request, res: Response) => {
     const {
       fullName, email, phoneNumber, password, role,
       // Optional role-specific fields
-      cnic, patientType,
+      cnic, city, address, patientType,
       organization, licenseNumber, responderType, vehicleType,
     } = req.body as RegisterRequest;
 
@@ -32,7 +32,7 @@ export const register = async (req: Request, res: Response) => {
 
     const result = await authService.register({
       fullName, email, phoneNumber, password, role,
-      cnic, patientType,
+      cnic, city, address, patientType,
       organization, licenseNumber, responderType, vehicleType,
     });
 

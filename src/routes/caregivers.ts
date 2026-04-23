@@ -11,14 +11,14 @@ router.post('/link', roleMiddleware('PATIENT', 'CAREGIVER'), caregiverController
 // Get all linked caregivers (for patients) or patients (for caregivers)
 router.get('/', roleMiddleware('PATIENT', 'CAREGIVER'), caregiverController.getLinks);
 
-// Get pending invitations (CAREGIVER only)
-router.get('/invitations', roleMiddleware('CAREGIVER'), caregiverController.getPendingInvitations);
+// Get pending invitations (Both can be targets)
+router.get('/invitations', roleMiddleware('CAREGIVER', 'PATIENT'), caregiverController.getPendingInvitations);
 
-// Respond to an invitation (CAREGIVER only)
-router.post('/invitations/:patientId/respond', roleMiddleware('CAREGIVER'), caregiverController.respondToInvitation);
+// Respond to an invitation (Both can respond if they are the target)
+router.post('/invitations/:targetId/respond', roleMiddleware('CAREGIVER', 'PATIENT'), caregiverController.respondToInvitation);
 
-// Get all linked patients with any status (CAREGIVER only)
-router.get('/links/all', roleMiddleware('CAREGIVER'), caregiverController.getAllLinks);
+// Get all linked patients/caregivers with any status (Both can access their respective lists)
+router.get('/links/all', roleMiddleware('CAREGIVER', 'PATIENT'), caregiverController.getAllLinks);
 
 // Resend an invitation (CAREGIVER only)
 router.post('/links/:patientId/resend', roleMiddleware('CAREGIVER'), caregiverController.resendInvitation);

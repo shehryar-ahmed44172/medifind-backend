@@ -131,7 +131,11 @@ function sendInApp(userId: string, payload: NotificationPayload) {
   if (!io) {
     throw new Error('Socket.io not initialized');
   }
-  io.to(`notifications:${userId}`).emit('notification', {
+  
+  const room = `notifications:${userId}`;
+  logger.info(`📡 Emitting in-app notification to room ${room}: ${payload.type}`);
+  
+  io.to(room).emit('notification', {
     type: payload.type,
     title: payload.title,
     body: payload.body,

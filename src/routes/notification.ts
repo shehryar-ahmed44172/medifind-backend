@@ -16,4 +16,10 @@ router.post('/silence', notificationController.silenceOtherResponders);
 // Get notification history for current user
 router.get('/history', notificationController.getNotificationHistory);
 
+// Mark notification as read
+router.patch('/:id/read', notificationController.markAsRead);
+
+// Mark all notifications as read
+router.patch('/read-all', notificationController.markAllAsRead);
+
 export default router;

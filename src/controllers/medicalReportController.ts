@@ -85,3 +85,22 @@ export const deleteReport = async (req: Request, res: Response) => {
     sendError(res, error.message, 400);
   }
 };
+
+/**
+ * PATCH /api/reports/:id
+ * Rename a medical report
+ */
+export const renameReport = async (req: Request, res: Response) => {
+  try {
+    if (!req.user) return sendError(res, 'Unauthorized', 401);
+    const { id } = req.params;
+    const { fileName } = req.body;
+
+    if (!fileName) return sendError(res, 'File name is required', 400);
+
+    const report = await medicalReportService.renameReport(id, req.user.userId, fileName);
+    sendSuccess(res, report, 'Report renamed successfully');
+  } catch (error: any) {
+    sendError(res, error.message, 400);
+  }
+};

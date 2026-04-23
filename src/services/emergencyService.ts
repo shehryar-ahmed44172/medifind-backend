@@ -4,11 +4,11 @@ import { medicalProfileRepository } from '../repositories/medicalProfileReposito
 import logger from '../utils/logger';
 
 import { getIo } from '../server';
-import { caregiverRepository } from '../repositories/caregiverRepository';
+import * as caregiverRepository from '../repositories/caregiverRepository';
 import { sendNotification } from './notification';
 import { NotificationType, NotificationChannel } from '../types/notification';
 
-const CANCELLATION_WINDOW_SECONDS = parseInt(process.env.EMERGENCY_CANCELLATION_WINDOW_SECONDS || '10', 10);
+const CANCELLATION_WINDOW_SECONDS = parseInt(process.env.EMERGENCY_CANCELLATION_WINDOW_SECONDS || '60', 10);
 
 /**
  * Create a new SOS emergency.
@@ -34,7 +34,10 @@ export const createEmergency = async (data: {
   // Voice Alert Summary Generation (FR6.1 - FR6.3)
   const allergies = (medicalProfile?.allergies as string[]) || [];
   const chronic = (medicalProfile?.chronicDiseases as string[]) || [];
-  const voiceSummary = `Emergency Type: ${data.emergencyType || 'MEDICAL'}. ` +
+  const isDeaf = medicalProfile?.patientType === 'DEAF';
+
+  const voiceSummary = (isDeaf ? "ATTENTION: PATIENT IS DEAF AND UNABLE TO SPEAK. " : "") +
+    `Emergency Type: ${data.emergencyType || 'MEDICAL'}. ` +
     (allergies.length > 0 ? `Patient has allergies: ${allergies.join(', ')}. ` : '') +
     (chronic.length > 0 ? `Chronic conditions: ${chronic.join(', ')}.` : '');
 
@@ -145,6 +148,8 @@ const notifyNearbyResponders = async (
   patientName: string = 'Patient',
   voiceSummary: string = ''
 ) => {
+  const { userRepository } = await import('../repositories/userRepository');
+  const patient = await userRepository.findById(patientId);
   const nearbyResponders = await responderRepository.findNearbyAvailable(latitude, longitude, 5);
 
   if (nearbyResponders.length === 0) {
@@ -202,6 +207,10 @@ const notifyNearbyResponders = async (
             estimatedArrivalMinutes: Math.ceil((responder.distanceKm / 40) * 60).toString(),
             messageExpiry: "60",
             voiceSummary, // FR6 Voice Alert
+            bloodType: patient?.medicalProfile?.bloodType || 'Unknown',
+            allergies: JSON.stringify(patient?.medicalProfile?.allergies || []),
+            chronicDiseases: JSON.stringify(patient?.medicalProfile?.chronicDiseases || []),
+            patientType: patient?.medicalProfile?.patientType || 'NORMAL',
             createdAt: new Date().toISOString(),
           }
         });

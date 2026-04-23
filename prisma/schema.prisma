@@ -15,6 +15,8 @@ model User {
   passwordHash        String
   role                UserRole          @default(PATIENT)
   profileImageUrl     String?
+  city                String?
+  address             String?
   isActive            Boolean           @default(true)
   lastLogin           DateTime?
   createdAt           DateTime          @default(now())
@@ -270,6 +272,7 @@ model NotificationLog {
   title         String
   body          String
   status        String
+  isRead        Boolean   @default(false)
   deliveredAt   DateTime?
   failureReason String?
   createdAt     DateTime  @default(now())
@@ -278,6 +281,7 @@ model NotificationLog {
   @@index([userId])
   @@index([createdAt])
   @@index([status])
+  @@index([isRead])
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.

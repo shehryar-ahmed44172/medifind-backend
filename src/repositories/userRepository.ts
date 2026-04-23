@@ -40,6 +40,8 @@ export const userRepository = {
     vehicleType?: string;
     cnicImageUrl?: string;
     employeeCardImageUrl?: string;
+    city?: string;
+    address?: string;
   }) => {
     return await prisma.$transaction(async (tx) => {
       // 1. Create the base User
@@ -51,6 +53,8 @@ export const userRepository = {
           passwordHash: data.passwordHash,
           role: data.role,
           isActive: data.isActive,
+          city: data.city,
+          address: data.address,
         },
       });
 

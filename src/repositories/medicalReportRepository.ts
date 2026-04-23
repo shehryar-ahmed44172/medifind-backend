@@ -56,4 +56,14 @@ export const medicalReportRepository = {
       where: { id },
     });
   },
+
+  /**
+   * Update a report
+   */
+  update: async (id: string, data: any) => {
+    return await prisma.medicalReport.update({
+      where: { id },
+      data,
+    });
+  },
 };

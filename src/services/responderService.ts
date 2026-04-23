@@ -282,3 +282,37 @@ export const setResponderAvailability = async (userId: string, isAvailable: bool
 export const getResponderHistory = async (responderId: string) => {
   return await responderRepository.getHistory(responderId);
 };
+/**
+ * Get active emergency requests for a responder.
+ */
+export const getActiveEmergencyRequests = async (responderId: string) => {
+  const requests = await prisma.emergencyRequest.findMany({
+    where: { 
+      responderId,
+      status: { in: ['PENDING', 'ACCEPTED'] }
+    },
+    include: {
+      emergency: {
+        include: {
+          patient: {
+            select: {
+              id: true,
+              fullName: true,
+              phoneNumber: true,
+              email: true,
+              medicalProfile: true
+            }
+          }
+        }
+      }
+    },
+    orderBy: { createdAt: 'desc' }
+  });
+
+  // Map to a format that the mobile app expects (Emergency objects with requests array)
+  return requests.map(req => ({
+    ...req.emergency,
+    status: req.status === 'ACCEPTED' ? 'ASSIGNED' : 'ACTIVE',
+    requests: [req] // Include the specific request
+  }));
+};

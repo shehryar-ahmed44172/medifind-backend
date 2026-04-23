@@ -32,6 +32,8 @@ export const register = async (data: RegisterRequest) => {
     isActive: true,
     // Pass all optional role-specific fields
     cnic: data.cnic,
+    city: data.city,
+    address: data.address,
     patientType: data.patientType,
     organization: data.organization,
     licenseNumber: data.licenseNumber,

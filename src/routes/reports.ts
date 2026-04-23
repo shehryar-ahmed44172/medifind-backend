@@ -21,4 +21,7 @@ router.get('/:emergencyId', medicalReportController.getReports);
 // Delete a report (PATIENT only)
 router.delete('/:id', roleMiddleware('PATIENT'), medicalReportController.deleteReport);
 
+// Rename a report (PATIENT only)
+router.patch('/:id', roleMiddleware('PATIENT'), medicalReportController.renameReport);
+
 export default router;

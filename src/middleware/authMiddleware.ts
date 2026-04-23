@@ -36,8 +36,10 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
 export const roleMiddleware = (...allowedRoles: string[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user || !allowedRoles.includes(req.user.role)) {
+      console.log(`[Role Check] FAILED: User ${req.user?.userId} (Role: ${req.user?.role}) tried to access ${req.originalUrl}. Allowed roles: ${allowedRoles}`);
       return sendError(res, 'Unauthorized', 403);
     }
+    console.log(`[Role Check] PASSED: User ${req.user?.userId} (Role: ${req.user?.role}) for ${req.originalUrl}`);
     next();
   };
 };

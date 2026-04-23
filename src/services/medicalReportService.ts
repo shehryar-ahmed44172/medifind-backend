@@ -98,3 +98,11 @@ export const deleteReport = async (reportId: string, userId: string) => {
 
   return await medicalReportRepository.delete(reportId);
 };
+
+export const renameReport = async (reportId: string, userId: string, newName: string) => {
+  const report = await medicalReportRepository.findById(reportId);
+  if (!report) throw new Error('Report not found');
+  if (report.userId !== userId) throw new Error('Unauthorized');
+
+  return await medicalReportRepository.update(reportId, { fileName: newName });
+};

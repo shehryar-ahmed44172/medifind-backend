@@ -85,3 +85,29 @@ export const getNotificationHistory = async (req: Request, res: Response) => {
     sendError(res, error.message, 500);
   }
 };
+
+/**
+ * PATCH /api/notifications/:id/read
+ */
+export const markAsRead = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    await notificationRepository.markAsRead(id);
+    sendSuccess(res, null, 'Notification marked as read');
+  } catch (error: any) {
+    sendError(res, error.message, 500);
+  }
+};
+
+/**
+ * PATCH /api/notifications/read-all
+ */
+export const markAllAsRead = async (req: Request, res: Response) => {
+  try {
+    if (!req.user) return sendError(res, 'Unauthorized', 401);
+    await notificationRepository.markAllAsRead(req.user.userId);
+    sendSuccess(res, null, 'All notifications marked as read');
+  } catch (error: any) {
+    sendError(res, error.message, 500);
+  }
+};

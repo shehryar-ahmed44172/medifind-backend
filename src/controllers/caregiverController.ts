@@ -42,7 +42,12 @@ export const getLinks = async (req: Request, res: Response) => {
       sendSuccess(res, caregivers, 'Linked caregivers retrieved');
     } else if (req.user.role === 'CAREGIVER') {
       const patients = await caregiverService.getLinkedPatients(req.user.userId);
-      sendSuccess(res, patients, 'Linked patients retrieved');
+      const transformed = patients.map((l: any) => ({
+        ...l,
+        patientName: l.patient?.fullName,
+        patientEmail: l.patient?.email,
+      }));
+      sendSuccess(res, transformed, 'Linked patients retrieved');
     } else {
       sendError(res, 'Invalid role to access caregiver links', 403);
     }
@@ -72,26 +77,53 @@ export const unlinkCaregiver = async (req: Request, res: Response) => {
  */
 export const getPendingInvitations = async (req: Request, res: Response) => {
   try {
-    if (!req.user || req.user.role !== 'CAREGIVER') return sendError(res, 'Unauthorized', 403);
+    if (!req.user) return sendError(res, 'Unauthorized', 401);
+    if (req.user.role !== 'CAREGIVER' && req.user.role !== 'PATIENT') {
+      return sendError(res, 'Unauthorized role', 403);
+    }
     const invitations = await caregiverService.getPendingInvitations(req.user.userId);
-    sendSuccess(res, invitations, 'Pending invitations retrieved');
+    
+    // Add synthetic ID for mobile app mapping (Flutter expects an 'id' field)
+    const transformed = invitations.map((inv: any) => ({
+      ...inv,
+      id: req.user?.role === 'CAREGIVER' ? inv.patientId : inv.caregiverId,
+      patientName: inv.patient?.fullName,
+      patientEmail: inv.patient?.email,
+      caregiverName: inv.caregiver?.fullName,
+      caregiverEmail: inv.caregiver?.email
+    }));
+
+    sendSuccess(res, transformed, 'Pending invitations retrieved');
   } catch (error: any) {
     sendError(res, error.message, 500);
   }
 };
 
 /**
- * POST /api/caregivers/invitations/:patientId/respond
+ * POST /api/caregivers/invitations/:targetId/respond
  */
 export const respondToInvitation = async (req: Request, res: Response) => {
   try {
-    if (!req.user || req.user.role !== 'CAREGIVER') return sendError(res, 'Unauthorized', 403);
-    const { patientId } = req.params;
+    if (!req.user) return sendError(res, 'Unauthorized', 401);
+    const { targetId } = req.params;
     const { accept } = req.body;
 
     if (accept === undefined) return sendError(res, 'accept (boolean) is required', 400);
 
-    const result = await caregiverService.respondToInvitation(req.user.userId, patientId, accept);
+    let caregiverId: string;
+    let patientId: string;
+
+    if (req.user.role === 'CAREGIVER') {
+      caregiverId = req.user.userId;
+      patientId = targetId;
+    } else if (req.user.role === 'PATIENT') {
+      caregiverId = targetId;
+      patientId = req.user.userId;
+    } else {
+      return sendError(res, 'Unauthorized role', 403);
+    }
+
+    const result = await caregiverService.respondToInvitation(caregiverId, patientId, accept, req.user.userId);
     sendSuccess(res, result, accept ? 'Invitation accepted' : 'Invitation rejected');
   } catch (error: any) {
     sendError(res, error.message, 400);
@@ -103,9 +135,22 @@ export const respondToInvitation = async (req: Request, res: Response) => {
  */
 export const getAllLinks = async (req: Request, res: Response) => {
   try {
-    if (!req.user || req.user.role !== 'CAREGIVER') return sendError(res, 'Unauthorized', 403);
-    const links = await caregiverService.getAllLinkedPatients(req.user.userId);
-    sendSuccess(res, links, 'All patient links retrieved');
+    if (!req.user) return sendError(res, 'Unauthorized', 401);
+    
+    if (req.user.role === 'PATIENT') {
+      const links = await caregiverService.getAllLinkedCaregivers(req.user.userId);
+      sendSuccess(res, links, 'All caregiver links retrieved');
+    } else if (req.user.role === 'CAREGIVER') {
+      const links = await caregiverService.getAllLinkedPatients(req.user.userId);
+      const transformed = links.map((l: any) => ({
+        ...l,
+        patientName: l.patient?.fullName,
+        patientEmail: l.patient?.email,
+      }));
+      sendSuccess(res, transformed, 'All patient links retrieved');
+    } else {
+      sendError(res, 'Unauthorized role', 403);
+    }
   } catch (error: any) {
     sendError(res, error.message, 500);
   }

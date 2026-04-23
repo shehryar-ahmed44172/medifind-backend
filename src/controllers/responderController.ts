@@ -136,3 +136,16 @@ export const getHistory = async (req: Request, res: Response) => {
     sendError(res, error.message, 500);
   }
 };
+/**
+ * GET /api/responders/emergencies
+ * Get responder's active (pending/accepted) emergency requests
+ */
+export const getActiveRequests = async (req: Request, res: Response) => {
+  try {
+    if (!req.user) return sendError(res, 'Unauthorized', 401);
+    const requests = await responderService.getActiveEmergencyRequests(req.user.userId);
+    sendSuccess(res, requests, 'Active requests retrieved');
+  } catch (error: any) {
+    sendError(res, error.message, 500);
+  }
+};
