@@ -3,6 +3,7 @@ import { Response } from 'express';
 export interface ApiResponseFormat {
   success: boolean;
   message: string;
+  error?: string; // Added for mobile client compatibility
   data?: any;
   errors?: any;
   timestamp: string;
@@ -31,6 +32,7 @@ export const sendError = (
   res.status(status).json({
     success: false,
     message,
+    error: message, // Added for mobile client compatibility
     errors,
     timestamp: new Date().toISOString(),
   } as ApiResponseFormat);

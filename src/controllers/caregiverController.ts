@@ -86,7 +86,10 @@ export const getPendingInvitations = async (req: Request, res: Response) => {
     // Add synthetic ID for mobile app mapping (Flutter expects an 'id' field)
     const transformed = invitations.map((inv: any) => ({
       ...inv,
-      id: req.user?.role === 'CAREGIVER' ? inv.patientId : inv.caregiverId,
+      // Keep `id` as the CaregiverLink's own ID so Flutter can pass it back to /respond
+      id: inv.id,
+      // Expose the other party's user ID separately
+      targetUserId: req.user?.role === 'CAREGIVER' ? inv.patientId : inv.caregiverId,
       patientName: inv.patient?.fullName,
       patientEmail: inv.patient?.email,
       caregiverName: inv.caregiver?.fullName,
@@ -105,25 +108,20 @@ export const getPendingInvitations = async (req: Request, res: Response) => {
 export const respondToInvitation = async (req: Request, res: Response) => {
   try {
     if (!req.user) return sendError(res, 'Unauthorized', 401);
-    const { targetId } = req.params;
+    const { targetId } = req.params; // CaregiverLink's own ID
     const { accept } = req.body;
 
     if (accept === undefined) return sendError(res, 'accept (boolean) is required', 400);
-
-    let caregiverId: string;
-    let patientId: string;
-
-    if (req.user.role === 'CAREGIVER') {
-      caregiverId = req.user.userId;
-      patientId = targetId;
-    } else if (req.user.role === 'PATIENT') {
-      caregiverId = targetId;
-      patientId = req.user.userId;
-    } else {
+    if (!req.user.role || (req.user.role !== 'CAREGIVER' && req.user.role !== 'PATIENT')) {
       return sendError(res, 'Unauthorized role', 403);
     }
 
-    const result = await caregiverService.respondToInvitation(caregiverId, patientId, accept, req.user.userId);
+    const result = await caregiverService.respondToInvitation(
+      targetId,
+      accept,
+      req.user.userId,
+      req.user.role,
+    );
     sendSuccess(res, result, accept ? 'Invitation accepted' : 'Invitation rejected');
   } catch (error: any) {
     sendError(res, error.message, 400);

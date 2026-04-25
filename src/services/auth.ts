@@ -6,6 +6,9 @@ import { RegisterRequest, AuthResponse } from '../types/auth';
 import { recordFailedLoginAttempt, recordSuccessfulLogin } from '../middleware/loginRateLimitMiddleware';
 import { sendEmail } from '../utils/email';
 import crypto from 'crypto';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 /**
  * Register a new user
@@ -43,7 +46,81 @@ export const register = async (data: RegisterRequest) => {
     employeeCardImageUrl: data.employeeCardImageUrl,
   });
 
-  // Generate tokens for automatic login after registration
+  // Generate OTP for email verification
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  const otpExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+  await (prisma as any).emailVerification.upsert({
+    where: { userId: user.id },
+    update: { otp, expiresAt: otpExpires },
+    create: { userId: user.id, otp, expiresAt: otpExpires },
+  });
+
+  // Send verification email
+  console.log(`\n📧 VERIFICATION CODE FOR ${user.email}: [ ${otp} ]\n`);
+  
+  await sendEmail({
+    to: user.email,
+    subject: 'Verify your MediFind Account',
+    html: `
+      <div style="font-family: sans-serif; padding: 20px; color: #333;">
+        <h2 style="color: #0E9AA7;">Welcome to MediFind!</h2>
+        <p>Hello ${user.fullName},</p>
+        <p>Thank you for registering. Please use the following code to verify your email address:</p>
+        <div style="background: #f4f4f4; padding: 15px; border-radius: 8px; font-size: 32px; font-weight: bold; text-align: center; letter-spacing: 5px; margin: 20px 0;">
+          ${otp}
+        </div>
+        <p>This code will expire in 15 minutes.</p>
+        <p>If you didn't create an account, you can safely ignore this email.</p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+        <p style="font-size: 12px; color: #999;">MediFind - Your Health, Our Priority</p>
+      </div>
+    `
+  });
+
+  return {
+    userId: user.id,
+    email: user.email,
+    fullName: user.fullName,
+    role: user.role,
+    isEmailVerified: false,
+    message: 'Verification code sent to your email'
+  };
+};
+
+/**
+ * Verify user email with OTP
+ */
+export const verifyEmail = async (email: string, otp: string) => {
+  const user = await userRepository.findByEmail(email);
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  const verification = await (prisma as any).emailVerification.findUnique({
+    where: { userId: user.id }
+  });
+
+  if (!verification || verification.otp !== otp) {
+    throw new Error('Invalid verification code');
+  }
+
+  if (new Date() > verification.expiresAt) {
+    throw new Error('Verification code has expired');
+  }
+
+  // Update user status
+  await (prisma as any).user.update({
+    where: { id: user.id },
+    data: { isEmailVerified: true }
+  });
+
+  // Delete verification record
+  await (prisma as any).emailVerification.delete({
+    where: { userId: user.id }
+  });
+
+  // Generate tokens for login after verification
   const payload = {
     userId: user.id,
     email: user.email,
@@ -54,18 +131,62 @@ export const register = async (data: RegisterRequest) => {
   const refreshToken = generateRefreshToken(payload);
   const refreshTokenHash = await hashPassword(refreshToken);
 
-  // Store refresh token
   await userRepository.createRefreshToken(user.id, refreshTokenHash);
 
   return {
     userId: user.id,
     token: accessToken,
     refreshToken: refreshToken,
-    expiresIn: 86400, // 24 hours
+    expiresIn: 86400,
     email: user.email,
     fullName: user.fullName,
     role: user.role,
   };
+};
+
+/**
+ * Resend verification code
+ */
+export const resendVerificationCode = async (email: string) => {
+  const user = await userRepository.findByEmail(email);
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  if (user.isEmailVerified) {
+    throw new Error('Email is already verified');
+  }
+
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  const otpExpires = new Date(Date.now() + 15 * 60 * 1000);
+
+  await (prisma as any).emailVerification.upsert({
+    where: { userId: user.id },
+    update: { otp, expiresAt: otpExpires },
+    create: { userId: user.id, otp, expiresAt: otpExpires },
+  });
+
+  console.log(`\n📧 RESENT VERIFICATION CODE FOR ${user.email}: [ ${otp} ]\n`);
+
+  await sendEmail({
+    to: user.email,
+    subject: 'Your new MediFind Verification Code',
+    html: `
+      <div style="font-family: sans-serif; padding: 20px; color: #333;">
+        <h2 style="color: #0E9AA7;">Email Verification Code</h2>
+        <p>Hello ${user.fullName},</p>
+        <p>You requested a new verification code. Please use the following code to verify your email address:</p>
+        <div style="background: #f4f4f4; padding: 15px; border-radius: 8px; font-size: 32px; font-weight: bold; text-align: center; letter-spacing: 5px; margin: 20px 0;">
+          ${otp}
+        </div>
+        <p>This code will expire in 15 minutes.</p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+        <p style="font-size: 12px; color: #999;">MediFind - Your Health, Our Priority</p>
+      </div>
+    `
+  });
+
+  return { success: true, message: 'New verification code sent' };
 };
 
 /**
@@ -93,6 +214,11 @@ export const login = async (email: string, password: string, ipAddress?: string)
     // Track failed login attempt
     await recordFailedLoginAttempt(user.id);
     throw new Error('Invalid credentials');
+  }
+
+  // Check if email is verified
+  if (!user.isEmailVerified) {
+    throw new Error('Please verify your email before logging in');
   }
 
   // Password is correct - record successful login

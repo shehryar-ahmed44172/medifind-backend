@@ -4,7 +4,7 @@
   "description": "Node.js backend for MediFind emergency response application",
   "main": "dist/server.js",
   "scripts": {
-    "dev": "nodemon --exec ts-node src/server.ts",
+    "dev": "nodemon --delay 1 --exec ts-node src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
     "db:migrate": "prisma migrate dev",

@@ -38,6 +38,7 @@ export const register = async (req: Request, res: Response) => {
 
     sendSuccess(res, result, 'Registration successful', 201);
   } catch (error: any) {
+    console.error('Registration Error:', error.message);
     sendError(res, error.message, 400);
   }
 };
@@ -187,3 +188,40 @@ export const resetPassword = async (req: Request, res: Response) => {
     sendError(res, error.message, 400);
   }
 };
+
+/**
+ * POST /api/auth/verify-email
+ * Verify user email with OTP code
+ */
+export const verifyEmail = async (req: Request, res: Response) => {
+  try {
+    const { email, otp } = req.body;
+    if (!email || !otp) {
+      return sendError(res, 'Email and OTP code are required', 400);
+    }
+
+    const result = await authService.verifyEmail(email, otp);
+    sendSuccess(res, result, 'Email verified successfully', 200);
+  } catch (error: any) {
+    sendError(res, error.message, 400);
+  }
+};
+
+/**
+ * POST /api/auth/resend-verification
+ * Resend email verification code
+ */
+export const resendVerificationCode = async (req: Request, res: Response) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return sendError(res, 'Email is required', 400);
+    }
+
+    const result = await authService.resendVerificationCode(email);
+    sendSuccess(res, result, 'Verification code resent successfully', 200);
+  } catch (error: any) {
+    sendError(res, error.message, 400);
+  }
+};
+

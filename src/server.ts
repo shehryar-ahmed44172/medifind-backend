@@ -16,6 +16,7 @@ import responderRoutes from './routes/responders';
 import trackingRoutes from './routes/tracking';
 import reportRoutes from './routes/reports';
 import caregiverRoutes from './routes/caregivers';
+import chatRoutes from './routes/chat';
 import adminRoutes from './routes/admin';
 import notificationRoutes from './routes/notification';
 import { initializeNotifications } from './services/notification';
@@ -171,6 +172,11 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('join:chat', (roomId: string) => {
+    socket.join(`chat:${roomId}`);
+    logger.info(`💬 Socket ${socket.id} joined chat:${roomId}`);
+  });
+
   // Test Broadcast Event (Internal use)
   socket.on('test:broadcast', (data: any) => {
     const targetRoom = `notifications:${data.userId || userId}`;
@@ -201,6 +207,7 @@ app.use('/api/responders', responderRoutes);
 app.use('/api/tracking', trackingRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/caregivers', caregiverRoutes);
+app.use('/api/chat', chatRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/notifications', notificationRoutes);
 
@@ -226,21 +233,22 @@ app.use((err: any, _req: Request, res: Response, _next: any) => {
 });
 
 // Graceful shutdown
-const gracefulShutdown = () => {
-  logger.info('Received shutdown signal, closing gracefully...');
-  server.close(async () => {
+const gracefulShutdown = (signal: string) => {
+  logger.info(`Received ${signal}, closing server immediately...`);
+  
+  // Force close the server and its connections
+  server.close(() => {
     logger.info('HTTP server closed');
-    process.exit(0);
   });
 
+  // On Windows, CTRL+C needs an immediate exit to release the port
   setTimeout(() => {
-    logger.error('Could not close connections in time, forcefully shutting down');
-    process.exit(1);
-  }, 10000);
+    process.exit(0);
+  }, 100);
 };
 
-process.on('SIGINT', gracefulShutdown);
-process.on('SIGTERM', gracefulShutdown);
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 
 // Start server
 server.listen(PORT, HOST, () => {

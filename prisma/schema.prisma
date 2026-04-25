@@ -40,6 +40,10 @@ model User {
   passwordResets      PasswordReset[]
   refreshTokens       RefreshToken[]
   responder           Responder?
+  emailVerification   EmailVerification?
+  sentMessages        ChatMessage[]     @relation("MessageSender")
+  patientChatRooms    ChatRoom[]        @relation("PatientChatRooms")
+  caregiverChatRooms  ChatRoom[]        @relation("CaregiverChatRooms")
 
   @@index([email])
   @@index([phoneNumber])
@@ -245,6 +249,18 @@ model PasswordReset {
   @@index([createdAt])
 }
 
+model EmailVerification {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  otp       String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+
 model AuditLog {
   id        String   @id @default(cuid())
   userId    String?
@@ -291,6 +307,45 @@ model spatial_ref_sys {
   auth_srid Int?
   srtext    String? @db.VarChar(2048)
   proj4text String? @db.VarChar(2048)
+}
+
+model ChatRoom {
+  id          String        @id @default(cuid())
+  patientId   String
+  caregiverId String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  messages    ChatMessage[]
+  patient     User          @relation("PatientChatRooms", fields: [patientId], references: [id], onDelete: Cascade)
+  caregiver   User          @relation("CaregiverChatRooms", fields: [caregiverId], references: [id], onDelete: Cascade)
+
+  @@unique([patientId, caregiverId])
+  @@index([patientId])
+  @@index([caregiverId])
+}
+
+model ChatMessage {
+  id         String      @id @default(cuid())
+  roomId     String
+  senderId   String
+  content    String
+  messageType MessageType @default(TEXT)
+  mediaUrl   String?
+  isRead     Boolean     @default(false)
+  createdAt  DateTime    @default(now())
+  room       ChatRoom    @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  sender     User        @relation("MessageSender", fields: [senderId], references: [id])
+
+  @@index([roomId])
+  @@index([senderId])
+  @@index([createdAt])
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  AUDIO
+  VOICE_ALERT
 }
 
 enum UserRole {

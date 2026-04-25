@@ -39,10 +39,21 @@ export interface RefreshTokenRequest {
 
 export interface AuthResponse {
   userId: string;
-  token: string;
+  token?: string;
   refreshToken?: string;
-  expiresIn: number;
+  expiresIn?: number;
   email: string;
   fullName: string;
   role: string;
+  isEmailVerified?: boolean;
+  message?: string;
+}
+
+export interface RegisterResponse {
+  userId: string;
+  email: string;
+  fullName: string;
+  role: string;
+  isEmailVerified: boolean;
+  message: string;
 }

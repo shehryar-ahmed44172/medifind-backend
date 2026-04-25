@@ -66,27 +66,49 @@ export const getPendingInvitations = async (caregiverId: string) => {
   return await caregiverRepository.getPendingInvitations(caregiverId);
 };
 
-export const respondToInvitation = async (caregiverId: string, patientId: string, accept: boolean, responderId: string) => {
-  const status = accept ? 'ACCEPTED' : 'REJECTED';
-  const result = await caregiverRepository.updateLinkStatus(caregiverId, patientId, status as any);
+export const respondToInvitation = async (linkId: string, accept: boolean, responderId: string, responderRole: string) => {
+  // PRIMARY: look up by the CaregiverLink's own ID (what the Flutter app sends)
+  let link = await caregiverRepository.findLinkById(linkId);
 
-  // Determine who to notify (the one who DID NOT respond)
-  const targetId = result.requesterId === responderId 
-    ? (responderId === caregiverId ? patientId : caregiverId)
-    : result.requesterId!;
-    
+  // FALLBACK: treat linkId as a user ID (old behaviour) for backwards compatibility
+  if (!link) {
+    const caregiverId = responderRole === 'CAREGIVER' ? responderId : linkId;
+    const patientId   = responderRole === 'CAREGIVER' ? linkId    : responderId;
+    link = await caregiverRepository.findLink(caregiverId, patientId);
+    if (!link) link = await caregiverRepository.findLink(patientId, caregiverId);
+  }
+
+  if (!link) throw new Error('Invitation record not found in the system');
+
+  const status = accept ? 'ACCEPTED' : 'REJECTED';
+  const result = await caregiverRepository.updateLinkStatus(link.caregiverId, link.patientId, status as any);
+
+  // Notify the original requester about the response
+  const targetId = link.requesterId && link.requesterId !== responderId
+    ? link.requesterId
+    : (responderId === link.caregiverId ? link.patientId : link.caregiverId);
+
   const responder = await userRepository.findById(responderId);
 
   if (targetId) {
-    await sendNotification(targetId, {
+    sendNotification(targetId, {
       type: NotificationType.CAREGIVER_RESPONSE,
-      title: accept ? "INVITATION ACCEPTED" : "INVITATION REJECTED",
+      title: accept ? 'INVITATION ACCEPTED ✅' : 'INVITATION REJECTED',
       body: `${responder?.fullName} has ${accept ? 'accepted' : 'rejected'} your connection invitation.`,
       channels: [NotificationChannel.IN_APP, NotificationChannel.PUSH, NotificationChannel.EMAIL],
       priority: 'normal',
-      data: { caregiverId, patientId, status }
-    }).catch(err => console.error(`Failed to notify user ${targetId}: ${err.message}`));
+      data: { caregiverId: link.caregiverId, patientId: link.patientId, status },
+    }).catch(err => console.error(`Failed to notify requester ${targetId}: ${err.message}`));
   }
+
+  // Also notify the responder for their own history
+  sendNotification(responderId, {
+    type: NotificationType.CAREGIVER_RESPONSE,
+    title: accept ? 'You Accepted the Invitation' : 'You Rejected the Invitation',
+    body: accept ? 'You are now connected on MediFind.' : 'You declined the connection request.',
+    channels: [NotificationChannel.IN_APP],
+    priority: 'low',
+  }).catch(() => {});
 
   return result;
 };
@@ -112,7 +134,39 @@ export const resendInvitation = async (caregiverId: string, patientId: string) =
   if (!link) throw new Error('Invitation link not found');
   if (link.status === 'ACCEPTED') throw new Error('Already accepted');
 
-  return await caregiverRepository.updateLinkStatus(caregiverId, patientId, 'PENDING');
+  const result = await caregiverRepository.updateLinkStatus(caregiverId, patientId, 'PENDING');
+
+  // Determine target of resend (the one who ISN'T the requester/sender)
+  // Usually the Caregiver resends to Patient or vice versa.
+  const caregiver = await userRepository.findById(caregiverId);
+  const patient = await userRepository.findById(patientId);
+
+  // If requester was caregiver, notify patient. If requester was patient, notify caregiver.
+  const targetId = link.requesterId === caregiverId ? patientId : caregiverId;
+  const sender = link.requesterId === caregiverId ? caregiver : patient;
+  const receiver = link.requesterId === caregiverId ? patient : caregiver;
+
+  if (targetId && sender) {
+    await sendNotification(targetId, {
+      type: NotificationType.CAREGIVER_INVITATION,
+      title: "INVITATION REMINDER",
+      body: `${sender.fullName} has resent their connection request to you.`,
+      channels: [NotificationChannel.IN_APP, NotificationChannel.PUSH, NotificationChannel.EMAIL],
+      priority: 'normal',
+      data: { caregiverId, patientId }
+    }).catch(err => console.error(`Failed to notify target user on resend: ${err.message}`));
+
+    // Notify the sender that it was successful
+    await sendNotification(sender.id, {
+      type: NotificationType.CAREGIVER_INVITATION_SENT,
+      title: "Reminder Sent",
+      body: `You resent the connection request to ${receiver?.fullName}.`,
+      channels: [NotificationChannel.IN_APP],
+      priority: 'low',
+    }).catch(err => console.error(`Failed to notify sender on resend: ${err.message}`));
+  }
+
+  return result;
 };
 
 export const unlinkCaregiver = async (userId: string, caregiverId: string) => {

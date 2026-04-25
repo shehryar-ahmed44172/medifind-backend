@@ -58,6 +58,12 @@ export const findLink = async (caregiverId: string, patientId: string) => {
   });
 };
 
+export const findLinkById = async (id: string) => {
+  return await prisma.caregiverLink.findUnique({
+    where: { id },
+  });
+};
+
 export const getCaregiversForPatient = async (patientId: string) => {
   return await prisma.caregiverLink.findMany({
     where: { patientId, status: 'ACCEPTED', isActive: true } as any,

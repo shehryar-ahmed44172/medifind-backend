@@ -96,7 +96,7 @@ export const cancelEmergency = async (emergencyId: string, patientId: string) =>
   // Notify caregivers and responders about cancellation (The Perfect Solution)
   // Fetch all responders who were notified about this SOS
   const notifiedResponderIds = await emergencyRepository.getNotifiedResponderIds(emergencyId);
-  
+
   // Use notification service for reliable broadcast (Clears alert from mobile UI)
   for (const responderId of notifiedResponderIds) {
     sendNotification(responderId, {
@@ -151,6 +151,12 @@ const notifyNearbyResponders = async (
   const { userRepository } = await import('../repositories/userRepository');
   const patient = await userRepository.findById(patientId);
   const nearbyResponders = await responderRepository.findNearbyAvailable(latitude, longitude, 5);
+  const emergency = await emergencyRepository.findById(emergencyId);
+
+  if (!emergency) {
+    logger.error(`Emergency ${emergencyId} not found for notification`);
+    return;
+  }
 
   if (nearbyResponders.length === 0) {
     // Try expanding radius to 10km
@@ -184,7 +190,7 @@ const notifyNearbyResponders = async (
           distanceKm: responder.distanceKm,
           estimatedArrivalMinutes: Math.ceil((responder.distanceKm / 40) * 60), // Estimate at 40km/h
         });
-        
+
         // Use full notification system (IN_APP + PUSH via Firebase and logs to db)
         console.log(`[Emergency Notification] Sending push/in-app notification to ${responder.userId}`);
         await sendNotification(responder.userId, {
@@ -206,6 +212,8 @@ const notifyNearbyResponders = async (
             distanceKm: responder.distanceKm.toString(),
             estimatedArrivalMinutes: Math.ceil((responder.distanceKm / 40) * 60).toString(),
             messageExpiry: "60",
+            expiresAt: emergency.cancellationDeadline.toISOString(),
+            serverTime: new Date().toISOString(),
             voiceSummary, // FR6 Voice Alert
             bloodType: patient?.medicalProfile?.bloodType || 'Unknown',
             allergies: JSON.stringify(patient?.medicalProfile?.allergies || []),
@@ -214,7 +222,7 @@ const notifyNearbyResponders = async (
             createdAt: new Date().toISOString(),
           }
         });
-        
+
         logger.info(`Notified responder ${responder.userId} of emergency ${emergencyId}`);
       } else {
         console.log(`[Emergency Notification] Responder ${responder.userId} already has a request for this emergency.`);
@@ -236,7 +244,7 @@ const notifyCaregivers = async (patientId: string, emergencyData: any) => {
       type: NotificationType.PATIENT_EMERGENCY,
       title: "Patient Emergency!",
       body: `SOS Triggered by ${emergencyData.patientName}`,
-      channels: [NotificationChannel.IN_APP, NotificationChannel.PUSH],
+      channels: [NotificationChannel.IN_APP, NotificationChannel.PUSH, NotificationChannel.EMAIL],
       priority: 'high',
       data: {
         emergencyId: emergencyData.emergencyId,
@@ -258,11 +266,11 @@ export const checkAndEscalate = async () => {
 
   for (const emergency of activeEmergencies) {
     const ageSeconds = (now.getTime() - new Date(emergency.createdAt).getTime()) / 1000;
-    
+
     // If not accepted within 2 minutes (120s), escalate
     if (ageSeconds > 120) {
       logger.warn(`Escalating emergency ${emergency.id} - no responder accepted within 2 minutes`);
-      
+
       // Notify admins and re-broadcast to a wider radius or specific escalation channel
       getIo().emit('SYSTEM_ESCALATION', {
         type: 'SYSTEM_ESCALATION',
