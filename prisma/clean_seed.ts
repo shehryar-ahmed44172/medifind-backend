@@ -10,9 +10,12 @@ async function main() {
   await prisma.notificationLog.deleteMany();
   await prisma.auditLog.deleteMany();
   await prisma.passwordReset.deleteMany();
+  await prisma.emailVerification.deleteMany();
   await prisma.refreshToken.deleteMany();
   await prisma.medicalReport.deleteMany();
   await prisma.caregiverLink.deleteMany();
+  await prisma.chatMessage.deleteMany();
+  await prisma.chatRoom.deleteMany();
   await prisma.emergencyTracking.deleteMany();
   await prisma.emergencyRequest.deleteMany();
   await prisma.emergency.deleteMany();

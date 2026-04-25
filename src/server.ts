@@ -63,21 +63,33 @@ app.use(morgan('combined', {
   },
 }));
 
-// Rate limiting middleware (basic)
+// Rate limiting middleware (relaxed for development and media loading)
 const requestCounts = new Map<string, number>();
 app.use((req: Request, res: Response, next: any) => {
+  // Don't rate limit static files (images, reports, etc)
+  if (req.path.startsWith('/uploads')) {
+    return next();
+  }
+
   const ip = req.ip || 'unknown';
   const count = (requestCounts.get(ip) || 0) + 1;
   requestCounts.set(ip, count);
 
-  if (count > 100) {
-    res.status(429).json({ error: 'Too many requests' });
+  // Increased limit for development/testing
+  if (count > 1000) {
+    res.status(429).json({ error: 'Too many requests. Please try again later.' });
     return;
   }
 
+  // Clear count after 15 minutes
   setTimeout(() => {
-    requestCounts.delete(ip);
-  }, 15 * 60 * 1000); // 15 minutes
+    const current = requestCounts.get(ip) || 0;
+    if (current > 1) {
+      requestCounts.set(ip, current - 1);
+    } else {
+      requestCounts.delete(ip);
+    }
+  }, 15 * 60 * 1000);
 
   next();
 });

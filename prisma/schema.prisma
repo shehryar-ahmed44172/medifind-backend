@@ -128,7 +128,9 @@ model Responder {
   responderType         ResponderType       @default(VOLUNTEER)
   vehicleType           String?
   cnicImageUrl          String?
+  cnicBackImageUrl      String?
   employeeCardImageUrl  String?
+  employeeCardBackImageUrl String?
   rejectionReason       String?
   verificationStatus    VerificationStatus  @default(PENDING)
   emergencyRequests     EmergencyRequest[]
@@ -346,6 +348,7 @@ enum MessageType {
   IMAGE
   AUDIO
   VOICE_ALERT
+  DOCUMENT
 }
 
 enum UserRole {

@@ -18,19 +18,6 @@ MediFind is a specialized emergency response and medical monitoring platform des
 
 ---
 
-## MODULE 9: Admin Management & System Oversight
-**FR9.1**: The system shall provide a secure Web-based Admin Dashboard for system oversight.
-**FR9.2**: The Admin shall be able to list, filter, and search all registered users across all roles (Patient, Caregiver, Responder).
-**FR9.3**: The Admin shall have the authority to deactivate or delete user accounts for security or compliance reasons.
-**FR9.4**: The system shall implement a Responder Verification Workflow, where the Admin reviews pending responder applications.
-**FR9.5**: The Admin shall be able to verify responders (enabling them to receive SOS alerts) or reject them with a provided reason.
-**FR9.6**: The system shall provide real-time dashboard statistics, including total user count, total emergencies triggered, currently active emergencies, and the count of verified responders online.
-**FR9.7**: The system shall ensure that only users with the 'ADMIN' role can access administrative endpoints and the dashboard.
-
----
-
----
-
 ## MODULE 2: Medical Profile & Report Management
 **FR2.1**: The system shall allow patients to create and maintain a digital medical profile.
 **FR2.2**: The medical profile shall include Blood Type, Allergies, Chronic Diseases, Current Medications, and Disability Type (e.g., Deaf, Physically Disabled).
@@ -90,6 +77,17 @@ MediFind is a specialized emergency response and medical monitoring platform des
 **FR8.2**: The system shall implement Stateful Routing (StatefulShellRoute) to preserve navigation history and prevent UI flickering during transitions.
 **FR8.3**: The system shall provide role-specific "Quick Action Grids" on dashboards for high-speed navigation to critical features.
 **FR8.4**: The system shall ensure 60FPS performance by using optimized rendering techniques (RepaintBoundaries) on list-heavy screens.
+
+---
+
+## MODULE 9: Admin Management & System Oversight
+**FR9.1**: The system shall provide a secure Web-based Admin Dashboard for system oversight.
+**FR9.2**: The Admin shall be able to list, filter, and search all registered users across all roles (Patient, Caregiver, Responder).
+**FR9.3**: The Admin shall have the authority to deactivate or delete user accounts for security or compliance reasons.
+**FR9.4**: The system shall implement a Responder Verification Workflow, where the Admin reviews pending responder applications.
+**FR9.5**: The Admin shall be able to verify responders (enabling them to receive SOS alerts) or reject them with a provided reason.
+**FR9.6**: The system shall provide real-time dashboard statistics, including total user count, total emergencies triggered, currently active emergencies, and the count of verified responders online.
+**FR9.7**: The system shall ensure that only users with the 'ADMIN' role can access administrative endpoints and the dashboard.
 
 ---
 

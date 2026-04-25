@@ -249,6 +249,11 @@ async function sendEmailNotification(userId: string, payload: NotificationPayloa
   } else if (payload.type === NotificationType.PATIENT_EMERGENCY) {
     ctaText = 'View Alert';
     ctaUrl = `${appOrigin}caregiver/maps`;
+  } else if (payload.type === NotificationType.CHAT_MESSAGE) {
+    ctaText = 'Reply Now';
+    ctaUrl = user.role === 'CAREGIVER' 
+      ? `${appOrigin}caregiver/chats`
+      : `${appOrigin}chats`;
   }
 
   const htmlContent = `

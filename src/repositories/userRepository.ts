@@ -9,6 +9,12 @@ export const userRepository = {
     });
   },
 
+  findByPhoneNumber: async (phoneNumber: string) => {
+    return await prisma.user.findUnique({
+      where: { phoneNumber },
+    });
+  },
+
   findById: async (userId: string) => {
     return await prisma.user.findUnique({
       where: { id: userId },
@@ -39,7 +45,9 @@ export const userRepository = {
     responderType?: 'AMBULANCE' | 'PARAMEDIC' | 'DOCTOR' | 'VOLUNTEER' | 'EMERGENCY_RESPONDER';
     vehicleType?: string;
     cnicImageUrl?: string;
+    cnicBackImageUrl?: string;
     employeeCardImageUrl?: string;
+    employeeCardBackImageUrl?: string;
     city?: string;
     address?: string;
   }) => {
@@ -84,7 +92,9 @@ export const userRepository = {
             responderType: data.responderType ?? 'VOLUNTEER',
             vehicleType: data.vehicleType,
             cnicImageUrl: data.cnicImageUrl,
+            cnicBackImageUrl: data.cnicBackImageUrl,
             employeeCardImageUrl: data.employeeCardImageUrl,
+            employeeCardBackImageUrl: data.employeeCardBackImageUrl,
           } as any,
         });
       }

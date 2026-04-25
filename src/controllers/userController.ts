@@ -64,7 +64,7 @@ export const uploadProfileImage = async (req: Request, res: Response) => {
     // The server serves 'uploads' folder as static /uploads
     // So if filename is image-123.jpg, url is /uploads/reports/image-123.jpg 
     // (since path.join(process.cwd(), 'uploads', 'reports') was used in middleware)
-    const profileImageUrl = `/uploads/reports/${req.file.filename}`;
+    const profileImageUrl = `/uploads/profile/${req.file.filename}`;
 
     const updated = await userService.updateUserProfile(req.user.userId, {
       profileImageUrl: profileImageUrl

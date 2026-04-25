@@ -16,7 +16,12 @@ const prisma = new PrismaClient();
 export const register = async (data: RegisterRequest) => {
   const existingUser = await userRepository.findByEmail(data.email);
   if (existingUser) {
-    throw new Error('User already exists');
+    throw new Error('User already exists with this email');
+  }
+
+  const existingPhone = await userRepository.findByPhoneNumber(data.phoneNumber);
+  if (existingPhone) {
+    throw new Error('User already exists with this phone number');
   }
 
   const passwordHash = await hashPassword(data.password);
@@ -43,7 +48,9 @@ export const register = async (data: RegisterRequest) => {
     responderType: data.responderType,
     vehicleType: data.vehicleType,
     cnicImageUrl: data.cnicImageUrl,
+    cnicBackImageUrl: data.cnicBackImageUrl,
     employeeCardImageUrl: data.employeeCardImageUrl,
+    employeeCardBackImageUrl: data.employeeCardBackImageUrl,
   });
 
   // Generate OTP for email verification
@@ -317,7 +324,12 @@ export const requestPasswordReset = async (email: string) => {
 
   // 4. Send email
   const resetLink = `medifind://reset-password?token=${resetToken}&email=${email}`;
+  const resetCode = resetToken.substring(0, 6).toUpperCase();
   
+  console.log(`\n🔑 PASSWORD RESET REQUESTED for ${user.email}`);
+  console.log(`🔗 Reset Link: ${resetLink}`);
+  console.log(`🔢 Reset Code: ${resetCode}\n`);
+
   await sendEmail({
     to: user.email,
     subject: 'MediFind Password Reset',

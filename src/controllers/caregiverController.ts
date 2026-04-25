@@ -39,7 +39,12 @@ export const getLinks = async (req: Request, res: Response) => {
 
     if (req.user.role === 'PATIENT') {
       const caregivers = await caregiverService.getLinkedCaregivers(req.user.userId);
-      sendSuccess(res, caregivers, 'Linked caregivers retrieved');
+      const transformed = caregivers.map((l: any) => ({
+        ...l,
+        caregiverName: l.caregiver?.fullName,
+        caregiverEmail: l.caregiver?.email,
+      }));
+      sendSuccess(res, transformed, 'Linked caregivers retrieved');
     } else if (req.user.role === 'CAREGIVER') {
       const patients = await caregiverService.getLinkedPatients(req.user.userId);
       const transformed = patients.map((l: any) => ({
@@ -137,7 +142,12 @@ export const getAllLinks = async (req: Request, res: Response) => {
     
     if (req.user.role === 'PATIENT') {
       const links = await caregiverService.getAllLinkedCaregivers(req.user.userId);
-      sendSuccess(res, links, 'All caregiver links retrieved');
+      const transformed = links.map((l: any) => ({
+        ...l,
+        caregiverName: l.caregiver?.fullName,
+        caregiverEmail: l.caregiver?.email,
+      }));
+      sendSuccess(res, transformed, 'All caregiver links retrieved');
     } else if (req.user.role === 'CAREGIVER') {
       const links = await caregiverService.getAllLinkedPatients(req.user.userId);
       const transformed = links.map((l: any) => ({

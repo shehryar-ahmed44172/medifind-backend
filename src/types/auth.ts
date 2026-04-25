@@ -25,7 +25,9 @@ export interface RegisterRequest {
   responderType?: 'AMBULANCE' | 'PARAMEDIC' | 'DOCTOR' | 'VOLUNTEER' | 'EMERGENCY_RESPONDER';
   vehicleType?: string;
   cnicImageUrl?: string;
+  cnicBackImageUrl?: string;
   employeeCardImageUrl?: string;
+  employeeCardBackImageUrl?: string;
 }
 
 export interface LoginRequest {

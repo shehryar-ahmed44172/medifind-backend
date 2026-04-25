@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { verifyToken } from '../utils/jwt';
 import { sendError } from '../utils/response';
 import { TokenPayload } from '../types/auth';
+import logger from '../utils/logger';
 
 declare global {
   namespace Express {
@@ -14,6 +15,7 @@ declare global {
 export const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
   try {
     const authHeader = req.headers.authorization;
+    logger.info(`[AuthMiddleware] URL: ${req.originalUrl}, Header: ${authHeader ? (authHeader.startsWith('Bearer ') ? 'Bearer [PRESENT]' : 'Malformed') : 'MISSING'}`);
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return sendError(res, 'Missing or invalid authorization header', 401);
@@ -23,6 +25,7 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
     const payload = verifyToken(token);
 
     if (!payload) {
+      logger.warn(`[AuthMiddleware] Invalid or expired token for ${req.originalUrl}`);
       return sendError(res, 'Invalid or expired token', 401);
     }
 

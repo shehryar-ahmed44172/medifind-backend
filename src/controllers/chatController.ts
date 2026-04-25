@@ -2,12 +2,14 @@ import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import logger from '../utils/logger';
 import { getIo } from '../server';
+import { sendNotification } from '../services/notification';
+import { NotificationChannel, NotificationType } from '../types/notification';
 
 const prisma = new PrismaClient();
 
 export const getRooms = async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.id;
+    const userId = (req as any).user.userId;
     const rooms = await prisma.chatRoom.findMany({
       where: {
         OR: [
@@ -40,7 +42,7 @@ export const getRooms = async (req: Request, res: Response) => {
 export const getMessages = async (req: Request, res: Response) => {
   try {
     const { roomId } = req.params;
-    const userId = (req as any).user.id;
+    const userId = (req as any).user.userId;
 
     // Verify user belongs to room
     const room = await prisma.chatRoom.findUnique({
@@ -67,7 +69,7 @@ export const getMessages = async (req: Request, res: Response) => {
 export const sendMessage = async (req: Request, res: Response) => {
   try {
     const { roomId, content, messageType = 'TEXT', mediaUrl } = req.body;
-    const senderId = (req as any).user.id;
+    const senderId = (req as any).user.userId;
 
     const room = await prisma.chatRoom.findUnique({
       where: { id: roomId }
@@ -97,6 +99,33 @@ export const sendMessage = async (req: Request, res: Response) => {
     const io = getIo();
     io.to(`chat:${roomId}`).emit('message:new', message);
 
+    // Identify recipient
+    const recipientId = room.patientId === senderId ? room.caregiverId : room.patientId;
+    
+    // Fetch sender info for notification
+    const sender = await prisma.user.findUnique({
+      where: { id: senderId },
+      select: { fullName: true }
+    });
+
+    // Send Notification (Push, In-App, Email)
+    sendNotification(recipientId, {
+      type: NotificationType.CHAT_MESSAGE,
+      title: `New Message from ${sender?.fullName || 'User'}`,
+      body: content.length > 50 ? `${content.substring(0, 47)}...` : content,
+      channels: [
+        NotificationChannel.IN_APP,
+        NotificationChannel.PUSH,
+        NotificationChannel.EMAIL
+      ],
+      priority: 'normal',
+      data: {
+        roomId,
+        senderId,
+        click_action: "FLUTTER_NOTIFICATION_CLICK"
+      }
+    }).catch(err => logger.error(`Failed to send chat notification: ${err.message}`));
+
     res.status(201).json(message);
   } catch (error: any) {
     logger.error(`Error sending message: ${error.message}`);
@@ -107,7 +136,7 @@ export const sendMessage = async (req: Request, res: Response) => {
 export const createOrGetRoom = async (req: Request, res: Response) => {
   try {
     const { targetUserId } = req.body;
-    const currentUserId = (req as any).user.id;
+    const currentUserId = (req as any).user.userId;
     const role = (req as any).user.role;
 
     let patientId, caregiverId;
@@ -135,5 +164,27 @@ export const createOrGetRoom = async (req: Request, res: Response) => {
   } catch (error: any) {
     logger.error(`Error creating chat room: ${error.message}`);
     res.status(500).json({ error: 'Failed to create chat room' });
+  }
+};
+
+export const uploadFile = async (req: Request, res: Response) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    // In a real app, you would upload to S3/Cloudinary and get a URL
+    // For now, we use the local path (served via /uploads)
+    const fileUrl = `${req.protocol}://${req.get('host')}/uploads/chat/${req.file.filename}`;
+
+    res.json({
+      url: fileUrl,
+      filename: req.file.filename,
+      mimetype: req.file.mimetype,
+      size: req.file.size
+    });
+  } catch (error: any) {
+    logger.error(`Error uploading chat file: ${error.message}`);
+    res.status(500).json({ error: 'Failed to upload file' });
   }
 };

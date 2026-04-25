@@ -25,8 +25,15 @@ router.put('/', updateMedicalProfile);
 
 /**
  * GET /api/medical-profile/:userId
- * Get a patient's medical profile - Responders only
+ * Get a patient's medical profile - Responders, Admins, or the User themselves
  */
-router.get('/:userId', roleMiddleware('RESPONDER', 'ADMIN'), getMedicalProfileByUserId);
+router.get('/:userId', (req, res, next) => {
+  // Allow if it's the user's own profile
+  if (req.user?.userId === req.params.userId) {
+    return next();
+  }
+  // Otherwise, require RESPONDER or ADMIN role
+  roleMiddleware('RESPONDER', 'ADMIN')(req, res, next);
+}, getMedicalProfileByUserId);
 
 export default router;

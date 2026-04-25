@@ -8,6 +8,7 @@ import { RegisterRequest, LoginRequest, RefreshTokenRequest } from '../types/aut
  * Register a new user
  */
 export const register = async (req: Request, res: Response) => {
+  console.log(`\n📥 [AUTH] Register Request: ${req.body?.email} (${req.body?.role})`);
   try {
     const {
       fullName, email, phoneNumber, password, role,
@@ -48,6 +49,7 @@ export const register = async (req: Request, res: Response) => {
  * Login user and return access & refresh tokens
  */
 export const login = async (req: Request, res: Response) => {
+  console.log(`\n📥 [AUTH] Login Attempt: ${req.body?.email}`);
   try {
     const { email, password } = req.body as LoginRequest;
 
@@ -165,6 +167,7 @@ export const forgotPassword = async (req: Request, res: Response) => {
     const result = await authService.requestPasswordReset(email);
     sendSuccess(res, result, 'Reset email sent successfully', 200);
   } catch (error: any) {
+    console.error('❌ Forgot Password Error:', error.message);
     // If user not found, we still return 404 so frontend can show specific alert
     const statusCode = error.message === 'Email is not registered' ? 404 : 400;
     sendError(res, error.message, statusCode);
