@@ -14,35 +14,51 @@ export const responderRepository = {
     // Use raw SQL for PostGIS earth_distance calculation
     console.log(`[Geospatial Search] Looking for responders near ${latitude}, ${longitude} within ${radiusKm}km`);
     
+    const isDev = process.env.NODE_ENV === 'development';
+    
     const results = await prisma.$queryRaw<any[]>`
       SELECT r.*, u."fullName", u."phoneNumber", u."email",
-        earth_distance(
-          ll_to_earth(r."currentLatitude"::double precision, r."currentLongitude"::double precision),
-          ll_to_earth(${latitude}::double precision, ${longitude}::double precision)
-        ) / 1000 AS "distanceKm"
+        (
+          6371 * acos(
+            cos(radians(${latitude}::double precision)) *
+            cos(radians(r."currentLatitude"::double precision)) *
+            cos(radians(r."currentLongitude"::double precision) - radians(${longitude}::double precision)) +
+            sin(radians(${latitude}::double precision)) *
+            sin(radians(r."currentLatitude"::double precision))
+          )
+        ) AS "distanceKm"
       FROM "Responder" r
       JOIN "User" u ON u.id = r."userId"
       WHERE r."isAvailable" = true
-        AND (r."isVerified" = true OR ${process.env.NODE_ENV === 'development'})
+        AND (r."isVerified" = true OR ${isDev}::boolean)
         AND u."isActive" = true
-        AND (u."isEmailVerified" = true OR ${process.env.NODE_ENV === 'development'})
+        AND (u."isEmailVerified" = true OR ${isDev}::boolean)
         AND r."currentLatitude" IS NOT NULL
         AND r."currentLongitude" IS NOT NULL
-        AND earth_distance(
-              ll_to_earth(r."currentLatitude"::double precision, r."currentLongitude"::double precision),
-              ll_to_earth(${latitude}::double precision, ${longitude}::double precision)
-            ) <= ${radiusKm * 1000}::double precision
+        AND (
+          6371 * acos(
+            cos(radians(${latitude}::double precision)) *
+            cos(radians(r."currentLatitude"::double precision)) *
+            cos(radians(r."currentLongitude"::double precision) - radians(${longitude}::double precision)) +
+            sin(radians(${latitude}::double precision)) *
+            sin(radians(r."currentLatitude"::double precision))
+          )
+        ) <= ${radiusKm}::double precision
       ORDER BY "distanceKm" ASC
       LIMIT 10
     `;
 
     console.log(`[Geospatial Search] Found ${results.length} eligible responders`);
-    if (results.length === 0) {
+    if (results.length > 0) {
+      results.forEach(r => {
+        console.log(`  -> Responder ${r.userId} (${r.fullName}) is ${r.distanceKm} km away`);
+      });
+    } else {
       // Log why they might be missing
-      const allResponders = await prisma.responder.findMany({ select: { userId: true, isAvailable: true, isVerified: true, currentLatitude: true } });
+      const allResponders = await prisma.responder.findMany({ select: { userId: true, isAvailable: true, isVerified: true, currentLatitude: true, currentLongitude: true } });
       console.log(`[Geospatial Search] Total Responders in DB: ${allResponders.length}`);
       allResponders.forEach(r => {
-        console.log(`  - Responder ${r.userId}: available=${r.isAvailable}, verified=${r.isVerified}, hasLocation=${r.currentLatitude != null}`);
+        console.log(`  - Responder ${r.userId}: available=${r.isAvailable}, verified=${r.isVerified}, hasLocation=${r.currentLatitude != null}, coords=(${r.currentLatitude}, ${r.currentLongitude})`);
       });
     }
 

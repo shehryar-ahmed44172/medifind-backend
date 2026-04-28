@@ -15,6 +15,7 @@ model User {
   passwordHash        String
   role                UserRole          @default(PATIENT)
   profileImageUrl     String?
+  dateOfBirth         DateTime?
   city                String?
   address             String?
   isActive            Boolean           @default(true)

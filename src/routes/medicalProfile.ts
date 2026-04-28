@@ -5,6 +5,7 @@ import {
   getMedicalProfileByUserId,
 } from '../controllers/medicalProfileController';
 import { authMiddleware, roleMiddleware } from '../middleware/authMiddleware';
+import * as caregiverService from '../services/caregiverService';
 
 const router = Router();
 
@@ -25,15 +26,34 @@ router.put('/', updateMedicalProfile);
 
 /**
  * GET /api/medical-profile/:userId
- * Get a patient's medical profile - Responders, Admins, or the User themselves
+ * Get a patient's medical profile - Responders, Admins, Linked Caregivers, or the User themselves
  */
-router.get('/:userId', (req, res, next) => {
-  // Allow if it's the user's own profile
-  if (req.user?.userId === req.params.userId) {
+router.get('/:userId', async (req, res, next) => {
+  if (!req.user) return next();
+
+  // 1. Allow if it's the user's own profile
+  if (req.user.userId === req.params.userId) {
     return next();
   }
-  // Otherwise, require RESPONDER or ADMIN role
-  roleMiddleware('RESPONDER', 'ADMIN')(req, res, next);
+
+  // 2. Allow if RESPONDER or ADMIN
+  if (['RESPONDER', 'ADMIN'].includes(req.user.role)) {
+    return next();
+  }
+
+  // 3. Allow if CAREGIVER and linked to this patient
+  if (req.user.role === 'CAREGIVER') {
+    const isLinked = await caregiverService.isLinked(req.user.userId, req.params.userId);
+    if (isLinked) {
+      return next();
+    }
+  }
+
+  // Otherwise, block
+  res.status(403).json({ 
+    error: 'Forbidden', 
+    message: 'You do not have permission to view this medical profile' 
+  });
 }, getMedicalProfileByUserId);
 
 export default router;

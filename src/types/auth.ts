@@ -15,6 +15,7 @@ export interface RegisterRequest {
   cnic?: string;
   city?: string;
   address?: string;
+  dateOfBirth?: string;
 
   // PATIENT specific
   patientType?: 'NORMAL' | 'DEAF';

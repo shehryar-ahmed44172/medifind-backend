@@ -25,7 +25,7 @@ export const createEmergency = async (req: Request, res: Response) => {
       additionalInfo,
     });
 
-    sendSuccess(res, emergency, 'Emergency created — you have 10 seconds to cancel', 201);
+    sendSuccess(res, emergency, `Emergency created — you have ${emergency.cancellationWindowSeconds} seconds to cancel`, 201);
   } catch (error: any) {
     sendError(res, error.message, 400);
   }

@@ -163,8 +163,11 @@ const notifyNearbyResponders = async (
     const expanded = await responderRepository.findNearbyAvailable(latitude, longitude, 10);
     logger.warn(`No responders in 5km, found ${expanded.length} in 10km`);
 
-    // DEVELOPMENT FALLBACK: If no one found, force-add our test responder
-    if (expanded.length === 0 && process.env.NODE_ENV === 'development') {
+    if (expanded.length > 0) {
+      // FIX: Actually add the expanded responders to the list so they get notified
+      nearbyResponders.push(...expanded);
+    } else if (process.env.NODE_ENV === 'development') {
+      // DEVELOPMENT FALLBACK: If no one found, force-add our test responder
       const { userRepository } = await import('../repositories/userRepository');
       const testUser = await userRepository.findByEmail('responder@test.com');
       if (testUser) {

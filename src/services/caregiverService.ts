@@ -174,3 +174,7 @@ export const unlinkCaregiver = async (userId: string, caregiverId: string) => {
   // The controller checks if it's a PATIENT.
   return await caregiverRepository.removeLink(caregiverId, userId);
 };
+export const isLinked = async (caregiverId: string, patientId: string): Promise<boolean> => {
+  const link = await caregiverRepository.findLink(caregiverId, patientId);
+  return link?.status === 'ACCEPTED';
+};

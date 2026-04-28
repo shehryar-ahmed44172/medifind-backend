@@ -50,6 +50,7 @@ export const userRepository = {
     employeeCardBackImageUrl?: string;
     city?: string;
     address?: string;
+    dateOfBirth?: Date | null;
   }) => {
     return await prisma.$transaction(async (tx) => {
       // 1. Create the base User
@@ -63,6 +64,7 @@ export const userRepository = {
           isActive: data.isActive,
           city: data.city,
           address: data.address,
+          dateOfBirth: data.dateOfBirth,
         },
       });
 

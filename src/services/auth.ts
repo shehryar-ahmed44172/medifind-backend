@@ -51,6 +51,7 @@ export const register = async (data: RegisterRequest) => {
     cnicBackImageUrl: data.cnicBackImageUrl,
     employeeCardImageUrl: data.employeeCardImageUrl,
     employeeCardBackImageUrl: data.employeeCardBackImageUrl,
+    dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null,
   });
 
   // Generate OTP for email verification
