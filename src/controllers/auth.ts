@@ -17,6 +17,7 @@ export const register = async (req: Request, res: Response) => {
       organization, licenseNumber, responderType, vehicleType,
     } = req.body as RegisterRequest;
 
+    
     // Basic validation
     if (!fullName || !email || !phoneNumber || !password || !role) {
       return sendError(res, 'Missing required fields: fullName, email, phoneNumber, password, role', 400);
