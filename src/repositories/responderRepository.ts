@@ -20,11 +20,13 @@ export const responderRepository = {
       SELECT r.*, u."fullName", u."phoneNumber", u."email",
         (
           6371 * acos(
-            cos(radians(${latitude}::double precision)) *
-            cos(radians(r."currentLatitude"::double precision)) *
-            cos(radians(r."currentLongitude"::double precision) - radians(${longitude}::double precision)) +
-            sin(radians(${latitude}::double precision)) *
-            sin(radians(r."currentLatitude"::double precision))
+            LEAST(1.0, GREATEST(-1.0, 
+              cos(radians(${latitude}::double precision)) *
+              cos(radians(r."currentLatitude"::double precision)) *
+              cos(radians(r."currentLongitude"::double precision) - radians(${longitude}::double precision)) +
+              sin(radians(${latitude}::double precision)) *
+              sin(radians(r."currentLatitude"::double precision))
+            ))
           )
         ) AS "distanceKm"
       FROM "Responder" r
@@ -37,11 +39,13 @@ export const responderRepository = {
         AND r."currentLongitude" IS NOT NULL
         AND (
           6371 * acos(
-            cos(radians(${latitude}::double precision)) *
-            cos(radians(r."currentLatitude"::double precision)) *
-            cos(radians(r."currentLongitude"::double precision) - radians(${longitude}::double precision)) +
-            sin(radians(${latitude}::double precision)) *
-            sin(radians(r."currentLatitude"::double precision))
+            LEAST(1.0, GREATEST(-1.0,
+              cos(radians(${latitude}::double precision)) *
+              cos(radians(r."currentLatitude"::double precision)) *
+              cos(radians(r."currentLongitude"::double precision) - radians(${longitude}::double precision)) +
+              sin(radians(${latitude}::double precision)) *
+              sin(radians(r."currentLatitude"::double precision))
+            ))
           )
         ) <= ${radiusKm}::double precision
       ORDER BY "distanceKm" ASC

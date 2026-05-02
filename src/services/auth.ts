@@ -54,46 +54,63 @@ export const register = async (data: RegisterRequest) => {
     dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null,
   });
 
-  // Generate OTP for email verification
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  const otpExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+  // For PATIENTS and CAREGIVERS, send verification code immediately
+  // For RESPONDERS, we wait for admin approval before sending OTP
+  if (user.role !== 'RESPONDER') {
+    await sendVerificationCode(user.id, user.email, user.fullName);
+    return {
+      userId: user.id,
+      email: user.email,
+      fullName: user.fullName,
+      role: user.role,
+      isEmailVerified: false,
+      message: 'Verification code sent to your email'
+    };
+  }
 
-  await (prisma as any).emailVerification.upsert({
-    where: { userId: user.id },
-    update: { otp, expiresAt: otpExpires },
-    create: { userId: user.id, otp, expiresAt: otpExpires },
-  });
-
-  // Send verification email
-  console.log(`\n📧 VERIFICATION CODE FOR ${user.email}: [ ${otp} ]\n`);
-  
-  await sendEmail({
-    to: user.email,
-    subject: 'Verify your MediFind Account',
-    html: `
-      <div style="font-family: sans-serif; padding: 20px; color: #333;">
-        <h2 style="color: #0E9AA7;">Welcome to MediFind!</h2>
-        <p>Hello ${user.fullName},</p>
-        <p>Thank you for registering. Please use the following code to verify your email address:</p>
-        <div style="background: #f4f4f4; padding: 15px; border-radius: 8px; font-size: 32px; font-weight: bold; text-align: center; letter-spacing: 5px; margin: 20px 0;">
-          ${otp}
-        </div>
-        <p>This code will expire in 15 minutes.</p>
-        <p>If you didn't create an account, you can safely ignore this email.</p>
-        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
-        <p style="font-size: 12px; color: #999;">MediFind - Your Health, Our Priority</p>
-      </div>
-    `
-  });
-
+  // For Responders
   return {
     userId: user.id,
     email: user.email,
     fullName: user.fullName,
     role: user.role,
     isEmailVerified: false,
-    message: 'Verification code sent to your email'
+    message: 'Registration successful. Please wait for admin approval. You will receive a verification code once approved.'
   };
+};
+
+/**
+ * Send verification OTP code to user email
+ */
+export const sendVerificationCode = async (userId: string, email: string, fullName: string) => {
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  const otpExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+  await (prisma as any).emailVerification.upsert({
+    where: { userId: userId },
+    update: { otp, expiresAt: otpExpires },
+    create: { userId: userId, otp, expiresAt: otpExpires },
+  });
+
+  console.log(`\n📧 VERIFICATION CODE FOR ${email}: [ ${otp} ]\n`);
+  
+  await sendEmail({
+    to: email,
+    subject: 'Verify your MediFind Account',
+    html: `
+      <div style="font-family: sans-serif; padding: 20px; color: #333;">
+        <h2 style="color: #0E9AA7;">Welcome to MediFind!</h2>
+        <p>Hello ${fullName},</p>
+        <p>Your account has been approved by the admin. Please use the following code to verify your email address and activate your account:</p>
+        <div style="background: #f4f4f4; padding: 15px; border-radius: 8px; font-size: 32px; font-weight: bold; text-align: center; letter-spacing: 5px; margin: 20px 0;">
+          ${otp}
+        </div>
+        <p>This code will expire in 15 minutes.</p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+        <p style="font-size: 12px; color: #999;">MediFind - Your Health, Our Priority</p>
+      </div>
+    `
+  });
 };
 
 /**
@@ -137,7 +154,9 @@ export const verifyEmail = async (email: string, otp: string) => {
 
   const accessToken = generateAccessToken(payload);
   const refreshToken = generateRefreshToken(payload);
-  const refreshTokenHash = await hashPassword(refreshToken);
+  
+  // Use deterministic hash for DB lookup (SHA-256)
+  const refreshTokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
 
   await userRepository.createRefreshToken(user.id, refreshTokenHash);
 
@@ -240,7 +259,9 @@ export const login = async (email: string, password: string, ipAddress?: string)
 
   const accessToken = generateAccessToken(payload);
   const refreshToken = generateRefreshToken(payload);
-  const refreshTokenHash = await hashPassword(refreshToken);
+  
+  // Use deterministic hash for DB lookup (SHA-256)
+  const refreshTokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
 
   await userRepository.createRefreshToken(user.id, refreshTokenHash);
   await userRepository.updateLastLogin(user.id);
@@ -265,9 +286,8 @@ export const refreshAccessToken = async (refreshToken: string): Promise<AuthResp
     throw new Error('Invalid refresh token');
   }
 
-  const tokenRecord = await userRepository.findRefreshToken(
-    await hashPassword(refreshToken)
-  );
+  const refreshTokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
+  const tokenRecord = await userRepository.findRefreshToken(refreshTokenHash);
 
   if (!tokenRecord || tokenRecord.revokedAt || tokenRecord.userId !== decoded.userId) {
     throw new Error('Invalid or revoked refresh token');
@@ -298,7 +318,7 @@ export const refreshAccessToken = async (refreshToken: string): Promise<AuthResp
  * Logout user (revoke refresh token)
  */
 export const logout = async (refreshToken: string) => {
-  const refreshTokenHash = await hashPassword(refreshToken);
+  const refreshTokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
   await userRepository.revokeRefreshToken(refreshTokenHash);
   return { success: true };
 };

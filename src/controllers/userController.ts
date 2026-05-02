@@ -136,7 +136,8 @@ export const getUserById = async (req: Request, res: Response) => {
       licenseNumber: (profile as any).licenseNumber,
       responderType: (profile as any).responderType,
       vehicleType: (profile as any).vehicleType,
-      isActive: profile.role === 'RESPONDER' ? (profile as any).responder?.isAvailable : profile.isActive
+      isActive: profile.role === 'RESPONDER' ? (profile as any).responder?.isAvailable : profile.isActive,
+      isEmailVerified: profile.isEmailVerified
     };
 
     sendSuccess(res, userProfile, 'User profile retrieved successfully');

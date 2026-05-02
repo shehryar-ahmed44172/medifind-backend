@@ -229,3 +229,20 @@ export const resendVerificationCode = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * POST /api/auth/upload-document
+ * Public endpoint to upload documents during registration
+ */
+export const uploadDocument = async (req: Request, res: Response) => {
+  try {
+    if (!req.file) {
+      return sendError(res, 'No file uploaded', 400);
+    }
+
+    const fileUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+    
+    sendSuccess(res, { url: fileUrl }, 'File uploaded successfully', 200);
+  } catch (error: any) {
+    sendError(res, error.message, 500);
+  }
+};

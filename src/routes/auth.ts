@@ -2,6 +2,7 @@ import { Router } from 'express';
 import * as authController from '../controllers/auth';
 import { authMiddleware } from '../middleware/authMiddleware';
 import { loginRateLimitMiddleware } from '../middleware/loginRateLimitMiddleware';
+import { upload } from '../middleware/uploadMiddleware';
 
 const router = Router();
 
@@ -16,6 +17,7 @@ router.post('/forgot-password', authController.forgotPassword);
 router.post('/reset-password', authController.resetPassword);
 router.post('/verify-email', authController.verifyEmail);
 router.post('/resend-verification', authController.resendVerificationCode);
+router.post('/upload-document', upload.single('file'), authController.uploadDocument);
 
 /**
  * Protected endpoints

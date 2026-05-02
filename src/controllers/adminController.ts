@@ -85,14 +85,20 @@ export const processVerification = async (req: Request, res: Response) => {
     const { action, reason } = req.body; // action: VERIFY | REJECT
 
     if (action === 'VERIFY') {
-      await prisma.responder.update({
+      const responder = await prisma.responder.update({
         where: { userId: id },
         data: {
           verificationStatus: 'VERIFIED' as any,
           isVerified: true
-        } as any
+        } as any,
+        include: { user: true }
       });
-      sendSuccess(res, null, 'Responder verified');
+
+      // Send OTP after admin verification
+      const { sendVerificationCode } = await import('../services/auth');
+      await sendVerificationCode(responder.userId, responder.user.email, responder.user.fullName);
+
+      sendSuccess(res, null, 'Responder verified and code sent');
     } else if (action === 'REJECT') {
       await prisma.responder.update({
         where: { userId: id },

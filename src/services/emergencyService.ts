@@ -194,12 +194,16 @@ const notifyNearbyResponders = async (
           estimatedArrivalMinutes: Math.ceil((responder.distanceKm / 40) * 60), // Estimate at 40km/h
         });
 
+        // Calculate remaining seconds for the countdown window (FR5.1)
+        const now = new Date();
+        const remainingSeconds = Math.max(0, Math.floor((emergency.cancellationDeadline.getTime() - now.getTime()) / 1000));
+
         // Use full notification system (IN_APP + PUSH via Firebase and logs to db)
         console.log(`[Emergency Notification] Sending push/in-app notification to ${responder.userId}`);
         await sendNotification(responder.userId, {
           type: NotificationType.SOS_TRIGGERED,
           title: "EMERGENCY ALERT",
-          body: `Emergency reported nearby by ${patientName}. ETA: ${Math.ceil((responder.distanceKm / 40) * 60)} mins.`,
+          body: `Emergency reported nearby by ${patientName}. ETA: ${Math.ceil(((responder.distanceKm || 0) / 40) * 60)} mins.`,
           channels: [NotificationChannel.IN_APP, NotificationChannel.PUSH],
           priority: 'emergency',
           data: {
@@ -212,11 +216,11 @@ const notifyNearbyResponders = async (
             patientName,
             latitude: latitude.toString(),
             longitude: longitude.toString(),
-            distanceKm: responder.distanceKm.toString(),
-            estimatedArrivalMinutes: Math.ceil((responder.distanceKm / 40) * 60).toString(),
-            messageExpiry: "60",
+            distanceKm: (responder.distanceKm || 0).toString(),
+            estimatedArrivalMinutes: Math.ceil(((responder.distanceKm || 0) / 40) * 60).toString(),
+            messageExpiry: remainingSeconds.toString(),
             expiresAt: emergency.cancellationDeadline.toISOString(),
-            serverTime: new Date().toISOString(),
+            serverTime: now.toISOString(),
             voiceSummary, // FR6 Voice Alert
             bloodType: patient?.medicalProfile?.bloodType || 'Unknown',
             allergies: JSON.stringify(patient?.medicalProfile?.allergies || []),
