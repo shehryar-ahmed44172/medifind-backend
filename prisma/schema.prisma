@@ -377,6 +377,8 @@ enum EmergencyStatus {
   RESOLVED
   CANCELLED
   ASSIGNED
+  ARRIVED
+  COMPLETED
 }
 
 enum EmergencyRequestStatus {

@@ -131,6 +131,27 @@ export const getEmergency = async (emergencyId: string) => {
 };
 
 /**
+ * Update emergency status (Generic endpoint for ARRIVED, COMPLETED, etc.)
+ */
+export const updateEmergencyStatus = async (emergencyId: string, status: string) => {
+  const emergency = await emergencyRepository.findById(emergencyId);
+  if (!emergency) throw new Error('Emergency not found');
+
+  const updated = await (emergencyRepository as any).updateStatus(emergencyId, status);
+
+  getIo().to(`emergency:${emergencyId}`).emit('EMERGENCY_STATUS_CHANGE', {
+    type: "EMERGENCY_STATUS_CHANGE",
+    data: {
+      emergencyId,
+      newStatus: status,
+      timestamp: new Date().toISOString()
+    }
+  });
+
+  return updated;
+};
+
+/**
  * Get all active emergencies (for admin/responders).
  */
 export const getActiveEmergencies = async () => {

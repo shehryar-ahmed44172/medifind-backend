@@ -65,12 +65,12 @@ export const emergencyRepository = {
     });
   },
 
-  updateStatus: async (id: string, status: 'ACTIVE' | 'RESOLVED' | 'CANCELLED') => {
+  updateStatus: async (id: string, status: any) => {
     return await prisma.emergency.update({
       where: { id },
       data: {
         status,
-        resolvedAt: status !== 'ACTIVE' ? new Date() : null,
+        resolvedAt: (status === 'RESOLVED' || status === 'COMPLETED') ? new Date() : undefined,
       },
     });
   },

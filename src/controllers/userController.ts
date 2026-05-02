@@ -10,10 +10,15 @@ export const getProfile = async (req: Request, res: Response) => {
   try {
     if (!req.user) return sendError(res, 'Unauthorized', 401);
     const profile = await userService.getUserProfile(req.user.userId);
-    // Include availability status for responders
+    // Include availability status for responders and flatten patientType
     const responseData = {
       ...profile,
-      isActive: profile.role === 'RESPONDER' ? (profile as any).responder?.isAvailable : profile.isActive
+      isActive: profile.role === 'RESPONDER' ? (profile as any).responder?.isAvailable : profile.isActive,
+      patientType: (profile as any).medicalProfile?.patientType,
+      organization: (profile as any).responder?.organization,
+      licenseNumber: (profile as any).responder?.licenseNumber,
+      responderType: (profile as any).responder?.responderType,
+      vehicleType: (profile as any).responder?.vehicleType,
     };
     sendSuccess(res, responseData, 'Profile retrieved successfully');
   } catch (error: any) {
@@ -131,11 +136,11 @@ export const getUserById = async (req: Request, res: Response) => {
       lastUpdated: (profile as any).updatedAt,
       // Include role-specific fields if available
       cnic: (profile as any).cnic,
-      patientType: (profile as any).patientType,
-      organization: (profile as any).organization,
-      licenseNumber: (profile as any).licenseNumber,
-      responderType: (profile as any).responderType,
-      vehicleType: (profile as any).vehicleType,
+      patientType: (profile as any).medicalProfile?.patientType,
+      organization: (profile as any).responder?.organization,
+      licenseNumber: (profile as any).responder?.licenseNumber,
+      responderType: (profile as any).responder?.responderType,
+      vehicleType: (profile as any).responder?.vehicleType,
       isActive: profile.role === 'RESPONDER' ? (profile as any).responder?.isAvailable : profile.isActive,
       isEmailVerified: profile.isEmailVerified
     };

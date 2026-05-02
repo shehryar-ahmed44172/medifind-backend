@@ -74,3 +74,20 @@ export const getActiveEmergencies = async (req: Request, res: Response) => {
     sendError(res, error.message, 500);
   }
 };
+
+/**
+ * PATCH /api/emergencies/:id/status
+ * Update emergency status (Arrived, Resolved, etc.)
+ */
+export const updateEmergencyStatus = async (req: Request, res: Response) => {
+  try {
+    if (!req.user) return sendError(res, 'Unauthorized', 401);
+    const { id } = req.params;
+    const { status } = req.body;
+    
+    const updated = await emergencyService.updateEmergencyStatus(id, status);
+    sendSuccess(res, updated, 'Emergency status updated');
+  } catch (error: any) {
+    sendError(res, error.message, 400);
+  }
+};

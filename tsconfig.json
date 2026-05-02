@@ -9,7 +9,7 @@
     "resolveJsonModule": true,
     "declaration": true,
     "outDir": "./dist",
-    "rootDir": "./src",
+    "rootDir": "./",
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "types": ["node"]
@@ -18,6 +18,6 @@
     "esm": false,
     "experimentalEsm": false
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "scratch/**/*"],
   "exclude": ["node_modules", "tests"]
 }
