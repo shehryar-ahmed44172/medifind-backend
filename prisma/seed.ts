@@ -1,5 +1,6 @@
 /// <reference types="node" />
 import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
@@ -24,6 +25,21 @@ async function main() {
       phoneNumber: '+0987654321',
       passwordHash: 'hashed_password_here',
       role: 'RESPONDER',
+    },
+  });
+
+  // Create admin user
+  const adminPasswordHash = await bcrypt.hash('adminPassword123', 10);
+  await prisma.user.upsert({
+    where: { email: 'admin@medifind.com' },
+    update: {},
+    create: {
+      fullName: 'MediFind Administrator',
+      email: 'admin@medifind.com',
+      phoneNumber: '+920000000000',
+      passwordHash: adminPasswordHash,
+      role: 'ADMIN',
+      isEmailVerified: true,
     },
   });
 

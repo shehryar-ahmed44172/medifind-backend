@@ -45,6 +45,7 @@ model User {
   sentMessages        ChatMessage[]     @relation("MessageSender")
   patientChatRooms    ChatRoom[]        @relation("PatientChatRooms")
   caregiverChatRooms  ChatRoom[]        @relation("CaregiverChatRooms")
+  responderChatRooms  ChatRoom[]        @relation("ResponderChatRooms")
 
   @@index([email])
   @@index([phoneNumber])
@@ -313,18 +314,25 @@ model spatial_ref_sys {
 }
 
 model ChatRoom {
-  id          String        @id @default(cuid())
-  patientId   String
-  caregiverId String
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  messages    ChatMessage[]
-  patient     User          @relation("PatientChatRooms", fields: [patientId], references: [id], onDelete: Cascade)
-  caregiver   User          @relation("CaregiverChatRooms", fields: [caregiverId], references: [id], onDelete: Cascade)
+  id           String       @id @default(cuid())
+  roomType     ChatRoomType @default(CAREGIVER_PATIENT)
+  patientId    String
+  caregiverId  String?
+  responderId  String?
+  emergencyId  String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  messages     ChatMessage[]
+  patient      User         @relation("PatientChatRooms",   fields: [patientId],   references: [id], onDelete: Cascade)
+  caregiver    User?        @relation("CaregiverChatRooms", fields: [caregiverId], references: [id], onDelete: Cascade)
+  responder    User?        @relation("ResponderChatRooms", fields: [responderId], references: [id], onDelete: Cascade)
 
   @@unique([patientId, caregiverId])
+  @@unique([patientId, responderId, emergencyId])
   @@index([patientId])
   @@index([caregiverId])
+  @@index([responderId])
+  @@index([emergencyId])
 }
 
 model ChatMessage {
@@ -350,6 +358,11 @@ enum MessageType {
   AUDIO
   VOICE_ALERT
   DOCUMENT
+}
+
+enum ChatRoomType {
+  CAREGIVER_PATIENT
+  EMERGENCY_RESPONDER
 }
 
 enum UserRole {

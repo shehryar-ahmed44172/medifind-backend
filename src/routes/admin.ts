@@ -8,11 +8,14 @@ const router = Router();
 router.use(authMiddleware);
 router.use(roleMiddleware('ADMIN'));
 
-router.get('/users', adminController.getAllUsers);
-router.get('/stats', adminController.getDashboardStats);
-router.get('/responders/pending', adminController.getPendingResponders);
+router.get('/users',               adminController.getAllUsers);
+router.get('/stats',               adminController.getDashboardStats);
+router.get('/logs',                adminController.getAuditLogs);
+router.get('/subscriptions',       adminController.getSubscriptions);
+router.get('/notifications',       adminController.getCommAudit);          // comm audit
+router.get('/responders/pending',  adminController.getPendingResponders);
 router.post('/responders/:id/verify', adminController.processVerification);
 router.patch('/users/:id/deactivate', adminController.deactivateUser);
-router.delete('/users/:id', adminController.deleteUser);
+router.delete('/users/:id',        adminController.deleteUser);
 
 export default router;

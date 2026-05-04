@@ -12,6 +12,7 @@ import userRoutes from './routes/users';
 import medicalProfileRoutes from './routes/medicalProfile';
 import emergencyRoutes from './routes/emergencies';
 import { checkAndEscalate } from './services/emergencyService';
+import { submitLocationUpdate } from './services/trackingService';
 import responderRoutes from './routes/responders';
 import trackingRoutes from './routes/tracking';
 import reportRoutes from './routes/reports';
@@ -187,6 +188,45 @@ io.on('connection', (socket) => {
   socket.on('join:chat', (roomId: string) => {
     socket.join(`chat:${roomId}`);
     logger.info(`💬 Socket ${socket.id} joined chat:${roomId}`);
+  });
+
+  // Live location update from responder during active emergency (FR7.4)
+  socket.on('update_location', async (data: any) => {
+    const responderId = userId as string;
+    if (!responderId) {
+      logger.warn(`⚠️ update_location from unauthenticated socket ${socket.id} — ignored`);
+      return;
+    }
+
+    const { emergencyId, latitude, longitude, status } = data || {};
+    if (!emergencyId || latitude === undefined || longitude === undefined) {
+      logger.warn(`⚠️ update_location missing fields from ${socket.id}: ${JSON.stringify(data)}`);
+      return;
+    }
+
+    // Map mobile/emergency status values to tracking status enum
+    const statusMap: Record<string, 'EN_ROUTE' | 'ARRIVED' | 'TREATING' | 'TRANSPORTED'> = {
+      ACCEPTED:    'EN_ROUTE',
+      EN_ROUTE:    'EN_ROUTE',
+      ARRIVED:     'ARRIVED',
+      TREATING:    'TREATING',
+      TRANSPORTED: 'TRANSPORTED',
+      RESOLVED:    'ARRIVED',
+    };
+    const trackingStatus = statusMap[(status || '').toUpperCase()] ?? 'EN_ROUTE';
+
+    try {
+      await submitLocationUpdate({
+        emergencyId,
+        responderId,
+        latitude: parseFloat(latitude),
+        longitude: parseFloat(longitude),
+        status: trackingStatus,
+      });
+      logger.info(`📍 Location update: responder ${responderId} → [${latitude}, ${longitude}] (${trackingStatus}) for emergency ${emergencyId}`);
+    } catch (err: any) {
+      logger.error(`❌ Failed to process location update: ${err.message}`);
+    }
   });
 
   // Test Broadcast Event (Internal use)
