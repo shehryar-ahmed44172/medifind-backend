@@ -23,8 +23,9 @@ export interface RegisterRequest {
   // RESPONDER specific
   organization?: string;
   licenseNumber?: string;
-  responderType?: 'AMBULANCE' | 'PARAMEDIC' | 'DOCTOR' | 'VOLUNTEER' | 'EMERGENCY_RESPONDER';
+  responderType?: 'PARAMEDIC' | 'RESCUE_OFFICER' | 'EMT' | 'FIRST_RESPONDER' | 'VOLUNTEER';
   vehicleType?: string;
+  specialization?: string[];
   cnicImageUrl?: string;
   cnicBackImageUrl?: string;
   employeeCardImageUrl?: string;

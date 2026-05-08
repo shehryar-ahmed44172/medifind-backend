@@ -176,12 +176,26 @@ io.on('connection', (socket) => {
     logger.info(`📍 Socket ${socket.id} tracking location:${emergencyId}`);
   });
 
-  socket.on('join:notifications', (id: string) => {
-    const targetId = id || userId;
-    if (targetId) {
-      socket.join(`notifications:${targetId}`);
-      logger.info(`🔔 Socket ${socket.id} joined notifications:${targetId}`);
-      socket.emit('joined', { room: `notifications:${targetId}` });
+  socket.on('join', (data: any) => {
+    const { userId: targetId, role, room } = data || {};
+    
+    // Join user-specific notification room
+    if (targetId || userId) {
+      socket.join(`notifications:${targetId || userId}`);
+      logger.info(`🔔 Socket ${socket.id} joined notifications:${targetId || userId}`);
+    }
+
+    // Join role-based rooms
+    if (role === 'ADMIN') {
+      socket.join('admin_notifications');
+      socket.join('system_logs');
+      logger.info(`🛡️ Socket ${socket.id} joined admin channels`);
+    }
+
+    // Join specific arbitrary room
+    if (room) {
+      socket.join(room);
+      logger.info(`📦 Socket ${socket.id} joined room: ${room}`);
     }
   });
 

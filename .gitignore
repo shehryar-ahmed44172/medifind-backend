@@ -60,3 +60,8 @@ redis_data/
 *.tmp
 
 firebase-adminsdk.json
+
+# Local data and scratch
+uploads/
+scratch/
+.claude/

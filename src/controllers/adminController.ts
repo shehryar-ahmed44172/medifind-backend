@@ -17,10 +17,20 @@ export const getAllUsers = async (req: Request, res: Response) => {
         id: true,
         fullName: true,
         email: true,
+        phoneNumber: true,
         role: true,
         isActive: true,
-        createdAt: true
-      }
+        subscriptionPlan: true,
+        profileImageUrl: true,
+        createdAt: true,
+        medicalProfile: {
+          select: { patientType: true }
+        },
+        responder: {
+          select: { isVerified: true, verificationStatus: true, specialization: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
     });
     sendSuccess(res, users, 'Users retrieved');
   } catch (error: any) {
@@ -40,6 +50,23 @@ export const deactivateUser = async (req: Request, res: Response) => {
       data: { isActive: false }
     });
     sendSuccess(res, null, 'User deactivated');
+  } catch (error: any) {
+    sendError(res, error.message, 400);
+  }
+};
+
+/**
+ * Admin: Reactivate user
+ * PATCH /api/admin/users/:id/activate
+ */
+export const reactivateUser = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    await prisma.user.update({
+      where: { id },
+      data: { isActive: true }
+    });
+    sendSuccess(res, null, 'User reactivated');
   } catch (error: any) {
     sendError(res, error.message, 400);
   }
@@ -98,6 +125,15 @@ export const processVerification = async (req: Request, res: Response) => {
       const { sendVerificationCode } = await import('../services/auth');
       await sendVerificationCode(responder.userId, responder.user.email, responder.user.fullName);
 
+      // Notify responder in-app (Plan v4)
+      const { getIo } = await import('../server');
+      getIo().to(`notifications:${responder.userId}`).emit('notification', {
+        type: 'VERIFICATION_APPROVED',
+        title: 'Account Verified!',
+        body: 'Congratulations! Your professional credentials have been approved. You can now use the verification code sent to your email to activate your account.',
+        timestamp: new Date().toISOString()
+      });
+
       sendSuccess(res, null, 'Responder verified and code sent');
     } else if (action === 'REJECT') {
       await prisma.responder.update({
@@ -108,6 +144,16 @@ export const processVerification = async (req: Request, res: Response) => {
           rejectionReason: reason
         } as any
       });
+
+      // Notify responder in-app (Plan v4)
+      const { getIo } = await import('../server');
+      getIo().to(`notifications:${id}`).emit('notification', {
+        type: 'VERIFICATION_REJECTED',
+        title: 'Verification Update',
+        body: `Your verification request was not approved. Reason: ${reason || 'Incomplete documents'}. Please update your profile and try again.`,
+        timestamp: new Date().toISOString()
+      });
+
       sendSuccess(res, null, 'Responder rejected');
     } else {
       sendError(res, 'Invalid action. Use VERIFY or REJECT', 400);
@@ -281,6 +327,61 @@ export const getCommAudit = async (req: Request, res: Response) => {
 };
 
 /**
+ * Admin: System Health Check
+ * GET /api/admin/health
+ * Checks DB connectivity, Firebase, uptime, and memory usage.
+ */
+export const getSystemHealth = async (req: Request, res: Response) => {
+  const start = Date.now();
+
+  // 1. Database ping
+  let dbStatus: 'healthy' | 'degraded' | 'down' = 'down';
+  let dbLatencyMs = 0;
+  try {
+    const dbStart = Date.now();
+    await prisma.$queryRaw`SELECT 1`;
+    dbLatencyMs = Date.now() - dbStart;
+    dbStatus = dbLatencyMs < 200 ? 'healthy' : 'degraded';
+  } catch {
+    dbStatus = 'down';
+  }
+
+  // 2. Firebase / Push service
+  let pushStatus: 'healthy' | 'degraded' | 'down' = 'down';
+  try {
+    const admin = await import('firebase-admin');
+    pushStatus = admin.apps && admin.apps.length > 0 ? 'healthy' : 'degraded';
+  } catch {
+    pushStatus = 'degraded';
+  }
+
+  // 3. Socket layer — if this request is being served, the HTTP/WS layer is up
+  const socketStatus: 'healthy' | 'degraded' | 'down' = 'healthy';
+
+  // 4. API response time
+  const apiLatencyMs = Date.now() - start;
+  const apiStatus: 'healthy' | 'degraded' | 'down' =
+    apiLatencyMs < 300 ? 'healthy' : apiLatencyMs < 1000 ? 'degraded' : 'down';
+
+  // 5. Memory usage
+  const mem = process.memoryUsage();
+  const memUsedMB  = Math.round(mem.heapUsed  / 1024 / 1024);
+  const memTotalMB = Math.round(mem.heapTotal / 1024 / 1024);
+  const memPct     = Math.round((mem.heapUsed / mem.heapTotal) * 100);
+
+  sendSuccess(res, {
+    uptime:   Math.floor(process.uptime()),   // seconds
+    services: {
+      api:      { status: apiStatus,    latencyMs: apiLatencyMs },
+      database: { status: dbStatus,     latencyMs: dbLatencyMs  },
+      push:     { status: pushStatus,   latencyMs: null         },
+      socket:   { status: socketStatus, latencyMs: null         },
+    },
+    memory: { usedMB: memUsedMB, totalMB: memTotalMB, usedPct: memPct },
+  }, 'System health retrieved');
+};
+
+/**
  * Admin: Dashboard Stats
  */
 export const getDashboardStats = async (req: Request, res: Response) => {
@@ -298,6 +399,63 @@ export const getDashboardStats = async (req: Request, res: Response) => {
       activeEmergencies,
       onlineResponders: verifiedResponders
     }, 'Stats retrieved');
+  } catch (error: any) {
+    sendError(res, error.message, 500);
+  }
+};
+
+/**
+ * Admin: Send Test Email
+ */
+export const sendTestEmail = async (req: Request, res: Response) => {
+  try {
+    const { sendEmail } = await import('../utils/email');
+    const user = (req as any).user;
+
+    const success = await sendEmail({
+      to: user.email,
+      subject: 'MediFind: System Email Test',
+      html: `
+        <div style="font-family: sans-serif; padding: 20px; color: #333; border: 1px solid #eee; border-radius: 12px;">
+          <h2 style="color: #0C637E;">Email Configuration Verified!</h2>
+          <p>Hello <strong>${user.fullName}</strong>,</p>
+          <p>This is a test email triggered from the <strong>MediFind Admin Portal</strong>. If you are reading this, your email gateway (SMTP/SendGrid) is correctly configured and active.</p>
+          <div style="background: #F0F7FA; padding: 15px; border-radius: 8px; color: #0C637E; margin: 20px 0; font-size: 0.9rem;">
+            <strong>System Node:</strong> ${process.env.NODE_ENV || 'development'}<br/>
+            <strong>Timestamp:</strong> ${new Date().toLocaleString()}
+          </div>
+          <p>You can now proceed with configuring system notifications and responder approvals.</p>
+          <hr style="border: none; border-top: 1px solid #eee; margin: 25px 0;" />
+          <p style="font-size: 12px; color: #94A3B8;">Sent via MediFind Platform Settings Infrastructure</p>
+        </div>
+      `
+    });
+
+    if (success) {
+      sendSuccess(res, null, `Test email sent to ${user.email}`);
+    } else {
+      sendError(res, 'Failed to send email. Check server logs for SMTP errors.', 500);
+    }
+  } catch (error: any) {
+    sendError(res, error.message, 500);
+  }
+};
+
+/**
+ * Admin: Generate AI Notification Draft
+ * POST /api/admin/generate-draft
+ */
+export const generateDraft = async (req: Request, res: Response) => {
+  try {
+    const { prompt } = req.body;
+    if (!prompt) {
+      return sendError(res, 'Prompt is required', 400);
+    }
+
+    const { generateNotificationDraft } = await import('../services/aiService');
+    const draft = await generateNotificationDraft(prompt);
+
+    sendSuccess(res, draft, 'AI draft generated successfully');
   } catch (error: any) {
     sendError(res, error.message, 500);
   }

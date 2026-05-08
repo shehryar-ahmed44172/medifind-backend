@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { Mail, MessageSquare, Bell, Search, CheckCircle, Clock, XCircle, Eye } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -65,7 +65,7 @@ const CommunicationAudit = () => {
       </div>
 
       {/* Demo data notice */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.875rem 1.25rem', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '12px', marginBottom: '2rem', fontSize: '0.875rem', color: '#92400e' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.875rem 1.25rem', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '12px', marginBottom: '2rem', fontSize: '0.875rem', color: 'var(--warning-fg)' }}>
         <span style={{ fontSize: '1.1rem' }}>⚠️</span>
         <span><strong>Demo data</strong> — This page displays sample records. A live notification-log API endpoint will be connected in the next release.</span>
       </div>
@@ -131,7 +131,7 @@ const CommunicationAudit = () => {
             placeholder="Search communications..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            style={{ padding: '0.75rem 1rem 0.75rem 2.75rem', width: '260px', fontSize: '0.875rem', borderRadius: '10px', border: '1px solid var(--border)', background: '#f8fafc', fontFamily: 'var(--font-sans)', outline: 'none' }}
+            style={{ padding: '0.75rem 1rem 0.75rem 2.75rem', width: '260px', fontSize: '0.875rem', borderRadius: '10px', border: '1px solid var(--border)', background: 'var(--surface-raised)', fontFamily: 'var(--font-sans)', outline: 'none' }}
           />
         </div>
       </div>
@@ -140,7 +140,7 @@ const CommunicationAudit = () => {
       <div className="card" style={{ padding: 0, overflow: 'hidden', border: '1px solid var(--border)' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
           <thead>
-            <tr style={{ background: '#f8fafc', borderBottom: '1px solid var(--border)' }}>
+            <tr style={{ background: 'var(--surface-raised)', borderBottom: '1px solid var(--border)' }}>
               {['Channel', 'Type', 'Recipient', 'Subject', 'Status', 'Sent At'].map((h) => (
                 <th key={h} style={{ padding: '1.25rem 1.75rem', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
               ))}
@@ -165,10 +165,10 @@ const CommunicationAudit = () => {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: idx * 0.03 }}
-                    style={{ borderBottom: '1px solid var(--border)', background: 'white' }}
+                    style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}
                   >
                     <td style={{ padding: '1rem 1.75rem' }}>
-                      <span style={{ fontSize: '0.75rem', fontWeight: 700, background: '#f1f5f9', color: 'var(--primary)', padding: '0.35rem 0.75rem', borderRadius: '6px' }}>{comm.channel}</span>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 700, background: 'var(--surface-raised)', color: 'var(--primary)', padding: '0.35rem 0.75rem', borderRadius: '6px' }}>{comm.channel}</span>
                     </td>
                     <td style={{ padding: '1rem 1.75rem' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: typeCfg.color }}>
@@ -193,7 +193,7 @@ const CommunicationAudit = () => {
             )}
           </tbody>
         </table>
-        <div style={{ padding: '1rem 1.75rem', background: '#f8fafc', borderTop: '1px solid var(--border)', fontSize: '0.875rem', color: 'var(--text-muted)', fontWeight: 500 }}>
+        <div style={{ padding: '1rem 1.75rem', background: 'var(--surface-raised)', borderTop: '1px solid var(--border)', fontSize: '0.875rem', color: 'var(--text-muted)', fontWeight: 500 }}>
           Showing {filtered.length} of {MOCK_COMMS.length} communications
         </div>
       </div>

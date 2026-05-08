@@ -51,13 +51,6 @@ export const emergencyRepository = {
             id: true, 
             fullName: true, 
             phoneNumber: true,
-            medicalProfile: {
-              select: {
-                bloodType: true,
-                allergies: true,
-                chronicDiseases: true
-              }
-            }
           } 
         },
       },

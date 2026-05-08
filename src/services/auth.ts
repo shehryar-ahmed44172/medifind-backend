@@ -7,6 +7,7 @@ import { recordFailedLoginAttempt, recordSuccessfulLogin } from '../middleware/l
 import { sendEmail } from '../utils/email';
 import crypto from 'crypto';
 import { PrismaClient } from '@prisma/client';
+import { getIo } from '../server';
 
 const prisma = new PrismaClient();
 
@@ -47,6 +48,7 @@ export const register = async (data: RegisterRequest) => {
     licenseNumber: data.licenseNumber,
     responderType: data.responderType,
     vehicleType: data.vehicleType,
+    specialization: data.specialization ?? [],
     cnicImageUrl: data.cnicImageUrl,
     cnicBackImageUrl: data.cnicBackImageUrl,
     employeeCardImageUrl: data.employeeCardImageUrl,
@@ -68,7 +70,23 @@ export const register = async (data: RegisterRequest) => {
     };
   }
 
-  // For Responders
+  // For Responders: Notify Admin of new application
+  try {
+    getIo().emit('admin_notification', {
+      id: `reg-${user.id}`,
+      type: 'RESPONDER_REGISTRATION',
+      title: 'New Responder Application',
+      message: `${user.fullName} has applied as a ${
+        ({ PARAMEDIC: 'Paramedic', RESCUE_OFFICER: 'Rescue Officer', EMT: 'Emergency Medical Technician', FIRST_RESPONDER: 'First Responder', VOLUNTEER: 'Volunteer' } as Record<string, string>)[data.responderType ?? ''] ?? 'Responder'
+      }. Review documents to approve.`,
+      timestamp: new Date().toISOString(),
+      data: { userId: user.id }
+    });
+    console.log(`[REAL-TIME] Notified Admin of new responder registration: ${user.fullName}`);
+  } catch (err) {
+    console.error('Failed to emit admin notification:', err);
+  }
+
   return {
     userId: user.id,
     email: user.email,

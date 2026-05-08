@@ -34,11 +34,20 @@ export const updateProfile = async (req: Request, res: Response) => {
   try {
     if (!req.user) return sendError(res, 'Unauthorized', 401);
 
-    const allowedFields = ['fullName', 'phoneNumber', 'profileImageUrl'];
+    const allowedFields = [
+      'fullName', 'phoneNumber', 'profileImageUrl', 
+      'cnicImageUrl', 'cnicBackImageUrl', 
+      'employeeCardImageUrl', 'employeeCardBackImageUrl',
+      'organization', 'responderType', 'vehicleType'
+    ];
     const updateData: any = {};
+    let isDocUpdate = false;
+    const docFields = ['cnicImageUrl', 'cnicBackImageUrl', 'employeeCardImageUrl', 'employeeCardBackImageUrl'];
+
     for (const field of allowedFields) {
       if (req.body[field] !== undefined) {
         updateData[field] = req.body[field];
+        if (docFields.includes(field)) isDocUpdate = true;
       }
     }
 
@@ -47,6 +56,29 @@ export const updateProfile = async (req: Request, res: Response) => {
     }
 
     const updated = await userService.updateUserProfile(req.user.userId, updateData);
+
+    // If documents were updated, notify admin (Plan v4)
+    if (isDocUpdate && req.user.role === 'RESPONDER') {
+      const { getIo } = await import('../server');
+      getIo().to('admin_notifications').emit('admin_notification', {
+        id: `doc-upd-${req.user.userId}-${Date.now()}`,
+        type: 'RESPONDER_DOCUMENT_UPDATE',
+        title: 'Responder Documents Updated',
+        body: `${updated.fullName} has updated their verification documents. Review required.`,
+        timestamp: new Date().toISOString(),
+        data: { userId: req.user.userId }
+      });
+      // Also emit to general channel if that's what's used
+      getIo().emit('admin_notification', {
+        id: `doc-upd-${req.user.userId}-${Date.now()}`,
+        type: 'RESPONDER_DOCUMENT_UPDATE',
+        title: 'Responder Documents Updated',
+        body: `${updated.fullName} has updated their verification documents. Review required.`,
+        timestamp: new Date().toISOString(),
+        data: { userId: req.user.userId }
+      });
+    }
+
     sendSuccess(res, updated, 'Profile updated successfully');
   } catch (error: any) {
     sendError(res, error.message, 400);

@@ -42,8 +42,9 @@ export const userRepository = {
     patientType?: 'NORMAL' | 'DEAF';
     organization?: string;
     licenseNumber?: string;
-    responderType?: 'AMBULANCE' | 'PARAMEDIC' | 'DOCTOR' | 'VOLUNTEER' | 'EMERGENCY_RESPONDER';
+    responderType?: 'PARAMEDIC' | 'RESCUE_OFFICER' | 'EMT' | 'FIRST_RESPONDER' | 'VOLUNTEER';
     vehicleType?: string;
+    specialization?: string[];
     cnicImageUrl?: string;
     cnicBackImageUrl?: string;
     employeeCardImageUrl?: string;
@@ -91,8 +92,9 @@ export const userRepository = {
             cnic: data.cnic,
             licenseNumber: data.licenseNumber ?? 'PENDING',
             organization: data.organization,
-            responderType: data.responderType ?? 'VOLUNTEER',
+            responderType: data.responderType ?? 'FIRST_RESPONDER',
             vehicleType: data.vehicleType,
+            specialization: data.specialization ?? [],
             cnicImageUrl: data.cnicImageUrl,
             cnicBackImageUrl: data.cnicBackImageUrl,
             employeeCardImageUrl: data.employeeCardImageUrl,
@@ -201,6 +203,18 @@ export const userRepository = {
     return await prisma.user.update({
       where: { id: userId },
       data: { subscriptionPlan: plan } as any,
+    });
+  },
+
+  findAll: async () => {
+    return await prisma.user.findMany({
+      where: { isActive: true }
+    });
+  },
+
+  findByRole: async (role: 'PATIENT' | 'RESPONDER' | 'CAREGIVER' | 'ADMIN') => {
+    return await prisma.user.findMany({
+      where: { role, isActive: true }
     });
   },
 };

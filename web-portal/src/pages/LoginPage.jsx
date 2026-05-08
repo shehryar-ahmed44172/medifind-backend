@@ -1,136 +1,432 @@
 import React, { useState } from 'react';
-import { Lock, Mail, ArrowRight, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import {
+  Lock, Mail, ArrowRight, AlertCircle, Eye, EyeOff,
+  Shield, Activity, Users, Zap, CheckCircle,
+} from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import logo from '../assets/Medifind_New_Logo-removebg-preview.png';
 
+/* ─── Brand tokens ────────────────────────────────────────────────────────── */
+const PANEL_BG   = 'linear-gradient(160deg,#03293C 0%,#0A5570 55%,#0E6E82 100%)';
+const ACCENT     = '#2891C2';
+const FORM_BG    = '#F3F7FA';
+const WHITE      = '#FFFFFF';
+const TEXT_MAIN  = '#0F1A22';
+const TEXT_MUTED = '#7A96A3';
+const BORDER     = '#D4E6EC';
+const ERROR_BG   = '#FEF2F2';
+const ERROR_FG   = '#DC2626';
+const ERROR_BORD = '#FECACA';
+
+/* ─── Left panel feature highlights ──────────────────────────────────────── */
+const FEATURES = [
+  { Icon: Activity, label: 'Live Emergency Monitoring',  desc: 'Real-time SOS dispatch & response tracking' },
+  { Icon: Users,    label: 'Full User Management',       desc: 'Patients, responders, and caregivers' },
+  { Icon: Shield,   label: 'Responder Verification',     desc: 'Credential review and approval queue' },
+  { Icon: Zap,      label: 'Instant Push Notifications', desc: 'AI-drafted broadcasts to all users' },
+];
+
+/* ─── Component ───────────────────────────────────────────────────────────── */
 const LoginPage = () => {
   const { login, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email,        setEmail]        = useState('');
+  const [password,     setPassword]     = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [loading,      setLoading]      = useState(false);
+  const [error,        setError]        = useState('');
 
-  if (isAuthenticated) {
-    navigate('/admin', { replace: true });
-    return null;
-  }
+  React.useEffect(() => {
+    if (isAuthenticated) navigate('/admin', { replace: true });
+  }, [isAuthenticated, navigate]);
+
+  if (isAuthenticated) return null;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!email || !password) {
-      setError('Please enter your email and password.');
-      return;
-    }
+    if (!email || !password) { setError('Please enter your email and password.'); return; }
     setLoading(true);
     setError('');
     try {
       await login(email, password);
       navigate('/admin', { replace: true });
     } catch (err) {
-      setError(err.response?.data?.message || err.message || 'Login failed. Please try again.');
+      const msg = err.response?.data?.message || err.message || 'Login failed. Please check your credentials.';
+      setError(msg);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface-alt)', padding: '1.5rem' }}>
+    <div style={{
+      minHeight: '100vh',
+      display: 'grid',
+      gridTemplateColumns: '1fr 1fr',
+      fontFamily: "'Montserrat', sans-serif",
+    }}>
+
+      {/* ══════════════════════════════════════════════
+          LEFT PANEL — Brand / Info
+      ══════════════════════════════════════════════ */}
       <motion.div
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, ease: [0.2, 0.8, 0.2, 1] }}
-        className="card"
-        style={{ width: '100%', maxWidth: '420px', padding: '3rem 2.5rem', boxShadow: 'var(--shadow-lg)', border: '1px solid var(--border)', borderRadius: '32px' }}
+        initial={{ opacity: 0, x: -30 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.7, ease: [0.2, 0.8, 0.2, 1] }}
+        style={{
+          background: PANEL_BG,
+          display: 'flex', flexDirection: 'column',
+          justifyContent: 'space-between',
+          padding: '48px 52px',
+          position: 'relative', overflow: 'hidden',
+        }}
       >
-        <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
-          <motion.div
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ delay: 0.2, duration: 0.5 }}
-            style={{ display: 'inline-flex', marginBottom: '1.5rem' }}
-          >
-            <img src={logo} alt="MediFind Logo" style={{ height: '110px' }} />
-          </motion.div>
-          <h2 style={{ fontSize: '2rem', marginBottom: '0.5rem', color: 'var(--secondary)', letterSpacing: '-0.04em', fontWeight: 800 }}>Admin Portal</h2>
-          <p style={{ color: 'var(--text-muted)', fontSize: '1rem', fontWeight: 500 }}>Secure endpoint for system logistics</p>
+        {/* Background decorative rings */}
+        <div style={{
+          position: 'absolute', top: '-80px', right: '-80px',
+          width: '400px', height: '400px', borderRadius: '50%',
+          border: '1px solid rgba(255,255,255,0.05)',
+          pointerEvents: 'none',
+        }} />
+        <div style={{
+          position: 'absolute', top: '-40px', right: '-40px',
+          width: '300px', height: '300px', borderRadius: '50%',
+          border: '1px solid rgba(255,255,255,0.07)',
+          pointerEvents: 'none',
+        }} />
+        <div style={{
+          position: 'absolute', bottom: '-100px', left: '-80px',
+          width: '500px', height: '500px', borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(40,145,194,0.12) 0%, transparent 70%)',
+          pointerEvents: 'none',
+        }} />
+
+        {/* ── Logo ── */}
+        <div>
+          <img
+            src={logo} alt="MediFind"
+            style={{
+              height: '72px', objectFit: 'contain',
+              filter: 'brightness(1.2) drop-shadow(0 2px 12px rgba(0,0,0,0.4))',
+            }}
+          />
         </div>
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+        {/* ── Center content ── */}
+        <div>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: '7px',
+            padding: '5px 14px', borderRadius: '100px',
+            background: 'rgba(255,255,255,0.1)',
+            border: '1px solid rgba(255,255,255,0.15)',
+            marginBottom: '24px',
+          }}>
+            <Shield size={12} color="rgba(255,255,255,0.8)" />
+            <span style={{ fontSize: '0.7rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.8)' }}>
+              Admin Management Console
+            </span>
+          </div>
+
+          <h1 style={{
+            fontSize: '2.4rem', fontWeight: 800, color: WHITE,
+            letterSpacing: '-0.03em', lineHeight: 1.15,
+            marginBottom: '16px',
+          }}>
+            Emergency Response<br />
+            <span style={{ color: '#7DD3F5' }}>Command Center</span>
+          </h1>
+          <p style={{
+            fontSize: '1rem', color: 'rgba(255,255,255,0.6)',
+            lineHeight: 1.7, maxWidth: '380px',
+          }}>
+            Manage Pakistan's emergency response network — from responder verification to live SOS coordination.
+          </p>
+
+          {/* Feature list */}
+          <div style={{ marginTop: '36px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+            {FEATURES.map(({ Icon, label, desc }, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, x: -16 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.3 + i * 0.1, duration: 0.5 }}
+                style={{ display: 'flex', alignItems: 'flex-start', gap: '14px' }}
+              >
+                <div style={{
+                  width: '38px', height: '38px', borderRadius: '11px', flexShrink: 0,
+                  background: 'rgba(255,255,255,0.1)',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <Icon size={17} color={ACCENT} strokeWidth={2.5} />
+                </div>
+                <div>
+                  <p style={{ fontSize: '0.875rem', fontWeight: 700, color: WHITE, marginBottom: '2px' }}>{label}</p>
+                  <p style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }}>{desc}</p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Footer ── */}
+        <div style={{
+          borderTop: '1px solid rgba(255,255,255,0.08)',
+          paddingTop: '20px',
+          display: 'flex', alignItems: 'center', gap: '8px',
+        }}>
+          <div style={{
+            width: '8px', height: '8px', borderRadius: '50%',
+            background: '#4ADE80',
+          }} />
+          <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.45)', fontWeight: 600 }}>
+            All systems operational · Restricted access only
+          </span>
+        </div>
+      </motion.div>
+
+      {/* ══════════════════════════════════════════════
+          RIGHT PANEL — Login Form
+      ══════════════════════════════════════════════ */}
+      <motion.div
+        initial={{ opacity: 0, x: 30 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.7, ease: [0.2, 0.8, 0.2, 1] }}
+        style={{
+          background: FORM_BG,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: '48px 64px',
+          position: 'relative',
+        }}
+      >
+        <div style={{ width: '100%', maxWidth: '420px' }}>
+
+          {/* Header */}
+          <div style={{ marginBottom: '40px' }}>
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: '6px',
+              padding: '4px 12px', borderRadius: '100px',
+              background: '#E2F0F3', border: '1px solid #B8D8E2',
+              marginBottom: '16px',
+            }}>
+              <Shield size={11} color="#0C637E" strokeWidth={2.5} />
+              <span style={{ fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#0C637E' }}>
+                Secure Access
+              </span>
+            </div>
+
+            <h2 style={{
+              fontSize: '1.875rem', fontWeight: 800,
+              color: TEXT_MAIN, letterSpacing: '-0.03em',
+              marginBottom: '8px', lineHeight: 1.2,
+            }}>
+              Welcome back,<br />Administrator
+            </h2>
+            <p style={{ color: TEXT_MUTED, fontSize: '0.9rem', fontWeight: 500, lineHeight: 1.6 }}>
+              Sign in with your admin credentials to access the MediFind management console.
+            </p>
+          </div>
+
+          {/* Error banner */}
           {error && (
             <motion.div
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
-              style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '1rem 1.25rem', background: '#fff1f2', border: '1px solid #fecdd3', borderRadius: '12px', color: '#be123c', fontSize: '0.9rem', fontWeight: 600 }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '10px',
+                padding: '12px 16px', marginBottom: '24px',
+                background: ERROR_BG, border: `1px solid ${ERROR_BORD}`,
+                borderRadius: '12px', color: ERROR_FG,
+                fontSize: '0.875rem', fontWeight: 600,
+              }}
             >
-              <AlertCircle size={18} />
+              <AlertCircle size={16} style={{ flexShrink: 0 }} />
               {error}
             </motion.div>
           )}
 
-          <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }}>
-            <label style={{ display: 'block', fontWeight: 700, fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.75rem', color: 'var(--text-muted)' }}>Email Address</label>
-            <div style={{ position: 'relative' }}>
-              <Mail style={{ position: 'absolute', left: '1.25rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} size={18} />
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@medifind.network"
-                required
-                style={{ width: '100%', padding: '1rem 1.25rem 1rem 3.5rem', borderRadius: '16px', border: '1px solid var(--border)', background: 'white', fontSize: '1rem', outline: 'none', fontFamily: 'var(--font-sans)' }}
-              />
+          {/* Form */}
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+            {/* Email */}
+            <div>
+              <label style={{
+                display: 'block', fontWeight: 700, fontSize: '0.75rem',
+                textTransform: 'uppercase', letterSpacing: '0.07em',
+                marginBottom: '8px', color: TEXT_MUTED,
+              }}>
+                Email Address
+              </label>
+              <div style={{ position: 'relative' }}>
+                <Mail style={{
+                  position: 'absolute', left: '16px', top: '50%',
+                  transform: 'translateY(-50%)', color: TEXT_MUTED,
+                  pointerEvents: 'none',
+                }} size={16} />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="admin@medifind.com"
+                  required
+                  autoComplete="email"
+                  style={{
+                    width: '100%', height: '52px',
+                    paddingLeft: '46px', paddingRight: '16px',
+                    borderRadius: '14px',
+                    border: `1.5px solid ${BORDER}`,
+                    background: WHITE, color: TEXT_MAIN,
+                    fontSize: '0.9rem', outline: 'none',
+                    fontFamily: 'inherit',
+                    transition: 'border-color 0.2s, box-shadow 0.2s',
+                    boxSizing: 'border-box',
+                  }}
+                  onFocus={e => {
+                    e.target.style.borderColor = ACCENT;
+                    e.target.style.boxShadow = '0 0 0 3px rgba(40,145,194,0.12)';
+                  }}
+                  onBlur={e => {
+                    e.target.style.borderColor = BORDER;
+                    e.target.style.boxShadow = 'none';
+                  }}
+                />
+              </div>
             </div>
-          </motion.div>
 
-          <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.4 }}>
-            <label style={{ display: 'block', fontWeight: 700, fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.75rem', color: 'var(--text-muted)' }}>Password</label>
-            <div style={{ position: 'relative' }}>
-              <Lock style={{ position: 'absolute', left: '1.25rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} size={18} />
-              <input
-                type={showPassword ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-                style={{ width: '100%', padding: '1rem 3.5rem 1rem 3.5rem', borderRadius: '16px', border: '1px solid var(--border)', background: 'white', fontSize: '1rem', outline: 'none', fontFamily: 'var(--font-sans)' }}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                style={{ position: 'absolute', right: '1.25rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}
-              >
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
+            {/* Password */}
+            <div>
+              <label style={{
+                display: 'block', fontWeight: 700, fontSize: '0.75rem',
+                textTransform: 'uppercase', letterSpacing: '0.07em',
+                marginBottom: '8px', color: TEXT_MUTED,
+              }}>
+                Password
+              </label>
+              <div style={{ position: 'relative' }}>
+                <Lock style={{
+                  position: 'absolute', left: '16px', top: '50%',
+                  transform: 'translateY(-50%)', color: TEXT_MUTED,
+                  pointerEvents: 'none',
+                }} size={16} />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder="••••••••••••"
+                  required
+                  autoComplete="current-password"
+                  style={{
+                    width: '100%', height: '52px',
+                    paddingLeft: '46px', paddingRight: '52px',
+                    borderRadius: '14px',
+                    border: `1.5px solid ${BORDER}`,
+                    background: WHITE, color: TEXT_MAIN,
+                    fontSize: '1rem', outline: 'none',
+                    fontFamily: 'inherit',
+                    transition: 'border-color 0.2s, box-shadow 0.2s',
+                    boxSizing: 'border-box',
+                  }}
+                  onFocus={e => {
+                    e.target.style.borderColor = ACCENT;
+                    e.target.style.boxShadow = '0 0 0 3px rgba(40,145,194,0.12)';
+                  }}
+                  onBlur={e => {
+                    e.target.style.borderColor = BORDER;
+                    e.target.style.boxShadow = 'none';
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(v => !v)}
+                  style={{
+                    position: 'absolute', right: '16px', top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    color: TEXT_MUTED, display: 'flex', alignItems: 'center',
+                    padding: '4px',
+                  }}
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </div>
-          </motion.div>
 
-          <motion.button
-            whileHover={{ scale: loading ? 1 : 1.02 }}
-            whileTap={{ scale: loading ? 1 : 0.98 }}
-            type="submit"
-            disabled={loading}
-            className="btn-primary"
-            style={{ width: '100%', justifyContent: 'center', padding: '1.25rem', marginTop: '1rem', fontSize: '1.1rem', borderRadius: '100px', opacity: loading ? 0.7 : 1, cursor: loading ? 'not-allowed' : 'pointer' }}
-          >
-            {loading ? 'Authenticating...' : <> Access System <ArrowRight size={20} /> </>}
-          </motion.button>
-        </form>
+            {/* Submit */}
+            <motion.button
+              whileHover={{ scale: loading ? 1 : 1.02 }}
+              whileTap={{ scale: loading ? 1 : 0.97 }}
+              type="submit"
+              disabled={loading}
+              style={{
+                width: '100%', height: '54px', marginTop: '8px',
+                borderRadius: '14px', border: 'none',
+                background: loading
+                  ? '#7AB8D4'
+                  : 'linear-gradient(135deg,#0C637E 0%,#2891C2 100%)',
+                color: WHITE, fontWeight: 800, fontSize: '0.95rem',
+                letterSpacing: '0.02em', cursor: loading ? 'not-allowed' : 'pointer',
+                fontFamily: 'inherit',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+                boxShadow: loading ? 'none' : '0 8px 24px rgba(12,99,126,0.28)',
+                transition: 'background 0.2s, box-shadow 0.2s',
+              }}
+            >
+              {loading ? (
+                <>
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ repeat: Infinity, duration: 0.8, ease: 'linear' }}
+                    style={{
+                      width: '18px', height: '18px', borderRadius: '50%',
+                      border: '2px solid rgba(255,255,255,0.3)',
+                      borderTopColor: 'white',
+                    }}
+                  />
+                  Authenticating…
+                </>
+              ) : (
+                <>Access System <ArrowRight size={18} /></>
+              )}
+            </motion.button>
+          </form>
 
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.6 }}
-          style={{ marginTop: '3rem', textAlign: 'center', borderTop: '1px solid var(--border)', paddingTop: '2rem' }}
-        >
-          <Link to="/" style={{ color: 'var(--secondary)', fontWeight: 700, fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.625rem' }}>
-            <span style={{ opacity: 0.5 }}>←</span> Back to Network Hub
-          </Link>
-        </motion.div>
+          {/* Security note */}
+          <div style={{
+            marginTop: '32px', padding: '14px 16px',
+            background: '#EFF9F0', borderRadius: '12px',
+            border: '1px solid #C6F0CA',
+            display: 'flex', alignItems: 'flex-start', gap: '10px',
+          }}>
+            <CheckCircle size={15} color="#16A34A" style={{ flexShrink: 0, marginTop: '1px' }} />
+            <div>
+              <p style={{ fontSize: '0.78rem', fontWeight: 700, color: '#15803D', marginBottom: '2px' }}>
+                Restricted Access
+              </p>
+              <p style={{ fontSize: '0.75rem', color: '#4ADE80', fontWeight: 600, lineHeight: 1.5, color: '#166534' }}>
+                This console is for authorized MediFind administrators only. All sessions are logged and monitored.
+              </p>
+            </div>
+          </div>
+
+          {/* Back link */}
+          <div style={{ marginTop: '24px', textAlign: 'center' }}>
+            <Link
+              to="/"
+              style={{
+                fontSize: '0.82rem', fontWeight: 600, color: TEXT_MUTED,
+                textDecoration: 'none', display: 'inline-flex',
+                alignItems: 'center', gap: '5px', transition: 'color 0.2s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.color = '#0C637E'}
+              onMouseLeave={e => e.currentTarget.style.color = TEXT_MUTED}
+            >
+              ← Back to MediFind Hub
+            </Link>
+          </div>
+        </div>
       </motion.div>
     </div>
   );

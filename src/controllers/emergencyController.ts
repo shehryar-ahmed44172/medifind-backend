@@ -1,6 +1,9 @@
 import { Request, Response } from 'express';
 import * as emergencyService from '../services/emergencyService';
 import { sendSuccess, sendError } from '../utils/response';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 /**
  * POST /api/emergencies
@@ -40,6 +43,23 @@ export const getEmergency = async (req: Request, res: Response) => {
     if (!req.user) return sendError(res, 'Unauthorized', 401);
     const { id } = req.params;
     const emergency = await emergencyService.getEmergency(id);
+
+    // HIPAA: Log access to PHI (Protected Health Information)
+    if (req.user.role === 'ADMIN' || req.user.role === 'RESPONDER') {
+      await prisma.auditLog.create({
+        data: {
+          userId: req.user.userId,
+          action: 'ACCESS_PHI',
+          entity: 'Emergency',
+          entityId: id,
+          ipAddress: req.ip,
+          userAgent: req.headers['user-agent'],
+          newValues: { detailLevel: 'FULL_MEDICAL_PROFILE', patientId: emergency.patientId } as any
+        }
+      });
+      console.log(`[HIPAA AUDIT] User ${req.user.userId} accessed PHI for emergency ${id}`);
+    }
+
     sendSuccess(res, emergency, 'Emergency retrieved');
   } catch (error: any) {
     sendError(res, error.message, 404);

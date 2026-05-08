@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import { History, Search, Filter, RefreshCw, CheckCircle, AlertCircle, Info, XCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import api from '../../services/api';
@@ -70,7 +70,7 @@ const SystemLogs = () => {
         <motion.button
           whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
           onClick={fetchLogs}
-          style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', padding: '0.75rem 1.5rem', borderRadius: '12px', border: '1px solid var(--border)', background: 'white', color: 'var(--secondary)', fontWeight: 700, cursor: 'pointer', fontSize: '0.9rem' }}
+          style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', padding: '0.75rem 1.5rem', borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--secondary)', fontWeight: 700, cursor: 'pointer', fontSize: '0.9rem' }}
         >
           <RefreshCw size={16} /> Refresh
         </motion.button>
@@ -106,7 +106,7 @@ const SystemLogs = () => {
             placeholder="Search logs..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            style={{ padding: '0.75rem 1rem 0.75rem 2.75rem', width: '280px', fontSize: '0.875rem', borderRadius: '10px', border: '1px solid var(--border)', background: '#f8fafc', fontFamily: 'var(--font-sans)', outline: 'none' }}
+            style={{ padding: '0.75rem 1rem 0.75rem 2.75rem', width: '280px', fontSize: '0.875rem', borderRadius: '10px', border: '1px solid var(--border)', background: 'var(--surface-raised)', fontFamily: 'var(--font-sans)', outline: 'none' }}
           />
         </div>
       </div>
@@ -131,7 +131,7 @@ const SystemLogs = () => {
                 style={{
                   display: 'flex', alignItems: 'flex-start', gap: '1.5rem',
                   padding: '1.5rem 2rem', borderBottom: idx < filtered.length - 1 ? '1px solid var(--border)' : 'none',
-                  background: 'white',
+                  background: 'var(--surface)',
                 }}
               >
                 <div style={{ padding: '0.625rem', borderRadius: '10px', background: cfg.bg, color: cfg.color, flexShrink: 0 }}>

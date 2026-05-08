@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import { CreditCard, Users, TrendingUp, CheckCircle, AlertCircle, Clock, Search, RefreshCw, Crown, Zap, Star, Edit3, X, Save } from 'lucide-react';
 import { motion } from 'framer-motion';
 import api from '../../services/api';
+import { useAlert } from '../../context/AlertContext';
 
 // Plan metadata — userCount is populated from API planBreakdown at runtime
 const PLAN_META = [
@@ -56,20 +57,15 @@ const PLAN_STYLE = {
 const formatDate = (iso) => iso === '—' ? '—' : new Date(iso).toLocaleDateString('en-PK', { day: '2-digit', month: 'short', year: 'numeric' });
 
 const SubscriptionManagement = () => {
+  const { showAlert, showConfirm } = useAlert();
   const [search, setSearch] = useState('');
   const [planFilter, setPlanFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
-  const [toast, setToast] = useState(null);
   const [subscribers, setSubscribers] = useState([]);
   const [apiStats, setApiStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editingPlan, setEditingPlan] = useState(null);
   const [plans, setPlans] = useState(PLAN_META);
-
-  const showToast = (msg, type = 'success') => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3200);
-  };
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -93,7 +89,7 @@ const SubscriptionManagement = () => {
         setApiStats(res.data.data.stats);
       }
     } catch (e) {
-      showToast('Failed to load subscription data', 'error');
+      showAlert('Failed to load subscription data', 'error');
     } finally {
       setLoading(false);
     }
@@ -102,12 +98,18 @@ const SubscriptionManagement = () => {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const handleCancelSub = (id) => {
-    if (!window.confirm('Cancel this user\'s subscription?')) return;
-    showToast('Subscription cancelled (manage in payment gateway).');
+    showConfirm({
+      title: 'Cancel Subscription?',
+      message: 'Are you sure you want to cancel this user\'s subscription? This will revoke their access to premium features at the end of the current billing cycle.',
+      type: 'warning',
+      onConfirm: () => {
+        showAlert('Subscription cancellation request processed.', 'success');
+      }
+    });
   };
 
   const handleUpgrade = (id) => {
-    showToast('Upgrade request sent to user.', 'info');
+    showAlert('Upgrade request sent to user.', 'info');
   };
 
   const filtered = subscribers.filter(s => {
@@ -124,13 +126,6 @@ const SubscriptionManagement = () => {
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.5 }}>
 
-      {/* Toast */}
-      {toast && (
-        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}
-          style={{ position: 'fixed', top: '6rem', right: '2rem', zIndex: 9999, padding: '1rem 1.5rem', borderRadius: '14px', fontWeight: 700, fontSize: '0.9rem', background: '#D1FAE5', color: '#065F46', border: '1px solid #A7F3D0', boxShadow: '0 10px 40px rgba(0,0,0,0.1)' }}>
-          {toast.msg}
-        </motion.div>
-      )}
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '2.5rem' }}>
@@ -140,7 +135,7 @@ const SubscriptionManagement = () => {
         </div>
         <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
           onClick={fetchData}
-          style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', padding: '0.75rem 1.5rem', borderRadius: '12px', border: '1px solid var(--border)', background: 'white', color: 'var(--secondary)', fontWeight: 700, cursor: 'pointer', fontSize: '0.9rem' }}>
+          style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', padding: '0.75rem 1.5rem', borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--secondary)', fontWeight: 700, cursor: 'pointer', fontSize: '0.9rem' }}>
           <RefreshCw size={16} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} /> Refresh
         </motion.button>
       </div>
@@ -228,7 +223,7 @@ const SubscriptionManagement = () => {
       {/* Subscriber Table */}
       <div className="card" style={{ padding: 0, overflow: 'hidden', border: '1px solid var(--border)' }}>
         {/* Table Filters */}
-        <div style={{ padding: '1.25rem 2rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap', background: 'white' }}>
+        <div style={{ padding: '1.25rem 2rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap', background: 'var(--surface)' }}>
           <div style={{ display: 'flex', gap: '0.625rem' }}>
             {['ALL', 'Free', 'Pro', 'Enterprise'].map(p => {
               const cfg = PLAN_STYLE[p];
@@ -257,14 +252,14 @@ const SubscriptionManagement = () => {
             <div style={{ position: 'relative' }}>
               <Search size={15} style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
               <input type="text" placeholder="Search users..." value={search} onChange={e => setSearch(e.target.value)}
-                style={{ padding: '0.625rem 1rem 0.625rem 2.5rem', width: '220px', fontSize: '0.85rem', borderRadius: '10px', border: '1px solid var(--border)', background: '#f8fafc', fontFamily: 'var(--font-sans)', outline: 'none' }} />
+                style={{ padding: '0.625rem 1rem 0.625rem 2.5rem', width: '220px', fontSize: '0.85rem', borderRadius: '10px', border: '1px solid var(--border)', background: 'var(--surface-raised)', fontFamily: 'var(--font-sans)', outline: 'none' }} />
             </div>
           </div>
         </div>
 
         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
           <thead>
-            <tr style={{ background: '#f8fafc', borderBottom: '1px solid var(--border)' }}>
+            <tr style={{ background: 'var(--surface-raised)', borderBottom: '1px solid var(--border)' }}>
               {['User', 'Plan', 'Status', 'Monthly', 'Renews', 'Actions'].map((h, i) => (
                 <th key={h} style={{ padding: '1rem 1.75rem', fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: i === 5 ? 'right' : 'left' }}>{h}</th>
               ))}
@@ -279,7 +274,7 @@ const SubscriptionManagement = () => {
                 const planCfg = PLAN_STYLE[sub.plan] || PLAN_STYLE.Free;
                 return (
                   <motion.tr key={sub.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: idx * 0.03 }}
-                    style={{ borderBottom: '1px solid var(--border)', background: 'white' }}>
+                    style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
                     <td style={{ padding: '1rem 1.75rem' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
                         <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: 'linear-gradient(135deg,#0C637E,#2496A7)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.95rem', flexShrink: 0 }}>
@@ -328,7 +323,7 @@ const SubscriptionManagement = () => {
           </tbody>
         </table>
 
-        <div style={{ padding: '1rem 1.75rem', background: '#f8fafc', borderTop: '1px solid var(--border)', fontSize: '0.875rem', color: 'var(--text-muted)', fontWeight: 500 }}>
+        <div style={{ padding: '1rem 1.75rem', background: 'var(--surface-raised)', borderTop: '1px solid var(--border)', fontSize: '0.875rem', color: 'var(--text-muted)', fontWeight: 500 }}>
           Showing {filtered.length} of {subscribers.length} subscribers
         </div>
       </div>
@@ -337,7 +332,7 @@ const SubscriptionManagement = () => {
       {editingPlan && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15, 26, 34, 0.6)', backdropFilter: 'blur(4px)' }}>
           <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-            style={{ background: 'white', width: '480px', borderRadius: '24px', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
+            style={{ background: 'var(--surface)', width: '480px', borderRadius: '24px', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
             <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--secondary)' }}>Update {editingPlan.name} Plan</h3>
               <button onClick={() => setEditingPlan(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
@@ -349,7 +344,7 @@ const SubscriptionManagement = () => {
               <div style={{ marginBottom: '1.5rem' }}>
                 <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.5rem', textTransform: 'uppercase' }}>Monthly Price (Rs.)</label>
                 <input type="number" defaultValue={editingPlan.price} id="plan-price"
-                  style={{ width: '100%', padding: '0.875rem 1.25rem', borderRadius: '12px', border: '1px solid var(--border)', background: '#f8fafc', fontSize: '1rem', fontWeight: 700, color: 'var(--secondary)' }} />
+                  style={{ width: '100%', padding: '0.875rem 1.25rem', borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--surface-raised)', fontSize: '1rem', fontWeight: 700, color: 'var(--secondary)' }} />
               </div>
 
               <div style={{ marginBottom: '2rem' }}>
@@ -364,7 +359,7 @@ const SubscriptionManagement = () => {
 
               <div style={{ display: 'flex', gap: '1rem' }}>
                 <button onClick={() => setEditingPlan(null)}
-                  style={{ flex: 1, padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border)', background: 'white', color: 'var(--secondary)', fontWeight: 700, cursor: 'pointer' }}>
+                  style={{ flex: 1, padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--secondary)', fontWeight: 700, cursor: 'pointer' }}>
                   Cancel
                 </button>
                 <button 
@@ -373,7 +368,7 @@ const SubscriptionManagement = () => {
                     const newFeatures = Array.from(document.querySelectorAll('.plan-feature-input')).map(el => el.value);
                     setPlans(plans.map(p => p.id === editingPlan.id ? { ...p, price: newPrice, features: newFeatures } : p));
                     setEditingPlan(null);
-                    showToast(`${editingPlan.name} plan updated successfully`);
+                    showAlert(`${editingPlan.name} plan updated successfully`, 'success');
                   }}
                   style={{ flex: 1, padding: '0.875rem', borderRadius: '12px', border: 'none', background: 'var(--primary)', color: 'white', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
                   <Save size={18} /> Save Changes

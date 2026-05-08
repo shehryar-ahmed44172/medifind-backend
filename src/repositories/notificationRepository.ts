@@ -30,6 +30,45 @@ export const notificationRepository = {
   },
 
   /**
+   * Create a single admin-level audit log for a broadcast action.
+   * Stored under the admin's userId so it appears in their history view.
+   */
+  createBroadcastLog: async (data: {
+    sentByAdminId: string;
+    recipientGroup: string;
+    type: string;
+    channels: string[];
+    title: string;
+    body: string;
+    status: string;
+  }) => {
+    return await prisma.notificationLog.create({
+      data: {
+        userId: data.sentByAdminId,        // stored under the admin — makes it queryable
+        sentByAdminId: data.sentByAdminId,
+        recipientGroup: data.recipientGroup,
+        type: data.type,
+        channels: data.channels,
+        title: data.title,
+        body: data.body,
+        status: data.status,
+        deliveredAt: new Date(),
+      },
+    });
+  },
+
+  /**
+   * Get all broadcast logs created by a specific admin, newest first.
+   */
+  getAdminBroadcastHistory: async (adminId: string, limit = 100) => {
+    return await prisma.notificationLog.findMany({
+      where: { sentByAdminId: adminId },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    });
+  },
+
+  /**
    * Get notification history for a user.
    */
   getUserNotifications: async (userId: string, limit = 50) => {

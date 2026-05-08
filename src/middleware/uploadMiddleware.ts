@@ -15,7 +15,7 @@ const storage = multer.diskStorage({
     
     // Determine subdirectory based on fieldname or route
     if (file.fieldname === 'report') subDir = 'reports';
-    else if (file.fieldname === 'file') subDir = 'chat';
+    else if (file.fieldname === 'file') subDir = 'documents';   // registration docs (CNIC, employee card)
     else if (file.fieldname === 'image') subDir = 'profile';
     else subDir = 'others';
     

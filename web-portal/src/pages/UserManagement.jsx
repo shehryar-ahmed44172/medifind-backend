@@ -1,39 +1,89 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Search, Filter, Trash2, ShieldOff, RefreshCw, User, AlertTriangle } from 'lucide-react';
-import { motion } from 'framer-motion';
+import {
+  Search, RefreshCw, Users, ShieldOff, ShieldCheck, Trash2,
+  User, AlertTriangle, ChevronDown, ChevronUp, CheckCircle,
+  XCircle, Clock, Crown, Zap, Star, EarOff, Phone, Mail,
+  Calendar, Filter, ExternalLink, AlertCircle,
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import api from '../services/api';
+import { useAlert } from '../context/AlertContext';
 
-const ROLE_MAP = { patients: 'PATIENT', responders: 'RESPONDER', caregivers: 'CAREGIVER' };
-
-const STATUS_STYLE = {
-  ACTIVE:    { color: '#10b981', bg: '#d1fae5' },
-  INACTIVE:  { color: '#ef4444', bg: '#fee2e2' },
-  VERIFIED:  { color: '#3182ce', bg: '#ebf8ff' },
-  PENDING:   { color: '#f59e0b', bg: '#fef3c7' },
+/* ─── Theme ───────────────────────────────────────────────────────────────── */
+const C = {
+  accent:   '#2891C2',
+  border:   '#E4EEF3',
+  bg:       '#F3F7FA',
+  white:    '#FFFFFF',
+  textMain: '#0F1A22',
+  textSub:  '#3D5360',
+  textMuted:'#7A96A3',
 };
 
-const UserManagement = () => {
-  const [activeTab, setActiveTab] = useState('patients');
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [search, setSearch] = useState('');
-  const [toast, setToast] = useState(null);
+/* ─── Tab config ─────────────────────────────────────────────────────────── */
+const TABS = [
+  { key: 'PATIENT',   label: 'Patients',   Icon: User,        accent: '#0C637E', pale: '#E2F0F3' },
+  { key: 'RESPONDER', label: 'Responders', Icon: ShieldCheck, accent: '#10B981', pale: '#ECFDF5' },
+  { key: 'CAREGIVER', label: 'Caregivers', Icon: Users,       accent: '#8B5CF6', pale: '#EDE9FE' },
+];
 
-  const showToast = (msg, type = 'success') => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3500);
-  };
+/* ─── Status helpers ─────────────────────────────────────────────────────── */
+const PLAN_META = {
+  FREE:         { label: 'Free',       color: '#64748B', bg: '#F1F5F9', Icon: Zap   },
+  PROFESSIONAL: { label: 'Pro',        color: '#0C637E', bg: '#E2F0F3', Icon: Star  },
+  EXECUTIVE:    { label: 'Enterprise', color: '#04364E', bg: '#C4DDE6', Icon: Crown },
+};
+
+const VERIF_META = {
+  PENDING:  { label: 'Pending Review', color: '#D97706', bg: '#FEF3C7', Icon: Clock        },
+  VERIFIED: { label: 'Verified',       color: '#059669', bg: '#D1FAE5', Icon: CheckCircle  },
+  REJECTED: { label: 'Rejected',       color: '#DC2626', bg: '#FEE2E2', Icon: XCircle      },
+};
+
+/**
+ * Derive the single "effective status" for a user row.
+ * For RESPONDERS: verification state takes precedence over isActive.
+ * For PATIENTS / CAREGIVERS: it's just isActive.
+ */
+function getEffectiveStatus(user, role) {
+  if (role === 'RESPONDER' && user.responder) {
+    const vs = user.responder.verificationStatus;
+    if (vs === 'REJECTED') return 'REJECTED';
+    if (vs === 'PENDING')  return 'PENDING';
+    if (vs === 'VERIFIED') return user.isActive !== false ? 'ACTIVE' : 'INACTIVE';
+  }
+  return user.isActive !== false ? 'ACTIVE' : 'INACTIVE';
+}
+
+const EFF_STATUS_STYLE = {
+  ACTIVE:   { label: 'Active',          color: '#059669', bg: '#D1FAE5', Icon: CheckCircle },
+  INACTIVE: { label: 'Inactive',        color: '#DC2626', bg: '#FEE2E2', Icon: XCircle    },
+  PENDING:  { label: 'Pending Review',  color: '#D97706', bg: '#FEF3C7', Icon: Clock      },
+  REJECTED: { label: 'Rejected',        color: '#DC2626', bg: '#FEE2E2', Icon: XCircle    },
+};
+
+const formatDate = (iso) =>
+  iso ? new Date(iso).toLocaleDateString('en-PK', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+
+/* ─── Main Component ─────────────────────────────────────────────────────── */
+export default function UserManagement() {
+  const { showAlert, showConfirm } = useAlert();
+  const [activeTab,    setActiveTab]    = useState('PATIENT');
+  const [users,        setUsers]        = useState([]);
+  const [loading,      setLoading]      = useState(false);
+  const [error,        setError]        = useState('');
+  const [search,       setSearch]       = useState('');
+  const [expandedId,   setExpandedId]   = useState(null);
+  const [statusFilter, setStatusFilter] = useState('ALL');
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     setError('');
+    setExpandedId(null);
     try {
-      const role = ROLE_MAP[activeTab];
-      const res = await api.get(`/api/admin/users?role=${role}`);
-      if (res.data.success) {
-        setUsers(res.data.data);
-      }
+      const res = await api.get(`/api/admin/users?role=${activeTab}`);
+      if (res.data.success) setUsers(res.data.data);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load users.');
       setUsers([]);
@@ -45,208 +95,551 @@ const UserManagement = () => {
   useEffect(() => {
     fetchUsers();
     setSearch('');
+    setStatusFilter('ALL');
   }, [fetchUsers]);
 
-  const handleDeactivate = async (userId, currentStatus) => {
-    if (!window.confirm(`Are you sure you want to deactivate this user?`)) return;
+  /* ── Actions ── */
+  const handleDeactivate = (userId, name) => {
+    showConfirm({
+      title: 'Deactivate Account?',
+      message: `"${name}" will lose login access immediately. You can reactivate at any time.`,
+      type: 'warning',
+      onConfirm: async () => {
+        try {
+          await api.patch(`/api/admin/users/${userId}/deactivate`);
+          setUsers(prev => prev.map(u => u.id === userId ? { ...u, isActive: false } : u));
+          showAlert(`${name} has been deactivated.`, 'success');
+        } catch {
+          showAlert('Failed to deactivate user.', 'error');
+        }
+      },
+    });
+  };
+
+  const handleReactivate = async (userId, name) => {
     try {
-      await api.patch(`/api/admin/users/${userId}/deactivate`);
-      setUsers(prev => prev.map(u => u.id === userId ? { ...u, isActive: false } : u));
-      showToast('User deactivated successfully.');
+      await api.patch(`/api/admin/users/${userId}/activate`);
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, isActive: true } : u));
+      showAlert(`${name} has been reactivated.`, 'success');
     } catch {
-      showToast('Failed to deactivate user.', 'error');
+      showAlert('Failed to reactivate user.', 'error');
     }
   };
 
-  const handleDelete = async (userId) => {
-    if (!window.confirm(`This will permanently delete the user. This action cannot be undone.`)) return;
-    try {
-      await api.delete(`/api/admin/users/${userId}`);
-      setUsers(prev => prev.filter(u => u.id !== userId));
-      showToast('User deleted successfully.');
-    } catch {
-      showToast('Failed to delete user.', 'error');
-    }
+  const handleDelete = (userId, name) => {
+    showConfirm({
+      title: 'Permanently Delete?',
+      message: `This will delete "${name}" and ALL their data. This cannot be undone.`,
+      type: 'danger',
+      onConfirm: async () => {
+        try {
+          await api.delete(`/api/admin/users/${userId}`);
+          setUsers(prev => prev.filter(u => u.id !== userId));
+          showAlert(`${name} has been permanently deleted.`, 'success');
+        } catch {
+          showAlert('Failed to delete user.', 'error');
+        }
+      },
+    });
   };
 
-  const filtered = users.filter((u) => {
-    if (!search) return true;
+  /* ── Filtering ── */
+  const filtered = users.filter(u => {
     const q = search.toLowerCase();
-    return (
+    const matchSearch = !search || (
       u.fullName?.toLowerCase().includes(q) ||
       u.email?.toLowerCase().includes(q) ||
       u.phoneNumber?.toLowerCase().includes(q)
     );
+    const effStatus = getEffectiveStatus(u, activeTab);
+    const matchFilter =
+      statusFilter === 'ALL'      ? true :
+      statusFilter === 'ACTIVE'   ? effStatus === 'ACTIVE' :
+      statusFilter === 'INACTIVE' ? effStatus === 'INACTIVE' :
+      statusFilter === 'PENDING'  ? effStatus === 'PENDING' :
+      statusFilter === 'REJECTED' ? effStatus === 'REJECTED' : true;
+    return matchSearch && matchFilter;
   });
 
-  const formatDate = (iso) => iso ? new Date(iso).toLocaleDateString('en-PK', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+  /* ── Summary counts (per-tab aware) ── */
+  const summaryChips = getSummaryChips(users, activeTab);
+  const tab = TABS.find(t => t.key === activeTab);
+
+  /* ── Filter pill options per tab ── */
+  const filterOptions =
+    activeTab === 'RESPONDER'
+      ? ['ALL', 'ACTIVE', 'INACTIVE', 'PENDING', 'REJECTED']
+      : ['ALL', 'ACTIVE', 'INACTIVE'];
 
   return (
-    <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }}>
-      {/* Toast */}
-      {toast && (
-        <motion.div
-          initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-          style={{
-            position: 'fixed', top: '6rem', right: '2rem', zIndex: 9999,
-            padding: '1rem 1.5rem', borderRadius: '14px', fontWeight: 700, fontSize: '0.9rem',
-            background: toast.type === 'error' ? '#fff1f2' : '#d1fae5',
-            color: toast.type === 'error' ? '#be123c' : '#065f46',
-            border: `1px solid ${toast.type === 'error' ? '#fecdd3' : '#a7f3d0'}`,
-            boxShadow: 'var(--shadow-diffused)',
-          }}
-        >
-          {toast.msg}
-        </motion.div>
-      )}
-
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '2.5rem' }}>
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -12 }}
+      transition={{ duration: 0.35 }}
+    >
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '24px' }}>
         <div>
-          <h1 style={{ fontSize: '2.25rem', color: 'var(--secondary)', letterSpacing: '-0.02em', marginBottom: '0.5rem' }}>User Directory</h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '1.05rem' }}>Manage all platform participants and their access levels.</p>
+          <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: C.textMain, letterSpacing: '-0.02em', marginBottom: '4px' }}>
+            User Management
+          </h1>
+          <p style={{ color: C.textMuted, fontSize: '0.9rem' }}>
+            Manage all platform participants, access levels, and account status.
+          </p>
         </div>
         <motion.button
-          whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+          whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
           onClick={fetchUsers}
-          style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', padding: '0.75rem 1.5rem', borderRadius: '12px', border: '1px solid var(--border)', background: 'white', color: 'var(--secondary)', fontWeight: 700, cursor: 'pointer', fontSize: '0.9rem' }}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '8px',
+            padding: '10px 18px', borderRadius: '12px',
+            border: `1.5px solid ${C.border}`, background: C.white,
+            color: C.textSub, fontWeight: 700, cursor: 'pointer',
+            fontSize: '0.875rem', fontFamily: 'inherit',
+          }}
         >
-          <RefreshCw size={16} /> Refresh
+          <RefreshCw size={15} /> Refresh
         </motion.button>
       </div>
 
-      <div className="card" style={{ padding: 0, overflow: 'hidden', border: '1px solid var(--border)' }}>
-        {/* Tab Bar + Search */}
-        <div style={{ padding: '1.25rem 2rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'white' }}>
-          <div style={{ display: 'flex', gap: '2.5rem' }}>
-            {['patients', 'responders', 'caregivers'].map(tab => (
+      {/* Summary chips */}
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${summaryChips.length}, 1fr)`, gap: '12px', marginBottom: '20px' }}>
+        {summaryChips.map((s, i) => (
+          <div key={i} style={{
+            background: C.white, borderRadius: '12px', border: `1px solid ${C.border}`,
+            padding: '14px 18px', display: 'flex', alignItems: 'center', gap: '12px',
+            boxShadow: '0 1px 3px rgba(12,99,126,0.04)',
+          }}>
+            <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: s.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <s.Icon size={18} color={s.color} />
+            </div>
+            <div>
+              <p style={{ fontSize: '1.4rem', fontWeight: 800, color: s.color, lineHeight: 1 }}>{loading ? '—' : s.value}</p>
+              <p style={{ fontSize: '0.75rem', fontWeight: 600, color: C.textMuted, marginTop: '2px' }}>{s.label}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Main card */}
+      <div style={{
+        background: C.white, borderRadius: '16px',
+        border: `1px solid ${C.border}`,
+        boxShadow: '0 1px 4px rgba(12,99,126,0.05)',
+        overflow: 'hidden',
+      }}>
+        {/* Tabs */}
+        <div style={{ display: 'flex', borderBottom: `1px solid ${C.border}`, background: '#F8FAFC', padding: '0 24px' }}>
+          {TABS.map(t => {
+            const on = t.key === activeTab;
+            return (
               <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
+                key={t.key}
+                onClick={() => setActiveTab(t.key)}
                 style={{
-                  padding: '0.75rem 0', fontWeight: 600, textTransform: 'capitalize',
-                  color: activeTab === tab ? 'var(--primary)' : 'var(--text-muted)',
-                  borderBottom: activeTab === tab ? '2px solid var(--primary)' : '2px solid transparent',
+                  display: 'flex', alignItems: 'center', gap: '7px',
+                  padding: '14px 4px', marginRight: '28px',
                   background: 'none', border: 'none', cursor: 'pointer',
+                  fontFamily: 'inherit', fontWeight: on ? 700 : 600,
+                  fontSize: '0.875rem',
+                  color: on ? t.accent : C.textMuted,
+                  borderBottom: on ? `2.5px solid ${t.accent}` : '2.5px solid transparent',
+                  transition: 'all 0.15s',
                 }}
               >
-                {tab}
+                <t.Icon size={15} strokeWidth={on ? 2.5 : 2} />
+                {t.label}
+                {on && !loading && (
+                  <span style={{ fontSize: '0.7rem', fontWeight: 800, padding: '2px 7px', borderRadius: '20px', background: t.pale, color: t.accent }}>
+                    {users.length}
+                  </span>
+                )}
               </button>
-            ))}
-          </div>
-          <div style={{ position: 'relative' }}>
-            <Search size={16} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+            );
+          })}
+        </div>
+
+        {/* Filter row */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 24px', borderBottom: `1px solid ${C.border}` }}>
+          <div style={{ position: 'relative', width: '300px' }}>
+            <Search style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: C.textMuted }} size={15} />
             <input
               type="text"
-              placeholder="Search users..."
+              placeholder={`Search ${tab?.label.toLowerCase()}…`}
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              style={{ padding: '0.75rem 1rem 0.75rem 2.75rem', width: '280px', fontSize: '0.875rem', borderRadius: '10px', border: '1px solid var(--border)', background: '#f8fafc', fontFamily: 'var(--font-sans)', outline: 'none' }}
+              onChange={e => setSearch(e.target.value)}
+              style={{
+                width: '100%', height: '38px', paddingLeft: '36px', paddingRight: '12px',
+                border: `1.5px solid ${C.border}`, borderRadius: '10px',
+                background: C.bg, outline: 'none', fontSize: '0.875rem',
+                fontFamily: 'inherit', color: C.textMain, transition: 'border 0.2s',
+                boxSizing: 'border-box',
+              }}
+              onFocus={e => e.target.style.borderColor = C.accent}
+              onBlur={e => e.target.style.borderColor = C.border}
             />
+          </div>
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+            <Filter size={14} color={C.textMuted} />
+            {filterOptions.map(f => {
+              const active = statusFilter === f;
+              const clr =
+                f === 'INACTIVE' ? '#DC2626' :
+                f === 'PENDING'  ? '#D97706' :
+                f === 'REJECTED' ? '#DC2626' :
+                f === 'ACTIVE'   ? '#059669' : null;
+              return (
+                <button key={f} onClick={() => setStatusFilter(f)} style={{
+                  padding: '4px 12px', borderRadius: '20px', border: 'none',
+                  fontFamily: 'inherit', fontSize: '0.75rem', fontWeight: 700,
+                  cursor: 'pointer', transition: 'all 0.15s',
+                  background: active ? (clr ? `${clr}18` : C.accent) : C.bg,
+                  color: active ? (clr || C.white) : C.textMuted,
+                  outline: active && !clr ? `2px solid ${C.accent}` : 'none',
+                }}>
+                  {f}
+                </button>
+              );
+            })}
           </div>
         </div>
 
         {/* Error */}
         {error && (
-          <div style={{ padding: '1rem 2rem', background: '#fff1f2', borderBottom: '1px solid #fecdd3', color: '#be123c', fontWeight: 600, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div style={{ padding: '12px 24px', background: '#FFF7ED', borderBottom: `1px solid #FED7AA`, color: '#C2410C', fontSize: '0.875rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
             <AlertTriangle size={16} /> {error}
           </div>
         )}
 
+        {/* Responder notice banner */}
+        {activeTab === 'RESPONDER' && !loading && (
+          <div style={{ padding: '10px 24px', background: '#FFFBEB', borderBottom: `1px solid #FEF3C7`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', color: '#92400E', fontWeight: 600 }}>
+              <AlertCircle size={14} color='#D97706' />
+              Credential status (Verified / Pending / Rejected) is separate from account login access. Use the Verification Queue to approve or reject credentials.
+            </div>
+            <Link to="/admin/verify" style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.78rem', fontWeight: 700, color: '#D97706', textDecoration: 'none', whiteSpace: 'nowrap', marginLeft: '16px' }}>
+              Verification Queue <ExternalLink size={12} />
+            </Link>
+          </div>
+        )}
+
         {/* Table */}
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
-            <tr style={{ background: '#f8fafc', borderBottom: '1px solid var(--border)' }}>
-              {['User', 'Phone', 'Status', 'Joined', 'Actions'].map((h, i) => (
-                <th key={h} style={{ padding: '1.25rem 2rem', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: i === 4 ? 'right' : 'left' }}>{h}</th>
+            <tr style={{ background: '#F8FAFC', borderBottom: `1px solid ${C.border}` }}>
+              {['User', 'Contact', activeTab === 'RESPONDER' ? 'Credentials' : 'Plan', 'Status', 'Joined', 'Actions'].map((h, i) => (
+                <th key={h} style={{ padding: '12px 20px', textAlign: i === 5 ? 'right' : 'left', fontSize: '0.72rem', fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  {h}
+                </th>
               ))}
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              Array(4).fill(null).map((_, i) => (
-                <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
-                  {Array(5).fill(null).map((__, j) => (
-                    <td key={j} style={{ padding: '1.5rem 2rem' }}>
-                      <div style={{ height: '16px', background: '#f1f5f9', borderRadius: '8px', animation: 'pulse 1.5s infinite' }} />
+              Array(5).fill(null).map((_, i) => (
+                <tr key={i} style={{ borderBottom: `1px solid ${C.border}` }}>
+                  {Array(6).fill(null).map((__, j) => (
+                    <td key={j} style={{ padding: '16px 20px' }}>
+                      <div style={{ height: 14, background: '#EEF2F5', borderRadius: 6, width: j === 0 ? '70%' : j === 5 ? '40%' : '55%', animation: 'shimmer 1.4s ease infinite' }} />
                     </td>
                   ))}
                 </tr>
               ))
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={5} style={{ padding: '5rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-                  <User size={48} style={{ opacity: 0.2, display: 'block', margin: '0 auto 1.5rem' }} />
-                  <p style={{ fontWeight: 600 }}>No {activeTab} found</p>
+                <td colSpan={6} style={{ padding: '60px 20px', textAlign: 'center', color: C.textMuted }}>
+                  <User size={40} style={{ opacity: 0.18, display: 'block', margin: '0 auto 12px' }} />
+                  <p style={{ fontWeight: 700, fontSize: '0.95rem', marginBottom: '4px' }}>
+                    No {tab?.label.toLowerCase()} found
+                  </p>
+                  <p style={{ fontSize: '0.82rem' }}>
+                    {search ? 'Try a different search term.' : 'No accounts match the current filter.'}
+                  </p>
                 </td>
               </tr>
             ) : (
               filtered.map((user, idx) => {
-                // Backend returns isActive:boolean — map to string key for the style map
-                const statusKey = user.isActive === false ? 'INACTIVE' : 'ACTIVE';
-                const statusStyle = STATUS_STYLE[statusKey];
+                const effStatus = getEffectiveStatus(user, activeTab);
+                const statusStyle = EFF_STATUS_STYLE[effStatus];
+                const isDeaf  = user.medicalProfile?.patientType === 'DEAF';
+                const plan    = PLAN_META[user.subscriptionPlan] || PLAN_META.FREE;
+                const verifSt = user.responder?.verificationStatus;
+                const verifMeta = verifSt ? VERIF_META[verifSt] : null;
+                const isExpanded = expandedId === user.id;
+
                 return (
-                  <motion.tr
-                    key={user.id}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: idx * 0.04 }}
-                    style={{ borderBottom: '1px solid var(--border)', background: 'white' }}
-                  >
-                    <td style={{ padding: '1.25rem 2rem' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '1rem', flexShrink: 0 }}>
-                          {user.fullName?.[0] || '?'}
+                  <React.Fragment key={user.id}>
+                    <motion.tr
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: idx * 0.03 }}
+                      onClick={() => setExpandedId(isExpanded ? null : user.id)}
+                      style={{
+                        borderBottom: isExpanded ? 'none' : `1px solid ${C.border}`,
+                        background: isExpanded ? '#F8FAFC' : C.white,
+                        cursor: 'pointer', transition: 'background 0.15s',
+                      }}
+                      onMouseEnter={e => { if (!isExpanded) e.currentTarget.style.background = '#F8FAFC'; }}
+                      onMouseLeave={e => { if (!isExpanded) e.currentTarget.style.background = C.white; }}
+                    >
+                      {/* User */}
+                      <td style={{ padding: '14px 20px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <div style={{
+                            width: '40px', height: '40px', borderRadius: '11px', flexShrink: 0,
+                            background: `linear-gradient(135deg,${tab?.accent || '#0C637E'},#2496A7)`,
+                            color: 'white', display: 'flex', alignItems: 'center',
+                            justifyContent: 'center', fontWeight: 800, fontSize: '1rem',
+                            overflow: 'hidden',
+                          }}>
+                            {user.profileImageUrl
+                              ? <img src={user.profileImageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              : (user.fullName?.[0] || '?').toUpperCase()
+                            }
+                          </div>
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span style={{ fontWeight: 700, fontSize: '0.875rem', color: C.textMain }}>
+                                {user.fullName || '—'}
+                              </span>
+                              {isDeaf && (
+                                <span style={{ fontSize: '0.65rem', fontWeight: 800, padding: '2px 6px', borderRadius: '4px', background: '#FEF3C7', color: '#B45309', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                  <EarOff size={9} /> DEAF
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ fontSize: '0.78rem', color: C.textMuted, marginTop: '1px' }}>{user.email}</div>
+                          </div>
                         </div>
-                        <div>
-                          <div style={{ fontWeight: 600, color: 'var(--secondary)' }}>{user.fullName || '—'}</div>
-                          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{user.email}</div>
+                      </td>
+
+                      {/* Contact */}
+                      <td style={{ padding: '14px 20px', fontSize: '0.85rem', color: C.textSub }}>
+                        {user.phoneNumber || '—'}
+                      </td>
+
+                      {/* Credentials / Plan */}
+                      <td style={{ padding: '14px 20px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 9px', borderRadius: '6px', background: plan.bg, color: plan.color, fontSize: '0.72rem', fontWeight: 700, width: 'fit-content' }}>
+                            <plan.Icon size={11} /> {plan.label}
+                          </div>
+                          {verifMeta && (
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 9px', borderRadius: '6px', background: verifMeta.bg, color: verifMeta.color, fontSize: '0.72rem', fontWeight: 700, width: 'fit-content' }}>
+                              <verifMeta.Icon size={11} /> {verifMeta.label}
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    </td>
-                    <td style={{ padding: '1.25rem 2rem', fontSize: '0.9rem', color: 'var(--text-muted)' }}>{user.phoneNumber || '—'}</td>
-                    <td style={{ padding: '1.25rem 2rem' }}>
-                      <span style={{ fontSize: '0.78rem', fontWeight: 700, padding: '0.35rem 0.75rem', borderRadius: '6px', background: statusStyle.bg, color: statusStyle.color }}>
-                        {user.isActive === false ? 'INACTIVE' : 'ACTIVE'}
-                      </span>
-                    </td>
-                    <td style={{ padding: '1.25rem 2rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>{formatDate(user.createdAt)}</td>
-                    <td style={{ padding: '1.25rem 2rem', textAlign: 'right' }}>
-                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
-                        {user.isActive !== false && (
-                          <motion.button
-                            whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-                            onClick={() => handleDeactivate(user.id)}
-                            title="Deactivate user"
-                            style={{ padding: '0.5rem', borderRadius: '8px', color: '#f59e0b', background: '#fef3c7', border: 'none', cursor: 'pointer' }}
-                          >
-                            <ShieldOff size={16} />
-                          </motion.button>
-                        )}
-                        <motion.button
-                          whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-                          onClick={() => handleDelete(user.id)}
-                          title="Delete user"
-                          style={{ padding: '0.5rem', borderRadius: '8px', color: '#ef4444', background: '#fee2e2', border: 'none', cursor: 'pointer' }}
-                        >
-                          <Trash2 size={16} />
-                        </motion.button>
-                      </div>
-                    </td>
-                  </motion.tr>
+                      </td>
+
+                      {/* Effective Status */}
+                      <td style={{ padding: '14px 20px' }}>
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center', gap: '5px',
+                          padding: '4px 10px', borderRadius: '6px',
+                          fontSize: '0.75rem', fontWeight: 700,
+                          background: statusStyle.bg, color: statusStyle.color,
+                        }}>
+                          <statusStyle.Icon size={11} /> {statusStyle.label}
+                        </span>
+                      </td>
+
+                      {/* Joined */}
+                      <td style={{ padding: '14px 20px', fontSize: '0.82rem', color: C.textMuted }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                          <Calendar size={12} /> {formatDate(user.createdAt)}
+                        </div>
+                      </td>
+
+                      {/* Actions — context-aware */}
+                      <td style={{ padding: '14px 20px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '6px' }}>
+                          {renderActions(user, activeTab, effStatus, handleDeactivate, handleReactivate, handleDelete)}
+                          <div style={{ color: C.textMuted }}>
+                            {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                          </div>
+                        </div>
+                      </td>
+                    </motion.tr>
+
+                    {/* Expanded detail */}
+                    <AnimatePresence>
+                      {isExpanded && (
+                        <motion.tr initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                          <td colSpan={6} style={{ padding: 0, borderBottom: `1px solid ${C.border}` }}>
+                            <motion.div
+                              initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }}
+                              style={{ overflow: 'hidden', background: '#F8FAFC' }}
+                            >
+                              <div style={{ padding: '16px 24px 20px', display: 'flex', gap: '24px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                                <DetailItem icon={Mail}     label="Email"   value={user.email} />
+                                <DetailItem icon={Phone}    label="Phone"   value={user.phoneNumber || '—'} />
+                                <DetailItem icon={Calendar} label="Joined"  value={formatDate(user.createdAt)} />
+                                <DetailItem icon={plan.Icon} label="Subscription" value={plan.label} valueColor={plan.color} />
+                                {activeTab === 'PATIENT' && (
+                                  <DetailItem icon={EarOff} label="Patient Type" value={isDeaf ? 'DEAF / MUTE' : 'Standard'} valueColor={isDeaf ? '#D97706' : '#059669'} />
+                                )}
+                                {activeTab === 'RESPONDER' && verifMeta && (
+                                  <DetailItem icon={verifMeta.Icon} label="Credential Status" value={verifMeta.label} valueColor={verifMeta.color} />
+                                )}
+                                {activeTab === 'RESPONDER' && (verifSt === 'PENDING' || verifSt === 'REJECTED') && (
+                                  <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }}>
+                                    <Link
+                                      to="/admin/verify"
+                                      onClick={e => e.stopPropagation()}
+                                      style={{
+                                        display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                        padding: '8px 14px', borderRadius: '10px', textDecoration: 'none',
+                                        background: verifSt === 'REJECTED' ? '#FEF2F2' : '#FFFBEB',
+                                        color: verifSt === 'REJECTED' ? '#DC2626' : '#D97706',
+                                        fontWeight: 700, fontSize: '0.82rem',
+                                        border: `1px solid ${verifSt === 'REJECTED' ? '#FECACA' : '#FDE68A'}`,
+                                      }}
+                                    >
+                                      <ExternalLink size={13} />
+                                      {verifSt === 'REJECTED' ? 'Review Rejection in Queue' : 'Review in Verification Queue'}
+                                    </Link>
+                                  </div>
+                                )}
+                              </div>
+                            </motion.div>
+                          </td>
+                        </motion.tr>
+                      )}
+                    </AnimatePresence>
+                  </React.Fragment>
                 );
               })
             )}
           </tbody>
         </table>
 
-        <div style={{ padding: '1.25rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', borderTop: '1px solid var(--border)' }}>
-          <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
-            {loading ? 'Loading...' : `Showing ${filtered.length} of ${users.length} ${activeTab}`}
+        {/* Footer */}
+        <div style={{ padding: '12px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F8FAFC', borderTop: `1px solid ${C.border}` }}>
+          <span style={{ fontSize: '0.82rem', color: C.textMuted }}>
+            {loading ? 'Loading…' : `Showing ${filtered.length} of ${users.length} ${tab?.label.toLowerCase()}`}
           </span>
         </div>
       </div>
+
+      <style>{`
+        @keyframes shimmer {
+          0%   { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+      `}</style>
     </motion.div>
   );
-};
+}
 
-export default UserManagement;
+/* ─── Context-aware action buttons ──────────────────────────────────────── */
+function renderActions(user, role, effStatus, onDeactivate, onReactivate, onDelete) {
+  const stopProp = (fn) => (e) => { e.stopPropagation(); fn(); };
+
+  // Responders with credential issues: only show Delete (not activate/deactivate)
+  // The credential flow is handled in the Verification Queue, not here
+  if (role === 'RESPONDER' && (effStatus === 'PENDING' || effStatus === 'REJECTED')) {
+    return (
+      <>
+        <Link
+          to="/admin/verify"
+          onClick={e => e.stopPropagation()}
+          title="Go to Verification Queue"
+          style={{
+            padding: '7px 11px', borderRadius: '8px', textDecoration: 'none',
+            display: 'flex', alignItems: 'center', gap: '5px',
+            background: effStatus === 'REJECTED' ? '#FEE2E2' : '#FEF3C7',
+            color: effStatus === 'REJECTED' ? '#DC2626' : '#D97706',
+            fontSize: '0.75rem', fontWeight: 700,
+          }}
+        >
+          <ExternalLink size={13} />
+          {effStatus === 'REJECTED' ? 'Review' : 'Verify'}
+        </Link>
+        <motion.button
+          whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+          onClick={stopProp(() => onDelete(user.id, user.fullName))}
+          title="Delete user"
+          style={{ padding: '7px', borderRadius: '8px', border: 'none', background: '#FEE2E2', color: '#DC2626', cursor: 'pointer' }}
+        >
+          <Trash2 size={15} />
+        </motion.button>
+      </>
+    );
+  }
+
+  // Normal users (patients, caregivers, verified responders): activate/deactivate + delete
+  return (
+    <>
+      {effStatus === 'ACTIVE' || effStatus === 'INACTIVE' ? (
+        effStatus === 'ACTIVE' ? (
+          <motion.button
+            whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+            onClick={stopProp(() => onDeactivate(user.id, user.fullName))}
+            title="Deactivate account"
+            style={{ padding: '7px', borderRadius: '8px', border: 'none', background: '#FEF3C7', color: '#D97706', cursor: 'pointer' }}
+          >
+            <ShieldOff size={15} />
+          </motion.button>
+        ) : (
+          <motion.button
+            whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+            onClick={stopProp(() => onReactivate(user.id, user.fullName))}
+            title="Reactivate account"
+            style={{ padding: '7px', borderRadius: '8px', border: 'none', background: '#D1FAE5', color: '#059669', cursor: 'pointer' }}
+          >
+            <ShieldCheck size={15} />
+          </motion.button>
+        )
+      ) : null}
+      <motion.button
+        whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+        onClick={stopProp(() => onDelete(user.id, user.fullName))}
+        title="Permanently delete"
+        style={{ padding: '7px', borderRadius: '8px', border: 'none', background: '#FEE2E2', color: '#DC2626', cursor: 'pointer' }}
+      >
+        <Trash2 size={15} />
+      </motion.button>
+    </>
+  );
+}
+
+/* ─── Summary chips — tab-aware ─────────────────────────────────────────── */
+function getSummaryChips(users, role) {
+  if (role === 'RESPONDER') {
+    return [
+      { label: 'Verified Responders', value: users.filter(u => u.responder?.verificationStatus === 'VERIFIED').length,  color: '#059669', bg: '#D1FAE5', Icon: CheckCircle },
+      { label: 'Pending Review',       value: users.filter(u => u.responder?.verificationStatus === 'PENDING').length,   color: '#D97706', bg: '#FEF3C7', Icon: Clock       },
+      { label: 'Rejected',             value: users.filter(u => u.responder?.verificationStatus === 'REJECTED').length,  color: '#DC2626', bg: '#FEE2E2', Icon: XCircle     },
+    ];
+  }
+  if (role === 'PATIENT') {
+    return [
+      { label: 'Active Patients',   value: users.filter(u => u.isActive !== false).length,                               color: '#059669', bg: '#D1FAE5', Icon: CheckCircle },
+      { label: 'Inactive',          value: users.filter(u => u.isActive === false).length,                               color: '#DC2626', bg: '#FEE2E2', Icon: XCircle     },
+      { label: 'DEAF / MUTE',       value: users.filter(u => u.medicalProfile?.patientType === 'DEAF').length,           color: '#D97706', bg: '#FEF3C7', Icon: EarOff      },
+    ];
+  }
+  // Caregivers
+  return [
+    { label: 'Active Caregivers', value: users.filter(u => u.isActive !== false).length, color: '#059669', bg: '#D1FAE5', Icon: CheckCircle },
+    { label: 'Inactive',          value: users.filter(u => u.isActive === false).length, color: '#DC2626', bg: '#FEE2E2', Icon: XCircle     },
+  ];
+}
+
+/* ─── Detail item helper ─────────────────────────────────────────────────── */
+function DetailItem({ icon: Icon, label, value, valueColor }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '160px' }}>
+      <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: '#E2F0F3', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <Icon size={14} color="#0C637E" />
+      </div>
+      <div>
+        <p style={{ fontSize: '0.68rem', color: '#7A96A3', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</p>
+        <p style={{ fontSize: '0.82rem', fontWeight: 700, color: valueColor || '#0F1A22' }}>{value}</p>
+      </div>
+    </div>
+  );
+}

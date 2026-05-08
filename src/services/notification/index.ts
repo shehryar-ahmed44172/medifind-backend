@@ -122,6 +122,29 @@ export async function sendToMultiple(userIds: string[], payload: NotificationPay
   return results;
 }
 
+/**
+ * Broadcast to a group of users by role.
+ */
+export async function broadcastToGroup(group: string, payload: NotificationPayload) {
+  const { userRepository } = await import('../../repositories/userRepository');
+  let users: any[] = [];
+  
+  if (group === 'ALL') {
+    users = await userRepository.findAll();
+  } else {
+    // group matches role enum: PATIENT, RESPONDER, CAREGIVER
+    users = await userRepository.findByRole(group as any);
+  }
+
+  logger.info(`📢 Broadcasting notification to group ${group} (${users.length} users)`);
+  
+  const results = await sendToMultiple(users.map(u => u.id), payload);
+  return { 
+    total: users.length, 
+    success: results.filter(r => r.status === 'fulfilled').length 
+  };
+}
+
 // ---- Channel Implementations ----
 
 /**
@@ -135,13 +158,24 @@ function sendInApp(userId: string, payload: NotificationPayload) {
   const room = `notifications:${userId}`;
   logger.info(`📡 Emitting in-app notification to room ${room}: ${payload.type}`);
   
-  io.to(room).emit('notification', {
+  const eventData = {
     type: payload.type,
     title: payload.title,
     body: payload.body,
     data: payload.data || {},
+    recipientId: userId,
     timestamp: new Date().toISOString(),
-  });
+  };
+
+  io.to(room).emit('notification', eventData);
+
+  // Mirror to admin room for system-wide awareness (SOS, Critical Alerts)
+  if (payload.type === NotificationType.SOS_TRIGGERED || 
+      payload.type === NotificationType.SYSTEM_ESCALATION ||
+      payload.type === NotificationType.PATIENT_EMERGENCY) {
+    logger.info(`📢 Mirroring critical event ${payload.type} to admin room`);
+    io.to('admin').emit('admin_notification', eventData);
+  }
 }
 
 /**

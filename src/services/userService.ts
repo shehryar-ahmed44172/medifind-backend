@@ -16,8 +16,9 @@ export const updateUserProfile = async (userId: string, data: any) => {
   const { id, email, passwordHash, role, createdAt, updatedAt, ...updateData } = data;
   
   const updatedUser = await userRepository.update(userId, updateData);
-  const { passwordHash: _hash, failedLoginAttempts: _fail, accountLockedUntil: _locked, ...safeUser } = updatedUser;
   
+  // Return the updated user without sensitive fields
+  const { passwordHash: _hash, failedLoginAttempts: _fail, accountLockedUntil: _locked, ...safeUser } = updatedUser;
   return safeUser;
 };
 

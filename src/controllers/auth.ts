@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import path from 'path';
 import * as authService from '../services/auth';
 import { sendSuccess, sendError } from '../utils/response';
 import { RegisterRequest, LoginRequest, RefreshTokenRequest } from '../types/auth';
@@ -239,8 +240,13 @@ export const uploadDocument = async (req: Request, res: Response) => {
       return sendError(res, 'No file uploaded', 400);
     }
 
-    const fileUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
-    
+    // Build the URL relative to the uploads root so static serving works correctly.
+    // req.file.path = absolute path e.g. /project/uploads/documents/file-123.jpg
+    // We need: http://host/uploads/documents/file-123.jpg
+    const uploadsRoot = path.join(process.cwd(), 'uploads');
+    const relativePath = path.relative(uploadsRoot, req.file.path).replace(/\\/g, '/');
+    const fileUrl = `${req.protocol}://${req.get('host')}/uploads/${relativePath}`;
+
     sendSuccess(res, { url: fileUrl }, 'File uploaded successfully', 200);
   } catch (error: any) {
     sendError(res, error.message, 500);

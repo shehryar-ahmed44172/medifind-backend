@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { AlertProvider } from './context/AlertContext';
+import { ThemeProvider } from './context/ThemeContext';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import Dashboard from './pages/Dashboard';
+import LegalPage from './pages/LegalPage';
 import './App.css';
 import './index.css';
 
@@ -12,16 +15,51 @@ const ProtectedRoute = ({ children }) => {
   return isAuthenticated ? children : <Navigate to="/login" replace />;
 };
 
+const SessionTimeoutHandler = ({ children }) => {
+  const { isAuthenticated, logout } = useAuth();
+  const timeoutRef = React.useRef(null);
+  const TIMEOUT_DURATION = 30 * 60 * 1000; // 30 minutes
+
+  const resetTimer = React.useCallback(() => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    if (isAuthenticated) {
+      timeoutRef.current = setTimeout(() => {
+        console.log('HIPAA: Session timed out due to inactivity');
+        logout();
+      }, TIMEOUT_DURATION);
+    }
+  }, [isAuthenticated, logout]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
+      events.forEach(event => window.addEventListener(event, resetTimer));
+      resetTimer();
+
+      return () => {
+        events.forEach(event => window.removeEventListener(event, resetTimer));
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      };
+    }
+  }, [isAuthenticated, resetTimer]);
+
+  return children;
+};
+
 function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/terms" element={<LegalPage type="terms" />} />
+      <Route path="/privacy" element={<LegalPage type="privacy" />} />
       <Route
         path="/admin/*"
         element={
           <ProtectedRoute>
-            <Dashboard />
+            <SessionTimeoutHandler>
+              <Dashboard />
+            </SessionTimeoutHandler>
           </ProtectedRoute>
         }
       />
@@ -31,11 +69,11 @@ function AppRoutes() {
 }
 
 function App() {
-  const [isLaptop, setIsLaptop] = useState(window.innerWidth >= 1024);
+  const [isLaptop, setIsLaptop] = useState(window.innerWidth >= 320);
 
   useEffect(() => {
     const handleResize = () => {
-      setIsLaptop(window.innerWidth >= 1024);
+      setIsLaptop(window.innerWidth >= 320);
     };
 
     window.addEventListener('resize', handleResize);
@@ -69,11 +107,15 @@ function App() {
   }
 
   return (
-    <AuthProvider>
-      <Router>
-        <AppRoutes />
-      </Router>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <AlertProvider>
+          <Router>
+            <AppRoutes />
+          </Router>
+        </AlertProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 

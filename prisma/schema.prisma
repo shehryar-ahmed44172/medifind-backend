@@ -127,7 +127,7 @@ model Responder {
   cnic                  String?             @unique
   isVerified            Boolean             @default(false)
   organization          String?
-  responderType         ResponderType       @default(VOLUNTEER)
+  responderType         ResponderType       @default(FIRST_RESPONDER)
   vehicleType           String?
   cnicImageUrl          String?
   cnicBackImageUrl      String?
@@ -285,20 +285,26 @@ model AuditLog {
 }
 
 model NotificationLog {
-  id            String    @id @default(cuid())
-  userId        String
-  type          String
-  channels      Json
-  title         String
-  body          String
-  status        String
-  isRead        Boolean   @default(false)
-  deliveredAt   DateTime?
-  failureReason String?
-  createdAt     DateTime  @default(now())
-  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id             String    @id @default(cuid())
+  userId         String
+  type           String
+  channels       Json
+  title          String
+  body           String
+  status         String
+  isRead         Boolean   @default(false)
+  deliveredAt    DateTime?
+  failureReason  String?
+  createdAt      DateTime  @default(now())
+  /// Set only for admin-initiated broadcasts. Stores the admin's userId.
+  sentByAdminId  String?
+  /// Human-readable target for admin broadcasts: "ALL", "PATIENT", "RESPONDER",
+  /// "CAREGIVER", or "individual:<email>" for single-user sends.
+  recipientGroup String?
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([sentByAdminId])
   @@index([createdAt])
   @@index([status])
   @@index([isRead])
@@ -378,11 +384,11 @@ enum PatientType {
 }
 
 enum ResponderType {
-  AMBULANCE
   PARAMEDIC
-  DOCTOR
+  RESCUE_OFFICER
+  EMT
+  FIRST_RESPONDER
   VOLUNTEER
-  EMERGENCY_RESPONDER
 }
 
 enum EmergencyStatus {
