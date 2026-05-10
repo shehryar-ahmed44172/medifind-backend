@@ -217,3 +217,43 @@ export const getDebugInfo = async (req: Request, res: Response) => {
     sendError(res, error.message, 500);
   }
 };
+
+/**
+ * DELETE /api/users/me
+ * Permanently delete the authenticated user's own account.
+ * - Revokes all refresh tokens first
+ * - Hard-deletes the user row (cascade removes all related data via Prisma schema)
+ * - Admin accounts are protected and cannot self-delete
+ */
+export const deleteMyAccount = async (req: Request, res: Response) => {
+  try {
+    if (!req.user) return sendError(res, 'Unauthorized', 401);
+
+    const { PrismaClient } = await import('@prisma/client');
+    const prisma = new PrismaClient();
+
+    const userId = req.user.userId;
+
+    // Protect admin accounts from self-deletion
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return sendError(res, 'User not found', 404);
+    if (user.role === 'ADMIN') {
+      return sendError(res, 'Admin accounts cannot be self-deleted. Contact a system administrator.', 403);
+    }
+
+    // 1. Revoke all refresh tokens (invalidate all active sessions)
+    await prisma.refreshToken.updateMany({
+      where: { userId },
+      data: { revokedAt: new Date() },
+    });
+
+    // 2. Hard-delete the user — Prisma cascade handles related records
+    await prisma.user.delete({ where: { id: userId } });
+
+    await prisma.$disconnect();
+
+    sendSuccess(res, null, 'Account permanently deleted');
+  } catch (error: any) {
+    sendError(res, error.message, 500);
+  }
+};

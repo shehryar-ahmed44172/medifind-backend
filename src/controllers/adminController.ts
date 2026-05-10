@@ -87,6 +87,95 @@ export const deleteUser = async (req: Request, res: Response) => {
 };
 
 /**
+ * Admin: Get full user profile with emergency stats
+ * GET /api/admin/users/:id
+ */
+export const getUserProfile = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const user = await prisma.user.findUnique({
+      where: { id },
+      include: {
+        medicalProfile: true,
+        responder: true,
+        caregiverProfile: true,
+      },
+    });
+
+    if (!user) return sendError(res, 'User not found', 404);
+
+    // ── Patient: emergency stats + history ──────────────────────────────────
+    let emergencyStats: Record<string, number> | null = null;
+    let emergencyHistory: any[] = [];
+
+    if (user.role === 'PATIENT') {
+      const [total, resolved, cancelled, completed] = await Promise.all([
+        prisma.emergency.count({ where: { patientId: id } }),
+        prisma.emergency.count({ where: { patientId: id, status: 'RESOLVED' } }),
+        prisma.emergency.count({ where: { patientId: id, status: 'CANCELLED' } }),
+        prisma.emergency.count({ where: { patientId: id, status: 'COMPLETED' } }),
+      ]);
+
+      emergencyStats = {
+        total,
+        resolved,
+        cancelled,
+        completed,
+        active: total - resolved - cancelled - completed,
+      };
+
+      emergencyHistory = await prisma.emergency.findMany({
+        where: { patientId: id },
+        orderBy: { createdAt: 'desc' },
+        take: 20,
+        include: {
+          emergencyRequests: {
+            where: { status: 'ACCEPTED' },
+            include: {
+              responder: {
+                include: { user: { select: { fullName: true } } },
+              },
+            },
+          },
+        },
+      });
+    }
+
+    // ── Responder: response history ─────────────────────────────────────────
+    let responderHistory: any[] = [];
+    if (user.role === 'RESPONDER') {
+      responderHistory = await prisma.emergencyRequest.findMany({
+        where: { responderId: id },
+        orderBy: { sentAt: 'desc' },
+        take: 20,
+        include: {
+          emergency: {
+            include: {
+              patient: { select: { fullName: true, email: true } },
+            },
+          },
+        },
+      });
+    }
+
+    // ── Audit log count ─────────────────────────────────────────────────────
+    const auditCount = await prisma.auditLog.count({ where: { userId: id } });
+
+    // Strip sensitive fields
+    const { passwordHash, refreshTokenHash, fcmTokens, ...safeUser } = user as any;
+
+    sendSuccess(
+      res,
+      { ...safeUser, emergencyStats, emergencyHistory, responderHistory, auditCount },
+      'User profile retrieved'
+    );
+  } catch (error: any) {
+    sendError(res, error.message, 500);
+  }
+};
+
+/**
  * Admin: Get responders pending verification
  */
 export const getPendingResponders = async (req: Request, res: Response) => {

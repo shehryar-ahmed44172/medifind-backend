@@ -9,6 +9,7 @@ router.use(authMiddleware);
 router.use(roleMiddleware('ADMIN'));
 
 router.get('/users',               adminController.getAllUsers);
+router.get('/users/:id',           adminController.getUserProfile);
 router.get('/stats',               adminController.getDashboardStats);
 router.get('/health',              adminController.getSystemHealth);
 router.get('/logs',                adminController.getAuditLogs);

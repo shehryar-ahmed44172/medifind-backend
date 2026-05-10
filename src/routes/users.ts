@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getProfile, updateProfile, verifyResponder, upgradePlan, getUserById, uploadProfileImage, getDebugInfo } from '../controllers/userController';
+import { getProfile, updateProfile, verifyResponder, upgradePlan, getUserById, uploadProfileImage, getDebugInfo, deleteMyAccount } from '../controllers/userController';
 import { authMiddleware, roleMiddleware } from '../middleware/authMiddleware';
 import { upload } from '../middleware/uploadMiddleware';
 
@@ -49,5 +49,11 @@ router.patch('/:id/verify', roleMiddleware('ADMIN'), verifyResponder);
  * Diagnostic endpoint
  */
 router.get('/debug/:userId', getDebugInfo);
+
+/**
+ * DELETE /api/users/me
+ * Permanently delete the authenticated user's own account
+ */
+router.delete('/me', deleteMyAccount);
 
 export default router;
