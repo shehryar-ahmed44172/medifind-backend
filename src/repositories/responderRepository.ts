@@ -11,8 +11,8 @@ export const responderRepository = {
   },
 
   findNearbyAvailable: async (latitude: number, longitude: number, radiusKm = 5) => {
-    // Use raw SQL for PostGIS earth_distance calculation
-    console.log(`[Geospatial Search] Looking for responders near ${latitude}, ${longitude} within ${radiusKm}km`);
+    const logger = (await import('../utils/logger')).default;
+    logger.info(`[Geospatial Search] Looking for responders near ${latitude}, ${longitude} within ${radiusKm}km`);
     
     const isDev = process.env.NODE_ENV === 'development';
     
@@ -52,17 +52,17 @@ export const responderRepository = {
       LIMIT 10
     `;
 
-    console.log(`[Geospatial Search] Found ${results.length} eligible responders`);
-    if (results.length > 0) {
-      results.forEach(r => {
-        console.log(`  -> Responder ${r.userId} (${r.fullName}) is ${r.distanceKm} km away`);
+    logger.info(`[Geospatial Search] Found ${results.length} eligible responders`);
+    
+    if (results.length === 0) {
+      // Diagnostic: Check why no one was found
+      const allResponders = await prisma.responder.findMany({
+        include: { user: { select: { isActive: true, isEmailVerified: true } } }
       });
-    } else {
-      // Log why they might be missing
-      const allResponders = await prisma.responder.findMany({ select: { userId: true, isAvailable: true, isVerified: true, currentLatitude: true, currentLongitude: true } });
-      console.log(`[Geospatial Search] Total Responders in DB: ${allResponders.length}`);
+      
+      logger.info(`[Geospatial Search] Diagnostic: Total Responders=${allResponders.length}`);
       allResponders.forEach(r => {
-        console.log(`  - Responder ${r.userId}: available=${r.isAvailable}, verified=${r.isVerified}, hasLocation=${r.currentLatitude != null}, coords=(${r.currentLatitude}, ${r.currentLongitude})`);
+        logger.info(`  - Responder ${r.userId}: available=${r.isAvailable}, verified=${r.isVerified}, active=${r.user.isActive}, emailVerified=${r.user.isEmailVerified}, location=(${r.currentLatitude}, ${r.currentLongitude})`);
       });
     }
 

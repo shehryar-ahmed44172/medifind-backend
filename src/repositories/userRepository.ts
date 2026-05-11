@@ -131,7 +131,7 @@ export const userRepository = {
   },
 
   revokeRefreshToken: async (tokenHash: string) => {
-    return await prisma.refreshToken.update({
+    return await prisma.refreshToken.updateMany({
       where: { tokenHash },
       data: { revokedAt: new Date() },
     });

@@ -1,0 +1,432 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                  String             @id @default(cuid())
+  fullName            String
+  email               String             @unique
+  phoneNumber         String             @unique
+  passwordHash        String
+  role                UserRole           @default(PATIENT)
+  profileImageUrl     String?
+  isActive            Boolean            @default(true)
+  lastLogin           DateTime?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  accountLockedUntil  DateTime?
+  failedLoginAttempts Int                @default(0)
+  isEmailVerified     Boolean            @default(false)
+  lastFailedLoginAt   DateTime?
+  lastLoginAt         DateTime?
+  lastLoginIp         String?
+  address             String?
+  city                String?
+  fcmTokens           Json?              @default("[]")
+  subscriptionPlan    SubscriptionPlan   @default(FREE)
+  dateOfBirth         DateTime?
+  auditLogs           AuditLog[]
+  caregiverLinks      CaregiverLink[]    @relation("CaregiverTo")
+  caregiverEmployers  CaregiverLink[]    @relation("EmployerFrom")
+  caregiverProfile    CaregiverProfile?
+  sentMessages        ChatMessage[]      @relation("MessageSender")
+  caregiverChatRooms  ChatRoom[]         @relation("CaregiverChatRooms")
+  patientChatRooms    ChatRoom[]         @relation("PatientChatRooms")
+  responderChatRooms  ChatRoom[]         @relation("ResponderChatRooms")
+  emailVerification   EmailVerification?
+  emergencies         Emergency[]        @relation("PatientEmergencies")
+  medicalProfile      MedicalProfile?
+  medicalReports      MedicalReport[]
+  notificationLogs    NotificationLog[]
+  passwordResets      PasswordReset[]
+  refreshTokens       RefreshToken[]
+  responder           Responder?
+
+  @@index([email])
+  @@index([phoneNumber])
+  @@index([role])
+  @@index([isActive])
+}
+
+model MedicalProfile {
+  id                 String      @id @default(cuid())
+  userId             String      @unique
+  bloodType          String?
+  chronicDiseases    Json?       @default("[]")
+  allergies          Json?       @default("[]")
+  medications        Json?       @default("[]")
+  emergencyContacts  Json?       @default("[]")
+  disabilities       Json?       @default("[]")
+  medicalHistory     String?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  cnic               String?     @unique
+  patientType        PatientType @default(NORMAL)
+  predefinedMessages Json?       @default("[]")
+  user               User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model CaregiverProfile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  cnic      String?  @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Emergency {
+  id                   String              @id @default(cuid())
+  patientId            String
+  emergencyType        String              @default("MEDICAL")
+  latitude             Float
+  longitude            Float
+  accuracy             Float?
+  status               EmergencyStatus     @default(ACTIVE)
+  voiceAlertGenerated  Boolean             @default(false)
+  additionalInfo       String?
+  cancellationDeadline DateTime
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  resolvedAt           DateTime?
+  voiceSummary         String?
+  patient              User                @relation("PatientEmergencies", fields: [patientId], references: [id], onDelete: Cascade)
+  emergencyRequests    EmergencyRequest[]
+  emergencyTracking    EmergencyTracking[]
+  medicalReports       MedicalReport[]
+
+  @@index([patientId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([cancellationDeadline])
+}
+
+model Responder {
+  id                       String              @id @default(cuid())
+  userId                   String              @unique
+  licenseNumber            String              @unique
+  specialization           Json?               @default("[]")
+  currentLatitude          Float?
+  currentLongitude         Float?
+  isAvailable              Boolean             @default(true)
+  averageResponseTime      Int?
+  totalResponsesHandled    Int                 @default(0)
+  rating                   Float               @default(5.0)
+  totalRatings             Int                 @default(0)
+  createdAt                DateTime            @default(now())
+  updatedAt                DateTime            @updatedAt
+  cnic                     String?             @unique
+  cnicImageUrl             String?
+  employeeCardImageUrl     String?
+  isVerified               Boolean             @default(false)
+  organization             String?
+  rejectionReason          String?
+  responderType            ResponderType       @default(FIRST_RESPONDER)
+  vehicleType              String?
+  verificationStatus       VerificationStatus  @default(PENDING)
+  cnicBackImageUrl         String?
+  employeeCardBackImageUrl String?
+  emergencyRequests        EmergencyRequest[]
+  emergencyTracking        EmergencyTracking[]
+  user                     User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isAvailable])
+  @@index([currentLatitude, currentLongitude])
+  @@index([createdAt])
+}
+
+model EmergencyRequest {
+  id                      String                 @id @default(cuid())
+  emergencyId             String
+  responderId             String
+  status                  EmergencyRequestStatus @default(PENDING)
+  distanceKm              Float?
+  estimatedArrivalMinutes Int?
+  sentAt                  DateTime               @default(now())
+  acceptedAt              DateTime?
+  rejectedAt              DateTime?
+  rejectionReason         String?
+  createdAt               DateTime               @default(now())
+  updatedAt               DateTime               @updatedAt
+  emergency               Emergency              @relation(fields: [emergencyId], references: [id], onDelete: Cascade)
+  responder               Responder              @relation(fields: [responderId], references: [userId], onDelete: Cascade)
+
+  @@unique([emergencyId, responderId])
+  @@index([emergencyId])
+  @@index([responderId])
+  @@index([status])
+  @@index([sentAt])
+}
+
+model EmergencyTracking {
+  id          String         @id @default(cuid())
+  emergencyId String
+  responderId String
+  latitude    Float
+  longitude   Float
+  accuracy    Float?
+  status      TrackingStatus @default(EN_ROUTE)
+  timestamp   DateTime       @default(now())
+  createdAt   DateTime       @default(now())
+  emergency   Emergency      @relation(fields: [emergencyId], references: [id], onDelete: Cascade)
+  responder   Responder      @relation(fields: [responderId], references: [userId], onDelete: Cascade)
+
+  @@index([emergencyId])
+  @@index([responderId])
+  @@index([status])
+  @@index([timestamp])
+}
+
+model CaregiverLink {
+  id           String           @id @default(cuid())
+  caregiverId  String
+  patientId    String
+  relationship String
+  isActive     Boolean          @default(true)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  requesterId  String?
+  status       InvitationStatus @default(PENDING)
+  caregiver    User             @relation("CaregiverTo", fields: [caregiverId], references: [id], onDelete: Cascade)
+  patient      User             @relation("EmployerFrom", fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@unique([caregiverId, patientId])
+  @@index([caregiverId])
+  @@index([patientId])
+}
+
+model MedicalReport {
+  id            String            @id @default(cuid())
+  emergencyId   String?
+  userId        String
+  reportType    MedicalReportType
+  fileName      String
+  fileUrl       String
+  fileSizeBytes Int
+  uploadedAt    DateTime          @default(now())
+  createdAt     DateTime          @default(now())
+  emergency     Emergency?        @relation(fields: [emergencyId], references: [id])
+  uploadedBy    User              @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([emergencyId])
+  @@index([userId])
+  @@index([reportType])
+  @@index([uploadedAt])
+}
+
+model RefreshToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([revokedAt])
+}
+
+model PasswordReset {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([createdAt])
+}
+
+model EmailVerification {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  otp       String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  entity    String
+  entityId  String
+  oldValues Json?
+  newValues Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([entity])
+  @@index([entityId])
+  @@index([createdAt])
+}
+
+model NotificationLog {
+  id             String    @id @default(cuid())
+  userId         String
+  type           String
+  channels       Json
+  title          String
+  body           String
+  status         String
+  deliveredAt    DateTime?
+  failureReason  String?
+  createdAt      DateTime  @default(now())
+  isRead         Boolean   @default(false)
+  /// Set only for admin-initiated broadcasts. Stores the admin's userId.
+  sentByAdminId  String?
+  /// Human-readable target for admin broadcasts: "ALL", "PATIENT", "RESPONDER",
+  /// "CAREGIVER", or "individual:<email>" for single-user sends.
+  recipientGroup String?
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([sentByAdminId])
+  @@index([createdAt])
+  @@index([status])
+  @@index([isRead])
+}
+
+model ChatRoom {
+  id          String        @id @default(cuid())
+  patientId   String
+  caregiverId String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  roomType    ChatRoomType  @default(CAREGIVER_PATIENT)
+  responderId String?
+  emergencyId String?
+  messages    ChatMessage[]
+  caregiver   User?         @relation("CaregiverChatRooms", fields: [caregiverId], references: [id], onDelete: Cascade)
+  patient     User          @relation("PatientChatRooms", fields: [patientId], references: [id], onDelete: Cascade)
+  responder   User?         @relation("ResponderChatRooms", fields: [responderId], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
+  @@index([caregiverId])
+  @@index([responderId])
+  @@index([emergencyId])
+}
+
+model ChatMessage {
+  id          String      @id @default(cuid())
+  roomId      String
+  senderId    String
+  content     String
+  messageType MessageType @default(TEXT)
+  mediaUrl    String?
+  isRead      Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+  room        ChatRoom    @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  sender      User        @relation("MessageSender", fields: [senderId], references: [id])
+
+  @@index([roomId])
+  @@index([senderId])
+  @@index([createdAt])
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  AUDIO
+  VOICE_ALERT
+  DOCUMENT
+}
+
+enum ChatRoomType {
+  CAREGIVER_PATIENT
+  EMERGENCY_RESPONDER
+}
+
+enum UserRole {
+  PATIENT
+  RESPONDER
+  CAREGIVER
+  ADMIN
+}
+
+enum PatientType {
+  NORMAL
+  DEAF
+}
+
+enum ResponderType {
+  PARAMEDIC
+  RESCUE_OFFICER
+  EMT
+  FIRST_RESPONDER
+  VOLUNTEER
+}
+
+enum EmergencyStatus {
+  ACTIVE
+  RESOLVED
+  CANCELLED
+  ASSIGNED
+  ARRIVED
+  COMPLETED
+}
+
+enum EmergencyRequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  COMPLETED
+}
+
+enum TrackingStatus {
+  EN_ROUTE
+  ARRIVED
+  TREATING
+  TRANSPORTED
+}
+
+enum MedicalReportType {
+  LAB
+  IMAGING
+  PRESCRIPTION
+  DISCHARGE_SUMMARY
+  VITAL_SIGNS
+  OTHER
+}
+
+enum SubscriptionPlan {
+  FREE
+  PROFESSIONAL
+  EXECUTIVE
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+

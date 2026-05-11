@@ -27,6 +27,14 @@ const C = {
   purple:   '#7C3AED',
 };
 
+/* ─── Media URL resolver ─────────────────────────────────────────────────── */
+const BACKEND_ORIGIN = import.meta.env.VITE_API_URL || '';
+const resolveMediaUrl = (path) => {
+  if (!path) return '';
+  if (path.startsWith('http')) return path;
+  return `${BACKEND_ORIGIN}${path}`;
+};
+
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
 const fmtDate = (iso) =>
   iso ? new Date(iso).toLocaleDateString('en-PK', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
@@ -241,11 +249,13 @@ export default function AdminUserProfile() {
   const initials   = profile.fullName?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'U';
   const isPatient  = profile.role === 'PATIENT';
   const isResponder= profile.role === 'RESPONDER';
+  const isCaregiver= profile.role === 'CAREGIVER';
   const stats      = profile.emergencyStats;
+  const linkedPatients = profile.linkedPatients ?? [];
 
   /* visible tabs based on role */
   const visibleTabs = TABS.filter(t => {
-    if (t.key === 'history') return isPatient || isResponder;
+    if (t.key === 'history') return isPatient || isResponder || isCaregiver;
     if (t.key === 'medical') return isPatient;
     return true;
   });
@@ -276,7 +286,7 @@ export default function AdminUserProfile() {
         {/* Avatar */}
         <div style={{ position: 'relative', flexShrink: 0 }}>
           {profile.profileImageUrl ? (
-            <img src={profile.profileImageUrl} alt={profile.fullName}
+            <img src={resolveMediaUrl(profile.profileImageUrl)} alt={profile.fullName}
               style={{ width: 76, height: 76, borderRadius: '50%', objectFit: 'cover', border: `3px solid ${C.border}` }} />
           ) : (
             <div style={{
@@ -377,8 +387,30 @@ export default function AdminUserProfile() {
             <StatCard icon={ShieldCheck} iconColor={profile.responder.verificationStatus === 'VERIFIED' ? C.green : C.red} iconBg={profile.responder.verificationStatus === 'VERIFIED' ? '#D1FAE5' : '#FEE2E2'} label="Verification" value={profile.responder.verificationStatus} />
           </>
         )}
-        {!isPatient && !isResponder && (
-          <StatCard icon={Users} iconColor={C.purple} iconBg="#EDE9FE" label="Role" value={roleMeta.label} />
+        {isCaregiver && (
+          <>
+            <StatCard
+              icon={Users}
+              iconColor={C.purple} iconBg="#EDE9FE"
+              label="Linked Patients"
+              value={linkedPatients.length}
+              sub="total monitored"
+            />
+            <StatCard
+              icon={CheckCircle}
+              iconColor={C.green} iconBg="#D1FAE5"
+              label="Active Patients"
+              value={linkedPatients.filter(p => p.isActive !== false).length}
+              sub="currently active"
+            />
+            <StatCard
+              icon={Activity}
+              iconColor={C.accent} iconBg="#E0F2FE"
+              label="Emergencies Seen"
+              value={profile.caregiverStats?.totalEmergenciesMonitored ?? linkedPatients.reduce((a, p) => a + (p._count?.emergencies ?? 0), 0)}
+              sub="across all patients"
+            />
+          </>
         )}
         <StatCard icon={planMeta.Icon} iconColor={planMeta.color} iconBg={planMeta.bg} label="Subscription" value={planMeta.label} />
         <StatCard icon={ClipboardList} iconColor={C.textSub} iconBg="#F1F5F9" label="Audit Log Entries" value={profile.auditCount ?? 0} sub="system access records" />
@@ -454,6 +486,59 @@ export default function AdminUserProfile() {
                 </div>
               </div>
 
+              {/* Caregiver Monitoring Overview */}
+              {isCaregiver && (
+                <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 16, padding: '20px 22px', gridColumn: 'span 2' }}>
+                  <SectionHeading>Linked Patients</SectionHeading>
+                  {linkedPatients.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '24px 0', color: C.textMuted, fontSize: 13 }}>
+                      No patients linked to this caregiver yet.
+                    </div>
+                  ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12, marginTop: 4 }}>
+                      {linkedPatients.map((p, i) => (
+                        <div
+                          key={p.id || i}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 12,
+                            padding: '12px 14px', borderRadius: 12,
+                            background: C.bg, border: `1px solid ${C.border}`,
+                          }}
+                        >
+                          {/* Mini avatar */}
+                          <div style={{
+                            width: 38, height: 38, borderRadius: '50%', flexShrink: 0,
+                            background: 'linear-gradient(135deg, #0C637E, #2891C2)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: 15, fontWeight: 800, color: '#fff', overflow: 'hidden',
+                          }}>
+                            {p.profileImageUrl
+                              ? <img src={resolveMediaUrl(p.profileImageUrl)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              : (p.fullName?.[0] || '?').toUpperCase()
+                            }
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 13.5, fontWeight: 700, color: C.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {p.fullName || '—'}
+                            </div>
+                            <div style={{ fontSize: 11.5, color: C.textMuted, marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {p.email}
+                            </div>
+                          </div>
+                          <span style={{
+                            fontSize: 10.5, fontWeight: 700, padding: '3px 8px', borderRadius: 99, flexShrink: 0,
+                            color: p.isActive !== false ? C.green : C.red,
+                            background: p.isActive !== false ? '#D1FAE5' : '#FEE2E2',
+                          }}>
+                            {p.isActive !== false ? 'Active' : 'Inactive'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Responder Credentials */}
               {isResponder && profile.responder && (
                 <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 16, padding: '20px 22px' }}>
@@ -482,13 +567,13 @@ export default function AdminUserProfile() {
                           { url: profile.responder.cnicBackImageUrl,     label: 'CNIC Back'  },
                           { url: profile.responder.employeeCardImageUrl, label: 'Employee Card' },
                         ].filter(d => d.url).map(doc => (
-                          <a key={doc.label} href={doc.url} target="_blank" rel="noopener noreferrer"
+                          <a key={doc.label} href={resolveMediaUrl(doc.url)} target="_blank" rel="noopener noreferrer"
                             style={{
                               display: 'block', textDecoration: 'none',
                               border: `1px solid ${C.border}`, borderRadius: 10, overflow: 'hidden',
                               width: 110,
                             }}>
-                            <img src={doc.url} alt={doc.label} style={{ width: '100%', height: 70, objectFit: 'cover', display: 'block' }} />
+                            <img src={resolveMediaUrl(doc.url)} alt={doc.label} style={{ width: '100%', height: 70, objectFit: 'cover', display: 'block' }} />
                             <div style={{ fontSize: 10, fontWeight: 700, color: C.textSub, padding: '5px 8px', textAlign: 'center' }}>{doc.label}</div>
                           </a>
                         ))}
@@ -575,6 +660,72 @@ export default function AdminUserProfile() {
                     </div>
                   )}
                 </>
+              )}
+
+              {isCaregiver && (
+                <div>
+                  <div style={{ marginBottom: 18, display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ padding: '6px 14px', borderRadius: 10, background: '#EDE9FE', color: C.purple, fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 18, fontWeight: 900 }}>{linkedPatients.length}</span>
+                      <span>Linked Patients</span>
+                    </div>
+                    <div style={{ padding: '6px 14px', borderRadius: 10, background: '#D1FAE5', color: C.green, fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 18, fontWeight: 900 }}>{linkedPatients.filter(p => p.isActive !== false).length}</span>
+                      <span>Active</span>
+                    </div>
+                  </div>
+
+                  {!linkedPatients.length ? (
+                    <div style={{ textAlign: 'center', padding: '40px 20px', color: C.textMuted, fontSize: 14 }}>
+                      No linked patients found.
+                    </div>
+                  ) : (
+                    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 16, overflow: 'hidden' }}>
+                      <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 480 }}>
+                          <thead>
+                            <tr style={{ background: C.bg }}>
+                              {['PATIENT', 'EMAIL', 'PHONE', 'STATUS', 'LINKED SINCE'].map(h => (
+                                <th key={h} style={{ padding: '12px 16px', fontSize: 10.5, fontWeight: 800, color: C.textMuted, letterSpacing: '0.06em', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {linkedPatients.map((p, i) => (
+                              <tr key={p.id || i} style={{ borderTop: `1px solid ${C.border}`, background: i % 2 === 0 ? '#fff' : '#FAFCFD' }}>
+                                <td style={{ padding: '13px 16px' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                    <div style={{
+                                      width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
+                                      background: 'linear-gradient(135deg, #0C637E, #2891C2)',
+                                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                      fontSize: 13, fontWeight: 800, color: '#fff',
+                                    }}>
+                                      {(p.fullName?.[0] || '?').toUpperCase()}
+                                    </div>
+                                    <span style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{p.fullName || '—'}</span>
+                                  </div>
+                                </td>
+                                <td style={{ padding: '13px 16px', fontSize: 12, color: C.textMuted }}>{p.email || '—'}</td>
+                                <td style={{ padding: '13px 16px', fontSize: 12, color: C.textMuted }}>{p.phoneNumber || '—'}</td>
+                                <td style={{ padding: '13px 16px' }}>
+                                  <Badge
+                                    label={p.isActive !== false ? 'Active' : 'Inactive'}
+                                    color={p.isActive !== false ? C.green : C.red}
+                                    bg={p.isActive !== false ? '#D1FAE5' : '#FEE2E2'}
+                                  />
+                                </td>
+                                <td style={{ padding: '13px 16px', fontSize: 12, color: C.textMuted, whiteSpace: 'nowrap' }}>
+                                  {fmtDate(p.linkedAt || p.createdAt)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
 
               {isResponder && (

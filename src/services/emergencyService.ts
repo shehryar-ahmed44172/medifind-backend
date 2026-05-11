@@ -7,6 +7,8 @@ import { getIo } from '../server';
 import * as caregiverRepository from '../repositories/caregiverRepository';
 import { sendNotification } from './notification';
 import { NotificationType, NotificationChannel } from '../types/notification';
+import { PrismaClient } from '@prisma/client';
+const prisma = new PrismaClient();
 
 const CANCELLATION_WINDOW_SECONDS = parseInt(process.env.EMERGENCY_CANCELLATION_WINDOW_SECONDS || '60', 10);
 
@@ -188,26 +190,32 @@ const notifyNearbyResponders = async (
       // FIX: Actually add the expanded responders to the list so they get notified
       nearbyResponders.push(...expanded);
     } else if (process.env.NODE_ENV === 'development') {
-      // DEVELOPMENT FALLBACK: If no one found, force-add our test responder
-      const { userRepository } = await import('../repositories/userRepository');
-      const testUser = await userRepository.findByEmail('responder@test.com');
-      if (testUser) {
-        const testResponder = await responderRepository.findById(testUser.id);
-        if (testResponder) {
-          (testResponder as any).distanceKm = 0.5;
-          nearbyResponders.push(testResponder as any);
-          logger.info('DEV MODE: Force-added responder@test.com for verification');
-        }
+      // DEVELOPMENT FALLBACK: If no one found, try to find ANY available responder for testing
+      logger.warn('DEV MODE: No responders found in radius, searching for ANY available responder...');
+      const anyAvailable = await prisma.responder.findFirst({
+        where: {
+          isAvailable: true,
+          user: { isActive: true }
+        },
+        include: { user: { select: { fullName: true, phoneNumber: true, email: true } } }
+      });
+
+      if (anyAvailable) {
+        (anyAvailable as any).distanceKm = 99.9; // Artificial distance
+        nearbyResponders.push(anyAvailable as any);
+        logger.info(`DEV MODE: Force-added responder ${anyAvailable.user.email} for verification`);
+      } else {
+        logger.error('DEV MODE: No available responders found even in fallback!');
       }
     }
   }
 
   for (const responder of nearbyResponders) {
     try {
-      console.log(`[Emergency Notification] Processing responder ${responder.userId}...`);
+      logger.info(`[Emergency Notification] Processing responder ${responder.userId}...`);
       const existing = await responderRepository.findEmergencyRequest(emergencyId, responder.userId);
       if (!existing) {
-        console.log(`[Emergency Notification] Creating request for ${responder.userId}`);
+        logger.info(`[Emergency Notification] Creating request for ${responder.userId}`);
         await responderRepository.createEmergencyRequest({
           emergencyId,
           responderId: responder.userId,
@@ -220,7 +228,7 @@ const notifyNearbyResponders = async (
         const remainingSeconds = Math.max(0, Math.floor((emergency.cancellationDeadline.getTime() - now.getTime()) / 1000));
 
         // Use full notification system (IN_APP + PUSH via Firebase and logs to db)
-        console.log(`[Emergency Notification] Sending push/in-app notification to ${responder.userId}`);
+        logger.info(`[Emergency Notification] Sending push/in-app notification to ${responder.userId}`);
         await sendNotification(responder.userId, {
           type: NotificationType.SOS_TRIGGERED,
           title: "EMERGENCY ALERT",

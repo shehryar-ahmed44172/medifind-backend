@@ -215,13 +215,20 @@ export const processVerification = async (req: Request, res: Response) => {
       await sendVerificationCode(responder.userId, responder.user.email, responder.user.fullName);
 
       // Notify responder in-app (Plan v4)
-      const { getIo } = await import('../server');
-      getIo().to(`notifications:${responder.userId}`).emit('notification', {
-        type: 'VERIFICATION_APPROVED',
-        title: 'Account Verified!',
-        body: 'Congratulations! Your professional credentials have been approved. You can now use the verification code sent to your email to activate your account.',
-        timestamp: new Date().toISOString()
-      });
+      try {
+        const { getIo } = await import('../server');
+        const io = getIo();
+        if (io) {
+          io.to(`notifications:${responder.userId}`).emit('notification', {
+            type: 'VERIFICATION_APPROVED',
+            title: 'Account Verified!',
+            body: 'Congratulations! Your professional credentials have been approved. You can now use the verification code sent to your email to activate your account.',
+            timestamp: new Date().toISOString()
+          });
+        }
+      } catch (err) {
+        console.error('Failed to emit verification approval notification:', err);
+      }
 
       sendSuccess(res, null, 'Responder verified and code sent');
     } else if (action === 'REJECT') {
@@ -235,13 +242,20 @@ export const processVerification = async (req: Request, res: Response) => {
       });
 
       // Notify responder in-app (Plan v4)
-      const { getIo } = await import('../server');
-      getIo().to(`notifications:${id}`).emit('notification', {
-        type: 'VERIFICATION_REJECTED',
-        title: 'Verification Update',
-        body: `Your verification request was not approved. Reason: ${reason || 'Incomplete documents'}. Please update your profile and try again.`,
-        timestamp: new Date().toISOString()
-      });
+      try {
+        const { getIo } = await import('../server');
+        const io = getIo();
+        if (io) {
+          io.to(`notifications:${id}`).emit('notification', {
+            type: 'VERIFICATION_REJECTED',
+            title: 'Verification Update',
+            body: `Your verification request was not approved. Reason: ${reason || 'Incomplete documents'}. Please update your profile and try again.`,
+            timestamp: new Date().toISOString()
+          });
+        }
+      } catch (err) {
+        console.error('Failed to emit verification rejection notification:', err);
+      }
 
       sendSuccess(res, null, 'Responder rejected');
     } else {

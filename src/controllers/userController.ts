@@ -1,6 +1,9 @@
 import { Request, Response } from 'express';
+import { PrismaClient } from '@prisma/client';
 import * as userService from '../services/userService';
 import { sendSuccess, sendError } from '../utils/response';
+
+const prisma = new PrismaClient();
 
 /**
  * GET /api/users/profile
@@ -226,17 +229,17 @@ export const getDebugInfo = async (req: Request, res: Response) => {
  * - Admin accounts are protected and cannot self-delete
  */
 export const deleteMyAccount = async (req: Request, res: Response) => {
-  console.log(`🗑️ [UserController] Delete account requested for user: ${req.user?.userId}`);
   try {
     if (!req.user) return sendError(res, 'Unauthorized', 401);
 
-    const { PrismaClient } = await import('@prisma/client');
-    const prisma = new PrismaClient();
-
     const userId = req.user.userId;
+    console.log(`🗑️ [UserController] Delete account requested for user: ${userId}`);
 
     // Protect admin accounts from self-deletion
-    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, role: true, fullName: true, email: true },
+    });
     if (!user) return sendError(res, 'User not found', 404);
     if (user.role === 'ADMIN') {
       return sendError(res, 'Admin accounts cannot be self-deleted. Contact a system administrator.', 403);
@@ -244,19 +247,35 @@ export const deleteMyAccount = async (req: Request, res: Response) => {
 
     console.log(`🔄 [UserController] Revoking tokens and deleting records for ${userId}...`);
 
-    // 1. Revoke all refresh tokens (invalidate all active sessions)
+    // 1. Write audit log BEFORE deletion (so the record exists when written)
+    await prisma.auditLog.create({
+      data: {
+        userId,
+        action: 'SELF_DELETE_ACCOUNT',
+        entity: 'User',
+        entityId: userId,
+        oldValues: {
+          role: user.role,
+          email: user.email,
+          fullName: user.fullName,
+          initiatedBy: 'user_self_service',
+          deletedAt: new Date().toISOString(),
+        },
+        ipAddress: req.ip ?? req.socket?.remoteAddress ?? 'unknown',
+        userAgent: req.headers['user-agent'] ?? 'unknown',
+      },
+    });
+
+    // 2. Revoke all refresh tokens (invalidate all active sessions)
     await prisma.refreshToken.updateMany({
       where: { userId },
       data: { revokedAt: new Date() },
     });
 
-    // 2. Hard-delete the user — Prisma cascade handles related records
-    // NOTE: If there are models without 'onDelete: Cascade', this will fail.
+    // 3. Hard-delete the user — Prisma cascade handles related records
     await prisma.user.delete({ where: { id: userId } });
 
-    await prisma.$disconnect();
-
-    console.log(`✅ [UserController] Account ${userId} deleted successfully.`);
+    console.log(`✅ [UserController] Account ${userId} (${user.email}) permanently deleted.`);
     sendSuccess(res, null, 'Account permanently deleted');
   } catch (error: any) {
     console.error(`❌ [UserController] Delete account failed: ${error.message}`);
