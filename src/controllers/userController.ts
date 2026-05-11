@@ -226,6 +226,7 @@ export const getDebugInfo = async (req: Request, res: Response) => {
  * - Admin accounts are protected and cannot self-delete
  */
 export const deleteMyAccount = async (req: Request, res: Response) => {
+  console.log(`🗑️ [UserController] Delete account requested for user: ${req.user?.userId}`);
   try {
     if (!req.user) return sendError(res, 'Unauthorized', 401);
 
@@ -241,6 +242,8 @@ export const deleteMyAccount = async (req: Request, res: Response) => {
       return sendError(res, 'Admin accounts cannot be self-deleted. Contact a system administrator.', 403);
     }
 
+    console.log(`🔄 [UserController] Revoking tokens and deleting records for ${userId}...`);
+
     // 1. Revoke all refresh tokens (invalidate all active sessions)
     await prisma.refreshToken.updateMany({
       where: { userId },
@@ -248,12 +251,15 @@ export const deleteMyAccount = async (req: Request, res: Response) => {
     });
 
     // 2. Hard-delete the user — Prisma cascade handles related records
+    // NOTE: If there are models without 'onDelete: Cascade', this will fail.
     await prisma.user.delete({ where: { id: userId } });
 
     await prisma.$disconnect();
 
+    console.log(`✅ [UserController] Account ${userId} deleted successfully.`);
     sendSuccess(res, null, 'Account permanently deleted');
   } catch (error: any) {
+    console.error(`❌ [UserController] Delete account failed: ${error.message}`);
     sendError(res, error.message, 500);
   }
 };

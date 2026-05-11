@@ -6,7 +6,7 @@ import {
   Calendar, Filter, ExternalLink, AlertCircle,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useAlert } from '../context/AlertContext';
 
@@ -69,6 +69,7 @@ const formatDate = (iso) =>
 /* ─── Main Component ─────────────────────────────────────────────────────── */
 export default function UserManagement() {
   const { showAlert, showConfirm } = useAlert();
+  const navigate = useNavigate();
   const [activeTab,    setActiveTab]    = useState('PATIENT');
   const [users,        setUsers]        = useState([]);
   const [loading,      setLoading]      = useState(false);
@@ -456,6 +457,21 @@ export default function UserManagement() {
                       {/* Actions — context-aware */}
                       <td style={{ padding: '14px 20px' }}>
                         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '6px' }}>
+                          {/* View Full Profile button */}
+                          <Link
+                            to={`/admin/users/${user.id}`}
+                            onClick={e => e.stopPropagation()}
+                            title="View Full Profile"
+                            style={{
+                              display: 'inline-flex', alignItems: 'center', gap: 4,
+                              padding: '6px 11px', borderRadius: 8, textDecoration: 'none',
+                              background: '#EFF6FF', color: '#2563EB',
+                              fontSize: '0.75rem', fontWeight: 700,
+                              border: '1px solid #BFDBFE',
+                            }}
+                          >
+                            <ExternalLink size={12} /> Profile
+                          </Link>
                           {renderActions(user, activeTab, effStatus, handleDeactivate, handleReactivate, handleDelete)}
                           <div style={{ color: C.textMuted }}>
                             {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
@@ -484,8 +500,9 @@ export default function UserManagement() {
                                 {activeTab === 'RESPONDER' && verifMeta && (
                                   <DetailItem icon={verifMeta.Icon} label="Credential Status" value={verifMeta.label} valueColor={verifMeta.color} />
                                 )}
-                                {activeTab === 'RESPONDER' && (verifSt === 'PENDING' || verifSt === 'REJECTED') && (
-                                  <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }}>
+                                {/* Links row */}
+                                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
+                                  {activeTab === 'RESPONDER' && (verifSt === 'PENDING' || verifSt === 'REJECTED') && (
                                     <Link
                                       to="/admin/verify"
                                       onClick={e => e.stopPropagation()}
@@ -501,8 +518,20 @@ export default function UserManagement() {
                                       <ExternalLink size={13} />
                                       {verifSt === 'REJECTED' ? 'Review Rejection in Queue' : 'Review in Verification Queue'}
                                     </Link>
-                                  </div>
-                                )}
+                                  )}
+                                  <Link
+                                    to={`/admin/users/${user.id}`}
+                                    onClick={e => e.stopPropagation()}
+                                    style={{
+                                      display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                      padding: '8px 16px', borderRadius: '10px', textDecoration: 'none',
+                                      background: 'linear-gradient(135deg,#0C637E,#2496A7)',
+                                      color: '#fff', fontWeight: 700, fontSize: '0.82rem',
+                                    }}
+                                  >
+                                    <ExternalLink size={13} /> View Full Profile →
+                                  </Link>
+                                </div>
                               </div>
                             </motion.div>
                           </td>

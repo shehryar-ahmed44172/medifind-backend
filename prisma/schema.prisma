@@ -208,7 +208,7 @@ model CaregiverLink {
 model MedicalReport {
   id            String            @id @default(cuid())
   emergencyId   String?
-  userId        String
+  userId        String?
   reportType    MedicalReportType
   fileName      String
   fileUrl       String
@@ -216,7 +216,7 @@ model MedicalReport {
   uploadedAt    DateTime          @default(now())
   createdAt     DateTime          @default(now())
   emergency     Emergency?        @relation(fields: [emergencyId], references: [id])
-  uploadedBy    User              @relation(fields: [userId], references: [id], onDelete: SetNull)
+  uploadedBy    User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([emergencyId])
   @@index([userId])
@@ -276,7 +276,7 @@ model AuditLog {
   ipAddress String?
   userAgent String?
   createdAt DateTime @default(now())
-  user      User?    @relation(fields: [userId], references: [id])
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([entity])
@@ -351,7 +351,7 @@ model ChatMessage {
   isRead     Boolean     @default(false)
   createdAt  DateTime    @default(now())
   room       ChatRoom    @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  sender     User        @relation("MessageSender", fields: [senderId], references: [id])
+  sender     User        @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
 
   @@index([roomId])
   @@index([senderId])

@@ -14,6 +14,7 @@ import { useAlert } from '../context/AlertContext';
 import api from '../services/api';
 import { io } from 'socket.io-client';
 import UserManagement from './UserManagement';
+import AdminUserProfile from './admin/AdminUserProfile';
 import ResponderVerification from './admin/ResponderVerification';
 import SOSMonitor from './admin/SOSMonitor';
 import SystemLogs from './admin/SystemLogs';
@@ -414,6 +415,7 @@ export default function Dashboard() {
             <Routes location={location} key={location.pathname}>
               <Route path="/" element={<Overview />} />
               <Route path="/users" element={<UserManagement />} />
+              <Route path="/users/:userId" element={<AdminUserProfile />} />
               <Route path="/verify" element={<ResponderVerification />} />
               <Route path="/sos" element={<SOSMonitor />} />
               <Route path="/subscriptions" element={<SubscriptionManagement />} />
