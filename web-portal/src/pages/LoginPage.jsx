@@ -30,7 +30,7 @@ const FEATURES = [
 
 /* ─── Component ───────────────────────────────────────────────────────────── */
 const LoginPage = () => {
-  const { login, isAuthenticated } = useAuth();
+  const { login, logout, isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
 
   const [email,        setEmail]        = useState('');
@@ -39,11 +39,157 @@ const LoginPage = () => {
   const [loading,      setLoading]      = useState(false);
   const [error,        setError]        = useState('');
 
-  React.useEffect(() => {
-    if (isAuthenticated) navigate('/admin', { replace: true });
-  }, [isAuthenticated, navigate]);
+  // ── Already signed in — show a choice screen instead of auto-redirecting ──
+  if (isAuthenticated) {
+    return (
+      <div style={{
+        minHeight: '100vh', display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        fontFamily: "'Montserrat', sans-serif",
+      }}>
+        {/* Left panel — same brand panel */}
+        <div style={{
+          background: PANEL_BG,
+          display: 'flex', flexDirection: 'column',
+          justifyContent: 'center', alignItems: 'center',
+          padding: '48px 52px', position: 'relative', overflow: 'hidden',
+        }}>
+          <div style={{
+            position: 'absolute', top: '-80px', right: '-80px',
+            width: '400px', height: '400px', borderRadius: '50%',
+            border: '1px solid rgba(255,255,255,0.05)', pointerEvents: 'none',
+          }} />
+          <div style={{
+            position: 'absolute', bottom: '-100px', left: '-80px',
+            width: '500px', height: '500px', borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(40,145,194,0.12) 0%, transparent 70%)',
+            pointerEvents: 'none',
+          }} />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.5 }}
+            style={{ textAlign: 'center', position: 'relative', zIndex: 1 }}
+          >
+            <div style={{
+              width: '80px', height: '80px', borderRadius: '50%',
+              background: 'linear-gradient(135deg,rgba(255,255,255,0.15),rgba(255,255,255,0.05))',
+              border: '2px solid rgba(255,255,255,0.2)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              margin: '0 auto 20px',
+            }}>
+              <Shield size={36} color="rgba(255,255,255,0.9)" />
+            </div>
+            <h2 style={{ fontSize: '1.75rem', fontWeight: 800, color: WHITE, marginBottom: '8px', letterSpacing: '-0.02em' }}>
+              Access Granted
+            </h2>
+            <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.9rem', lineHeight: 1.6 }}>
+              Your admin session is active and verified.
+            </p>
+          </motion.div>
+        </div>
 
-  if (isAuthenticated) return null;
+        {/* Right panel — already signed in state */}
+        <motion.div
+          initial={{ opacity: 0, x: 30 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5 }}
+          style={{
+            background: FORM_BG,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '48px 64px',
+          }}
+        >
+          <div style={{ width: '100%', maxWidth: '420px' }}>
+            {/* Session active banner */}
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '10px',
+              padding: '14px 18px', marginBottom: '32px',
+              background: '#F0FDF4', border: '1px solid #BBF7D0',
+              borderRadius: '14px',
+            }}>
+              <div style={{
+                width: '10px', height: '10px', borderRadius: '50%',
+                background: '#10B981', flexShrink: 0,
+                boxShadow: '0 0 0 3px rgba(16,185,129,0.2)',
+              }} />
+              <div>
+                <p style={{ fontSize: '0.82rem', fontWeight: 700, color: '#065F46' }}>
+                  Active Session
+                </p>
+                <p style={{ fontSize: '0.75rem', color: '#047857', marginTop: '1px' }}>
+                  Signed in as <strong>{user?.fullName ?? 'Administrator'}</strong>
+                </p>
+              </div>
+            </div>
+
+            <h2 style={{
+              fontSize: '1.75rem', fontWeight: 800,
+              color: TEXT_MAIN, letterSpacing: '-0.03em',
+              marginBottom: '8px', lineHeight: 1.2,
+            }}>
+              Welcome back
+            </h2>
+            <p style={{ color: TEXT_MUTED, fontSize: '0.9rem', marginBottom: '36px', lineHeight: 1.6 }}>
+              You're already signed in. Where would you like to go?
+            </p>
+
+            {/* Go to Dashboard */}
+            <motion.button
+              whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+              onClick={() => navigate('/admin', { replace: true })}
+              style={{
+                width: '100%', height: '54px', marginBottom: '14px',
+                borderRadius: '14px', border: 'none',
+                background: 'linear-gradient(135deg,#0C637E 0%,#2891C2 100%)',
+                color: WHITE, fontWeight: 800, fontSize: '0.95rem',
+                letterSpacing: '0.02em', cursor: 'pointer',
+                fontFamily: 'inherit',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+                boxShadow: '0 8px 24px rgba(12,99,126,0.28)',
+              }}
+            >
+              Continue to Dashboard <ArrowRight size={18} />
+            </motion.button>
+
+            {/* Sign in as different user */}
+            <motion.button
+              whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+              onClick={async () => {
+                await logout();
+              }}
+              style={{
+                width: '100%', height: '54px',
+                borderRadius: '14px',
+                border: `1.5px solid ${BORDER}`,
+                background: WHITE,
+                color: TEXT_MUTED, fontWeight: 700, fontSize: '0.9rem',
+                cursor: 'pointer', fontFamily: 'inherit',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+              }}
+            >
+              Sign in as different admin
+            </motion.button>
+
+            <div style={{ marginTop: '28px', textAlign: 'center' }}>
+              <Link
+                to="/"
+                style={{
+                  fontSize: '0.82rem', fontWeight: 600, color: TEXT_MUTED,
+                  textDecoration: 'none', display: 'inline-flex',
+                  alignItems: 'center', gap: '5px',
+                }}
+                onMouseEnter={e => e.currentTarget.style.color = '#0C637E'}
+                onMouseLeave={e => e.currentTarget.style.color = TEXT_MUTED}
+              >
+                ← Back to MediFind Hub
+              </Link>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();

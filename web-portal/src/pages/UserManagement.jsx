@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Search, RefreshCw, Users, ShieldOff, ShieldCheck, Trash2,
-  User, AlertTriangle, CheckCircle, ChevronRight,
-  XCircle, Clock, Crown, Zap, Star, EarOff,
+  User, AlertTriangle, ChevronDown, ChevronUp, CheckCircle,
+  XCircle, Clock, Crown, Zap, Star, EarOff, Phone, Mail,
   Calendar, Filter, ExternalLink, AlertCircle,
 } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { Link, useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import api from '../services/api';
 import { useAlert } from '../context/AlertContext';
 
@@ -66,30 +66,21 @@ const EFF_STATUS_STYLE = {
 const formatDate = (iso) =>
   iso ? new Date(iso).toLocaleDateString('en-PK', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
-/* ─── Media URL resolver ─────────────────────────────────────────────────── */
-// profileImageUrl from the backend is a relative path like /uploads/profile/filename.jpg
-// Prefix with the backend origin in production; in dev the Vite proxy handles /uploads
-const BACKEND_ORIGIN = import.meta.env.VITE_API_URL || '';
-const resolveMediaUrl = (path) => {
-  if (!path) return '';
-  if (path.startsWith('http')) return path;
-  return `${BACKEND_ORIGIN}${path}`;
-};
-
 /* ─── Main Component ─────────────────────────────────────────────────────── */
 export default function UserManagement() {
   const { showAlert, showConfirm } = useAlert();
-  const navigate = useNavigate();
   const [activeTab,    setActiveTab]    = useState('PATIENT');
   const [users,        setUsers]        = useState([]);
   const [loading,      setLoading]      = useState(false);
   const [error,        setError]        = useState('');
   const [search,       setSearch]       = useState('');
+  const [expandedId,   setExpandedId]   = useState(null);
   const [statusFilter, setStatusFilter] = useState('ALL');
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     setError('');
+    setExpandedId(null);
     try {
       const res = await api.get(`/api/admin/users?role=${activeTab}`);
       if (res.data.success) setUsers(res.data.data);
@@ -376,20 +367,22 @@ export default function UserManagement() {
                 const plan    = PLAN_META[user.subscriptionPlan] || PLAN_META.FREE;
                 const verifSt = user.responder?.verificationStatus;
                 const verifMeta = verifSt ? VERIF_META[verifSt] : null;
+                const isExpanded = expandedId === user.id;
+
                 return (
                   <React.Fragment key={user.id}>
                     <motion.tr
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ delay: idx * 0.03 }}
-                      onClick={() => navigate(`/admin/users/${user.id}`)}
+                      onClick={() => setExpandedId(isExpanded ? null : user.id)}
                       style={{
-                        borderBottom: `1px solid ${C.border}`,
-                        background: C.white,
+                        borderBottom: isExpanded ? 'none' : `1px solid ${C.border}`,
+                        background: isExpanded ? '#F8FAFC' : C.white,
                         cursor: 'pointer', transition: 'background 0.15s',
                       }}
-                      onMouseEnter={e => { e.currentTarget.style.background = '#F0F7FA'; }}
-                      onMouseLeave={e => { e.currentTarget.style.background = C.white; }}
+                      onMouseEnter={e => { if (!isExpanded) e.currentTarget.style.background = '#F8FAFC'; }}
+                      onMouseLeave={e => { if (!isExpanded) e.currentTarget.style.background = C.white; }}
                     >
                       {/* User */}
                       <td style={{ padding: '14px 20px' }}>
@@ -402,7 +395,7 @@ export default function UserManagement() {
                             overflow: 'hidden',
                           }}>
                             {user.profileImageUrl
-                              ? <img src={resolveMediaUrl(user.profileImageUrl)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              ? <img src={user.profileImageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                               : (user.fullName?.[0] || '?').toUpperCase()
                             }
                           </div>
@@ -460,14 +453,62 @@ export default function UserManagement() {
                         </div>
                       </td>
 
-                      {/* Actions — stop propagation so clicks don't trigger row navigation */}
-                      <td style={{ padding: '14px 20px' }} onClick={e => e.stopPropagation()}>
+                      {/* Actions — context-aware */}
+                      <td style={{ padding: '14px 20px' }}>
                         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '6px' }}>
                           {renderActions(user, activeTab, effStatus, handleDeactivate, handleReactivate, handleDelete)}
-                          <ChevronRight size={15} color={C.textMuted} style={{ flexShrink: 0 }} />
+                          <div style={{ color: C.textMuted }}>
+                            {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                          </div>
                         </div>
                       </td>
                     </motion.tr>
+
+                    {/* Expanded detail */}
+                    <AnimatePresence>
+                      {isExpanded && (
+                        <motion.tr initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                          <td colSpan={6} style={{ padding: 0, borderBottom: `1px solid ${C.border}` }}>
+                            <motion.div
+                              initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }}
+                              style={{ overflow: 'hidden', background: '#F8FAFC' }}
+                            >
+                              <div style={{ padding: '16px 24px 20px', display: 'flex', gap: '24px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                                <DetailItem icon={Mail}     label="Email"   value={user.email} />
+                                <DetailItem icon={Phone}    label="Phone"   value={user.phoneNumber || '—'} />
+                                <DetailItem icon={Calendar} label="Joined"  value={formatDate(user.createdAt)} />
+                                <DetailItem icon={plan.Icon} label="Subscription" value={plan.label} valueColor={plan.color} />
+                                {activeTab === 'PATIENT' && (
+                                  <DetailItem icon={EarOff} label="Patient Type" value={isDeaf ? 'DEAF / MUTE' : 'Standard'} valueColor={isDeaf ? '#D97706' : '#059669'} />
+                                )}
+                                {activeTab === 'RESPONDER' && verifMeta && (
+                                  <DetailItem icon={verifMeta.Icon} label="Credential Status" value={verifMeta.label} valueColor={verifMeta.color} />
+                                )}
+                                {activeTab === 'RESPONDER' && (verifSt === 'PENDING' || verifSt === 'REJECTED') && (
+                                  <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }}>
+                                    <Link
+                                      to="/admin/verify"
+                                      onClick={e => e.stopPropagation()}
+                                      style={{
+                                        display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                        padding: '8px 14px', borderRadius: '10px', textDecoration: 'none',
+                                        background: verifSt === 'REJECTED' ? '#FEF2F2' : '#FFFBEB',
+                                        color: verifSt === 'REJECTED' ? '#DC2626' : '#D97706',
+                                        fontWeight: 700, fontSize: '0.82rem',
+                                        border: `1px solid ${verifSt === 'REJECTED' ? '#FECACA' : '#FDE68A'}`,
+                                      }}
+                                    >
+                                      <ExternalLink size={13} />
+                                      {verifSt === 'REJECTED' ? 'Review Rejection in Queue' : 'Review in Verification Queue'}
+                                    </Link>
+                                  </div>
+                                )}
+                              </div>
+                            </motion.div>
+                          </td>
+                        </motion.tr>
+                      )}
+                    </AnimatePresence>
                   </React.Fragment>
                 );
               })
@@ -588,3 +629,17 @@ function getSummaryChips(users, role) {
   ];
 }
 
+/* ─── Detail item helper ─────────────────────────────────────────────────── */
+function DetailItem({ icon: Icon, label, value, valueColor }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '160px' }}>
+      <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: '#E2F0F3', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <Icon size={14} color="#0C637E" />
+      </div>
+      <div>
+        <p style={{ fontSize: '0.68rem', color: '#7A96A3', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</p>
+        <p style={{ fontSize: '0.82rem', fontWeight: 700, color: valueColor || '#0F1A22' }}>{value}</p>
+      </div>
+    </div>
+  );
+}

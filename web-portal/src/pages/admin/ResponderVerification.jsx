@@ -103,6 +103,42 @@ const ResponderVerification = () => {
     </div>
   );
 
+  const docBtn = (label, url, Icon) => (
+    <button
+      onClick={() => url && window.open(url, '_blank')}
+      disabled={!url}
+      style={{
+        display: 'flex', alignItems: 'center', gap: '0.75rem',
+        padding: '0.875rem 1.125rem', borderRadius: '12px',
+        border: '1px solid var(--border)',
+        background: url ? 'var(--surface)' : 'var(--surface-raised)',
+        color: url ? 'var(--text-sub)' : 'var(--text-muted)',
+        cursor: url ? 'pointer' : 'not-allowed',
+        width: '100%', textAlign: 'left',
+        transition: 'all 0.2s ease',
+        opacity: url ? 1 : 0.6,
+        fontFamily: 'inherit'
+      }}
+    >
+      <div style={{
+        width: '32px', height: '32px', borderRadius: '8px',
+        background: url ? 'var(--primary-pale)' : '#f1f5f9',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        color: url ? 'var(--primary)' : 'var(--text-muted)',
+        flexShrink: 0
+      }}>
+        <Icon size={16} />
+      </div>
+      <div style={{ flex: 1 }}>
+        <p style={{ fontSize: '0.82rem', fontWeight: 700, marginBottom: '2px', color: 'var(--text-sub)' }}>{label}</p>
+        <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+          {url ? 'Click to view document' : 'Not provided'}
+        </p>
+      </div>
+      {url && <ExternalLink size={14} style={{ opacity: 0.5 }} />}
+    </button>
+  );
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}

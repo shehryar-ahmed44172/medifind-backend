@@ -14,7 +14,6 @@ import { useAlert } from '../context/AlertContext';
 import api from '../services/api';
 import { io } from 'socket.io-client';
 import UserManagement from './UserManagement';
-import AdminUserProfile from './admin/AdminUserProfile';
 import ResponderVerification from './admin/ResponderVerification';
 import SOSMonitor from './admin/SOSMonitor';
 import SystemLogs from './admin/SystemLogs';
@@ -36,6 +35,15 @@ const C = {
   textMain: '#0F1A22',
   textSub: '#3D5360',
   textMuted: '#7A96A3',
+};
+
+/* ─── Responder type labels ─────────────────────────────────────────────── */
+const RESPONDER_LABELS = {
+  PARAMEDIC: 'Paramedic',
+  RESCUE_OFFICER: 'Rescue Officer',
+  EMT: 'EMT',
+  FIRST_RESPONDER: 'First Responder',
+  VOLUNTEER: 'Volunteer',
 };
 
 /* ─── Nav items ─────────────────────────────────────────────────────────── */
@@ -415,7 +423,6 @@ export default function Dashboard() {
             <Routes location={location} key={location.pathname}>
               <Route path="/" element={<Overview />} />
               <Route path="/users" element={<UserManagement />} />
-              <Route path="/users/:userId" element={<AdminUserProfile />} />
               <Route path="/verify" element={<ResponderVerification />} />
               <Route path="/sos" element={<SOSMonitor />} />
               <Route path="/subscriptions" element={<SubscriptionManagement />} />
@@ -435,11 +442,13 @@ export default function Dashboard() {
 /* ─── Overview Page ─────────────────────────────────────────────────────── */
 function Overview() {
   const navigate = useNavigate();
-  const [stats,        setStats]        = useState(null);
-  const [pendingCount, setPendingCount] = useState(null);
-  const [health,       setHealth]       = useState(null);
-  const [loading,      setLoading]      = useState(true);
-  const [error,        setError]        = useState('');
+  const [stats,             setStats]             = useState(null);
+  const [pendingCount,      setPendingCount]      = useState(null);
+  const [pendingResponders, setPendingResponders] = useState([]);
+  const [health,            setHealth]            = useState(null);
+  const [loading,           setLoading]           = useState(true);
+  const [error,             setError]             = useState('');
+  const [recentActivity,    setRecentActivity]    = useState([]);
 
   const loadData = () => {
     setLoading(true);
@@ -447,11 +456,17 @@ function Overview() {
       api.get('/api/admin/stats'),
       api.get('/api/admin/responders/pending'),
       api.get('/api/admin/health'),
+      api.get('/api/admin/logs?limit=7'),
     ])
-      .then(([statsRes, pendRes, healthRes]) => {
+      .then(([statsRes, pendRes, healthRes, logsRes]) => {
         if (statsRes.data.success)  setStats(statsRes.data.data);
-        if (pendRes.data.success)   setPendingCount(pendRes.data.data.length);
+        if (pendRes.data.success) {
+          const arr = pendRes.data.data || [];
+          setPendingCount(arr.length);
+          setPendingResponders(arr);
+        }
         if (healthRes.data.success) setHealth(healthRes.data.data);
+        if (logsRes.data.success)   setRecentActivity(logsRes.data.data || []);
       })
       .catch(() => setError('Unable to reach backend — check your server is running.'))
       .finally(() => setLoading(false));
@@ -700,17 +715,18 @@ function Overview() {
           </div>
           <LayoutDashboard size={18} color={C.textMuted} />
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: '1px', background: C.border }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: '0', background: C.white }}>
           {quickActions.map((qa, i) => (
             <motion.div
               key={i}
-              whileHover={{ background: qa.pale }}
+              whileHover={{ backgroundColor: qa.pale }}
               onClick={() => navigate(qa.to)}
               style={{
-                background: C.white, padding: '18px 16px',
+                background: C.white, padding: '20px 16px',
                 cursor: 'pointer', transition: 'background 0.15s',
-                display: 'flex', flexDirection: 'column', gap: '8px',
+                display: 'flex', flexDirection: 'column', gap: '10px',
                 position: 'relative',
+                borderRight: i < quickActions.length - 1 ? `1px solid ${C.border}` : 'none',
               }}
             >
               {/* Badge */}
@@ -737,19 +753,209 @@ function Overview() {
                 </div>
               )}
               <div style={{
-                width: '40px', height: '40px', borderRadius: '11px',
+                width: '42px', height: '42px', borderRadius: '12px',
                 background: qa.pale, color: qa.accent,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
+                border: `1.5px solid ${qa.accent}22`,
               }}>
-                <qa.Icon size={18} strokeWidth={2.5} />
+                <qa.Icon size={19} strokeWidth={2.5} />
               </div>
               <div>
-                <p style={{ fontSize: '0.82rem', fontWeight: 700, color: C.textMain }}>{qa.label}</p>
-                <p style={{ fontSize: '0.73rem', color: C.textMuted, marginTop: '2px' }}>{qa.desc}</p>
+                <p style={{ fontSize: '0.83rem', fontWeight: 700, color: C.textMain }}>{qa.label}</p>
+                <p style={{ fontSize: '0.73rem', color: C.textMuted, marginTop: '3px', lineHeight: 1.4 }}>{qa.desc}</p>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: qa.accent, fontSize: '0.72rem', fontWeight: 700 }}>
+                Open <ArrowRight size={11} />
               </div>
             </motion.div>
           ))}
         </div>
+      </div>
+
+      {/* ── Pending Verification Queue ── */}
+      <div style={{
+        background: C.white, borderRadius: '16px',
+        border: `1px solid ${C.border}`,
+        boxShadow: '0 1px 4px rgba(12,99,126,0.05)',
+        marginBottom: '20px', overflow: 'hidden',
+      }}>
+        {/* Header */}
+        <div style={{
+          padding: '18px 24px', borderBottom: `1px solid ${C.border}`,
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          background: pendingResponders.length > 0 ? '#FFFBEB' : C.white,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{
+              width: '38px', height: '38px', borderRadius: '10px',
+              background: pendingResponders.length > 0 ? '#FEF3C7' : '#ECFDF5',
+              color: pendingResponders.length > 0 ? '#D97706' : '#10B981',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <UserCheck size={18} strokeWidth={2.5} />
+            </div>
+            <div>
+              <h3 style={{ fontSize: '1rem', fontWeight: 800, color: C.textMain, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                Pending Verification Queue
+                {pendingResponders.length > 0 && (
+                  <span style={{
+                    background: '#EF4444', color: 'white',
+                    fontSize: '0.68rem', fontWeight: 800,
+                    padding: '2px 8px', borderRadius: '20px',
+                    lineHeight: 1.5,
+                  }}>
+                    {pendingResponders.length} pending
+                  </span>
+                )}
+              </h3>
+              <p style={{ fontSize: '0.8rem', color: C.textMuted, marginTop: '2px' }}>
+                Emergency responders awaiting credential review and activation
+              </p>
+            </div>
+          </div>
+          <motion.button
+            whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+            onClick={() => navigate('/admin/verify')}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '6px',
+              padding: '8px 16px', borderRadius: '10px',
+              background: C.accent, color: 'white', border: 'none',
+              fontWeight: 700, cursor: 'pointer', fontSize: '0.83rem', fontFamily: 'inherit',
+            }}
+          >
+            <UserCheck size={14} /> View All
+          </motion.button>
+        </div>
+
+        {/* Body */}
+        {loading ? (
+          <div style={{ padding: '20px 24px' }}>
+            {Array(3).fill(null).map((_, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: i < 2 ? '16px' : 0 }}>
+                <Skeleton h={40} w="40px" br={20} />
+                <div style={{ flex: 1 }}>
+                  <Skeleton h={13} w="30%" mb={7} />
+                  <Skeleton h={10} w="50%" />
+                </div>
+                <Skeleton h={13} w="15%" />
+                <Skeleton h={13} w="12%" />
+                <Skeleton h={30} w="70px" br={8} />
+              </div>
+            ))}
+          </div>
+        ) : pendingResponders.length === 0 ? (
+          <div style={{ padding: '40px 24px', textAlign: 'center' }}>
+            <CheckCircle size={44} style={{ color: '#10B981', opacity: 0.45, marginBottom: '12px' }} />
+            <p style={{ fontWeight: 700, fontSize: '0.95rem', color: C.textSub, marginBottom: '4px' }}>Queue is clear!</p>
+            <p style={{ fontSize: '0.84rem', color: C.textMuted }}>No responders are currently awaiting verification.</p>
+          </div>
+        ) : (
+          <>
+            {/* Table header */}
+            <div style={{
+              display: 'grid', gridTemplateColumns: '2fr 1.2fr 1.2fr 1fr 100px',
+              padding: '10px 24px', background: '#F8FAFC',
+              borderBottom: `1px solid ${C.border}`,
+              fontSize: '0.7rem', fontWeight: 800, color: C.textMuted,
+              textTransform: 'uppercase', letterSpacing: '0.08em',
+            }}>
+              <span>Responder</span>
+              <span>Type</span>
+              <span>Organization</span>
+              <span>Applied</span>
+              <span style={{ textAlign: 'right' }}>Action</span>
+            </div>
+            {/* Rows */}
+            {pendingResponders.slice(0, 6).map((r, i) => (
+              <motion.div
+                key={r.id || i}
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.06 }}
+                style={{
+                  display: 'grid', gridTemplateColumns: '2fr 1.2fr 1.2fr 1fr 100px',
+                  padding: '14px 24px', alignItems: 'center',
+                  borderBottom: i < Math.min(pendingResponders.length, 6) - 1
+                    ? `1px solid ${C.border}` : 'none',
+                }}
+                whileHover={{ backgroundColor: '#F8FAFC' }}
+              >
+                {/* Name + avatar */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '11px' }}>
+                  <div style={{
+                    width: '38px', height: '38px', borderRadius: '50%',
+                    background: 'linear-gradient(135deg,#0C637E22,#2891C222)',
+                    border: `1.5px solid ${C.accent}33`,
+                    color: C.accent,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontWeight: 800, fontSize: '0.95rem', flexShrink: 0,
+                  }}>
+                    {(r.user?.fullName ?? r.fullName ?? '?')[0].toUpperCase()}
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <p style={{ fontWeight: 700, fontSize: '0.875rem', color: C.textMain, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {r.user?.fullName ?? r.fullName ?? '—'}
+                    </p>
+                    <p style={{ fontSize: '0.72rem', color: C.textMuted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {r.user?.email ?? r.email ?? '—'}
+                    </p>
+                  </div>
+                </div>
+                {/* Responder type badge */}
+                <div>
+                  <span style={{
+                    background: '#EDE9FE', color: '#7C3AED',
+                    padding: '3px 10px', borderRadius: '20px',
+                    fontSize: '0.73rem', fontWeight: 700, display: 'inline-block',
+                  }}>
+                    {RESPONDER_LABELS[r.responderType] ?? r.responderType ?? 'Responder'}
+                  </span>
+                </div>
+                {/* Organization */}
+                <p style={{ fontSize: '0.84rem', color: C.textSub, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {r.organization ?? '—'}
+                </p>
+                {/* Date */}
+                <p style={{ fontSize: '0.78rem', color: C.textMuted }}>
+                  {r.createdAt ? new Date(r.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }) : '—'}
+                </p>
+                {/* Action */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                    onClick={() => navigate('/admin/verify')}
+                    style={{
+                      padding: '6px 14px', borderRadius: '8px',
+                      background: C.accent, color: 'white', border: 'none',
+                      fontWeight: 700, fontSize: '0.78rem', cursor: 'pointer',
+                      fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '4px',
+                    }}
+                  >
+                    Review <ArrowRight size={11} />
+                  </motion.button>
+                </div>
+              </motion.div>
+            ))}
+            {/* "More" footer */}
+            {pendingResponders.length > 6 && (
+              <div style={{
+                padding: '12px 24px', textAlign: 'center',
+                borderTop: `1px solid ${C.border}`, background: '#F8FAFC',
+              }}>
+                <button
+                  onClick={() => navigate('/admin/verify')}
+                  style={{
+                    background: 'none', border: 'none', color: C.accent,
+                    fontWeight: 700, cursor: 'pointer', fontSize: '0.84rem', fontFamily: 'inherit',
+                    display: 'inline-flex', alignItems: 'center', gap: '5px',
+                  }}
+                >
+                  View {pendingResponders.length - 6} more in Verification Queue <ArrowRight size={13} />
+                </button>
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {/* ── Bottom Row ── */}
@@ -842,38 +1048,128 @@ function Overview() {
           {/* System Health — real data from /api/admin/health */}
           <SystemHealthPanel health={health} loading={loading} />
 
-          {/* Quick Nav to all sections */}
+          {/* Recent Activity Feed */}
           <div style={{
             background: C.white, borderRadius: '16px',
             border: `1px solid ${C.border}`,
             boxShadow: '0 1px 4px rgba(12,99,126,0.05)',
-            overflow: 'hidden',
+            overflow: 'hidden', flex: 1,
           }}>
-            <div style={{ padding: '18px 22px', borderBottom: `1px solid ${C.border}` }}>
-              <h3 style={{ fontSize: '1rem', fontWeight: 800, color: C.textMain }}>All Sections</h3>
+            <div style={{
+              padding: '18px 22px', borderBottom: `1px solid ${C.border}`,
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            }}>
+              <div>
+                <h3 style={{ fontSize: '1rem', fontWeight: 800, color: C.textMain }}>Recent Activity</h3>
+                <p style={{ fontSize: '0.72rem', color: C.textMuted, marginTop: '2px' }}>Latest system events</p>
+              </div>
+              <Link
+                to="/admin/logs"
+                style={{
+                  fontSize: '0.75rem', fontWeight: 700, color: C.accent,
+                  textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '3px',
+                }}
+              >
+                View all <ArrowRight size={12} />
+              </Link>
             </div>
+
             <div style={{ padding: '8px 0' }}>
-              {NAV.filter(n => n.to !== '/admin').map((n, i, arr) => (
-                <Link
-                  key={n.to}
-                  to={n.to}
-                  style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '10px 22px',
-                    borderBottom: i < arr.length - 1 ? `1px solid ${C.border}` : 'none',
-                    textDecoration: 'none', color: C.textSub,
-                    transition: 'background 0.15s',
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#F8FAFC'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <n.Icon size={15} color={C.accent} strokeWidth={2} />
-                    <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{n.label}</span>
+              {loading ? (
+                Array(5).fill(null).map((_, i) => (
+                  <div key={i} style={{ padding: '12px 20px', display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                    <Skeleton h={28} w="28px" br={14} />
+                    <div style={{ flex: 1 }}>
+                      <Skeleton h={11} w="70%" mb={5} />
+                      <Skeleton h={9} w="45%" />
+                    </div>
                   </div>
-                  <ArrowRight size={13} color={C.textMuted} />
-                </Link>
-              ))}
+                ))
+              ) : recentActivity.length === 0 ? (
+                <div style={{ padding: '28px 20px', textAlign: 'center', color: C.textMuted }}>
+                  <History size={28} style={{ opacity: 0.25, marginBottom: '8px' }} />
+                  <p style={{ fontSize: '0.82rem', fontWeight: 600 }}>No activity yet</p>
+                  <p style={{ fontSize: '0.75rem', opacity: 0.7, marginTop: '2px' }}>Events will appear here as the system is used</p>
+                </div>
+              ) : (
+                recentActivity.map((entry, i) => {
+                  const isError   = entry.level === 'ERROR';
+                  const isWarning = entry.level === 'WARNING';
+                  const dotColor  = isError ? '#EF4444' : isWarning ? '#F59E0B' : '#10B981';
+                  const bgColor   = isError ? '#FEF2F2' : isWarning ? '#FFFBEB' : '#ECFDF5';
+                  const iconColor = dotColor;
+
+                  // pick an icon based on action keyword
+                  const action = (entry.action || '').toUpperCase();
+                  let Icon = Activity;
+                  if (action.includes('USER') || action.includes('REGISTER')) Icon = Users;
+                  else if (action.includes('LOGIN'))    Icon = Shield;
+                  else if (action.includes('SOS') || action.includes('EMERGENCY')) Icon = Zap;
+                  else if (action.includes('VERIFY') || action.includes('RESPONDER')) Icon = UserCheck;
+                  else if (action.includes('DELETE'))   Icon = XCircle;
+                  else if (action.includes('EMAIL') || action.includes('NOTIF')) Icon = Send;
+
+                  // relative time
+                  const ts = new Date(entry.timestamp);
+                  const diffMin = Math.floor((Date.now() - ts.getTime()) / 60000);
+                  const timeLabel = diffMin < 1 ? 'just now'
+                    : diffMin < 60 ? `${diffMin}m ago`
+                    : diffMin < 1440 ? `${Math.floor(diffMin / 60)}h ago`
+                    : ts.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+
+                  // clean up action label
+                  const label = (entry.action || 'System Event')
+                    .replace(/_/g, ' ')
+                    .toLowerCase()
+                    .replace(/^\w/, c => c.toUpperCase());
+
+                  return (
+                    <div
+                      key={entry.id || i}
+                      style={{
+                        display: 'flex', alignItems: 'flex-start', gap: '12px',
+                        padding: '11px 20px',
+                        borderBottom: i < recentActivity.length - 1 ? `1px solid ${C.border}` : 'none',
+                      }}
+                    >
+                      {/* Icon bubble */}
+                      <div style={{
+                        width: '30px', height: '30px', borderRadius: '9px',
+                        background: bgColor, color: iconColor, flexShrink: 0,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        <Icon size={14} strokeWidth={2.5} />
+                      </div>
+
+                      {/* Text */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{
+                          fontSize: '0.8rem', fontWeight: 700, color: C.textMain,
+                          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                          marginBottom: '2px',
+                        }}>
+                          {label}
+                        </p>
+                        <p style={{
+                          fontSize: '0.71rem', color: C.textMuted, lineHeight: 1.4,
+                          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                        }}>
+                          {entry.user || 'System'}
+                          {entry.entity ? ` · ${entry.entity}` : ''}
+                        </p>
+                      </div>
+
+                      {/* Time */}
+                      <span style={{
+                        fontSize: '0.68rem', color: C.textMuted,
+                        fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0,
+                      }}>
+                        {timeLabel}
+                      </span>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
         </div>
