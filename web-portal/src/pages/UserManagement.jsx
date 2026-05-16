@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Search, RefreshCw, Users, ShieldOff, ShieldCheck, Trash2,
-  User, AlertTriangle, ChevronDown, ChevronUp, CheckCircle,
+  User, AlertTriangle, CheckCircle,
   XCircle, Clock, Crown, Zap, Star, EarOff, Phone, Mail,
   Calendar, Filter, ExternalLink, AlertCircle,
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { Link, useSearchParams } from 'react-router-dom';
 import api from '../services/api';
+import { resolveFileUrl } from '../utils/resolveFileUrl';
 import { useAlert } from '../context/AlertContext';
 
 /* ─── Theme ───────────────────────────────────────────────────────────────── */
@@ -23,10 +24,18 @@ const C = {
 
 /* ─── Tab config ─────────────────────────────────────────────────────────── */
 const TABS = [
+  { key: 'ALL',       label: 'All Users',  Icon: Users,       accent: '#0C637E', pale: '#E2F0F3' },
   { key: 'PATIENT',   label: 'Patients',   Icon: User,        accent: '#0C637E', pale: '#E2F0F3' },
   { key: 'RESPONDER', label: 'Responders', Icon: ShieldCheck, accent: '#10B981', pale: '#ECFDF5' },
   { key: 'CAREGIVER', label: 'Caregivers', Icon: Users,       accent: '#8B5CF6', pale: '#EDE9FE' },
 ];
+
+const ROLE_BADGE = {
+  PATIENT:   { label: 'Patient',   color: '#0C637E', bg: '#E2F0F3' },
+  RESPONDER: { label: 'Responder', color: '#10B981', bg: '#ECFDF5' },
+  CAREGIVER: { label: 'Caregiver', color: '#8B5CF6', bg: '#EDE9FE' },
+  ADMIN:     { label: 'Admin',     color: '#EF4444', bg: '#FEE2E2' },
+};
 
 /* ─── Status helpers ─────────────────────────────────────────────────────── */
 const PLAN_META = {
@@ -69,20 +78,29 @@ const formatDate = (iso) =>
 /* ─── Main Component ─────────────────────────────────────────────────────── */
 export default function UserManagement() {
   const { showAlert, showConfirm } = useAlert();
-  const [activeTab,    setActiveTab]    = useState('PATIENT');
+  const [searchParams] = useSearchParams();
+
+  // Pre-select tab from URL param (e.g. ?role=RESPONDER or ?role=ALL)
+  const initialRole = searchParams.get('role');
+  const validKeys   = TABS.map(t => t.key);
+  const initialTab  = validKeys.includes(initialRole) ? initialRole : 'PATIENT';
+
+  const [activeTab,    setActiveTab]    = useState(initialTab);
   const [users,        setUsers]        = useState([]);
   const [loading,      setLoading]      = useState(false);
   const [error,        setError]        = useState('');
   const [search,       setSearch]       = useState('');
-  const [expandedId,   setExpandedId]   = useState(null);
   const [statusFilter, setStatusFilter] = useState('ALL');
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     setError('');
-    setExpandedId(null);
     try {
-      const res = await api.get(`/api/admin/users?role=${activeTab}`);
+      // ALL tab fetches every user regardless of role
+      const url = activeTab === 'ALL'
+        ? '/api/admin/users'
+        : `/api/admin/users?role=${activeTab}`;
+      const res = await api.get(url);
       if (res.data.success) setUsers(res.data.data);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load users.');
@@ -151,7 +169,7 @@ export default function UserManagement() {
       u.email?.toLowerCase().includes(q) ||
       u.phoneNumber?.toLowerCase().includes(q)
     );
-    const effStatus = getEffectiveStatus(u, activeTab);
+    const effStatus = getEffectiveStatus(u, activeTab === 'ALL' ? u.role : activeTab);
     const matchFilter =
       statusFilter === 'ALL'      ? true :
       statusFilter === 'ACTIVE'   ? effStatus === 'ACTIVE' :
@@ -169,6 +187,8 @@ export default function UserManagement() {
   const filterOptions =
     activeTab === 'RESPONDER'
       ? ['ALL', 'ACTIVE', 'INACTIVE', 'PENDING', 'REJECTED']
+      : activeTab === 'ALL'
+      ? ['ALL', 'ACTIVE', 'INACTIVE', 'PENDING']
       : ['ALL', 'ACTIVE', 'INACTIVE'];
 
   return (
@@ -361,28 +381,23 @@ export default function UserManagement() {
               </tr>
             ) : (
               filtered.map((user, idx) => {
-                const effStatus = getEffectiveStatus(user, activeTab);
+                const effStatus = getEffectiveStatus(user, activeTab === 'ALL' ? user.role : activeTab);
                 const statusStyle = EFF_STATUS_STYLE[effStatus];
+                const roleBadge = activeTab === 'ALL' ? (ROLE_BADGE[user.role] || null) : null;
                 const isDeaf  = user.medicalProfile?.patientType === 'DEAF';
                 const plan    = PLAN_META[user.subscriptionPlan] || PLAN_META.FREE;
                 const verifSt = user.responder?.verificationStatus;
                 const verifMeta = verifSt ? VERIF_META[verifSt] : null;
-                const isExpanded = expandedId === user.id;
-
                 return (
                   <React.Fragment key={user.id}>
                     <motion.tr
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ delay: idx * 0.03 }}
-                      onClick={() => setExpandedId(isExpanded ? null : user.id)}
                       style={{
-                        borderBottom: isExpanded ? 'none' : `1px solid ${C.border}`,
-                        background: isExpanded ? '#F8FAFC' : C.white,
-                        cursor: 'pointer', transition: 'background 0.15s',
+                        borderBottom: `1px solid ${C.border}`,
+                        background: C.white,
                       }}
-                      onMouseEnter={e => { if (!isExpanded) e.currentTarget.style.background = '#F8FAFC'; }}
-                      onMouseLeave={e => { if (!isExpanded) e.currentTarget.style.background = C.white; }}
                     >
                       {/* User */}
                       <td style={{ padding: '14px 20px' }}>
@@ -395,15 +410,20 @@ export default function UserManagement() {
                             overflow: 'hidden',
                           }}>
                             {user.profileImageUrl
-                              ? <img src={user.profileImageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              ? <img src={resolveFileUrl(user.profileImageUrl)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                               : (user.fullName?.[0] || '?').toUpperCase()
                             }
                           </div>
                           <div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                               <span style={{ fontWeight: 700, fontSize: '0.875rem', color: C.textMain }}>
                                 {user.fullName || '—'}
                               </span>
+                              {roleBadge && (
+                                <span style={{ fontSize: '0.65rem', fontWeight: 800, padding: '2px 7px', borderRadius: '4px', background: roleBadge.bg, color: roleBadge.color }}>
+                                  {roleBadge.label}
+                                </span>
+                              )}
                               {isDeaf && (
                                 <span style={{ fontSize: '0.65rem', fontWeight: 800, padding: '2px 6px', borderRadius: '4px', background: '#FEF3C7', color: '#B45309', display: 'flex', alignItems: 'center', gap: '3px' }}>
                                   <EarOff size={9} /> DEAF
@@ -457,58 +477,9 @@ export default function UserManagement() {
                       <td style={{ padding: '14px 20px' }}>
                         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '6px' }}>
                           {renderActions(user, activeTab, effStatus, handleDeactivate, handleReactivate, handleDelete)}
-                          <div style={{ color: C.textMuted }}>
-                            {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
-                          </div>
                         </div>
                       </td>
                     </motion.tr>
-
-                    {/* Expanded detail */}
-                    <AnimatePresence>
-                      {isExpanded && (
-                        <motion.tr initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                          <td colSpan={6} style={{ padding: 0, borderBottom: `1px solid ${C.border}` }}>
-                            <motion.div
-                              initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }}
-                              style={{ overflow: 'hidden', background: '#F8FAFC' }}
-                            >
-                              <div style={{ padding: '16px 24px 20px', display: 'flex', gap: '24px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
-                                <DetailItem icon={Mail}     label="Email"   value={user.email} />
-                                <DetailItem icon={Phone}    label="Phone"   value={user.phoneNumber || '—'} />
-                                <DetailItem icon={Calendar} label="Joined"  value={formatDate(user.createdAt)} />
-                                <DetailItem icon={plan.Icon} label="Subscription" value={plan.label} valueColor={plan.color} />
-                                {activeTab === 'PATIENT' && (
-                                  <DetailItem icon={EarOff} label="Patient Type" value={isDeaf ? 'DEAF / MUTE' : 'Standard'} valueColor={isDeaf ? '#D97706' : '#059669'} />
-                                )}
-                                {activeTab === 'RESPONDER' && verifMeta && (
-                                  <DetailItem icon={verifMeta.Icon} label="Credential Status" value={verifMeta.label} valueColor={verifMeta.color} />
-                                )}
-                                {activeTab === 'RESPONDER' && (verifSt === 'PENDING' || verifSt === 'REJECTED') && (
-                                  <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }}>
-                                    <Link
-                                      to="/admin/verify"
-                                      onClick={e => e.stopPropagation()}
-                                      style={{
-                                        display: 'inline-flex', alignItems: 'center', gap: '6px',
-                                        padding: '8px 14px', borderRadius: '10px', textDecoration: 'none',
-                                        background: verifSt === 'REJECTED' ? '#FEF2F2' : '#FFFBEB',
-                                        color: verifSt === 'REJECTED' ? '#DC2626' : '#D97706',
-                                        fontWeight: 700, fontSize: '0.82rem',
-                                        border: `1px solid ${verifSt === 'REJECTED' ? '#FECACA' : '#FDE68A'}`,
-                                      }}
-                                    >
-                                      <ExternalLink size={13} />
-                                      {verifSt === 'REJECTED' ? 'Review Rejection in Queue' : 'Review in Verification Queue'}
-                                    </Link>
-                                  </div>
-                                )}
-                              </div>
-                            </motion.div>
-                          </td>
-                        </motion.tr>
-                      )}
-                    </AnimatePresence>
                   </React.Fragment>
                 );
               })
@@ -627,19 +598,4 @@ function getSummaryChips(users, role) {
     { label: 'Active Caregivers', value: users.filter(u => u.isActive !== false).length, color: '#059669', bg: '#D1FAE5', Icon: CheckCircle },
     { label: 'Inactive',          value: users.filter(u => u.isActive === false).length, color: '#DC2626', bg: '#FEE2E2', Icon: XCircle     },
   ];
-}
-
-/* ─── Detail item helper ─────────────────────────────────────────────────── */
-function DetailItem({ icon: Icon, label, value, valueColor }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '160px' }}>
-      <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: '#E2F0F3', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-        <Icon size={14} color="#0C637E" />
-      </div>
-      <div>
-        <p style={{ fontSize: '0.68rem', color: '#7A96A3', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</p>
-        <p style={{ fontSize: '0.82rem', fontWeight: 700, color: valueColor || '#0F1A22' }}>{value}</p>
-      </div>
-    </div>
-  );
 }

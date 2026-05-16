@@ -481,28 +481,28 @@ function Overview() {
       trend: '+12%', up: true,
       Icon: Users, accent: '#0C637E', pale: '#E2F0F3',
       sub: 'Registered accounts',
-      to: '/admin/users',
+      to: '/admin/users?role=ALL',
     },
     {
       label: 'Active Emergencies', value: stats.activeEmergencies,
       trend: 'LIVE', up: null,
       Icon: Activity, accent: '#EF4444', pale: '#FEF2F2',
       sub: 'Ongoing SOS events',
-      to: '/admin/sos',
+      to: '/admin/sos?filter=ACTIVE',
     },
     {
       label: 'Total Emergencies', value: stats.totalEmergencies,
       trend: '+5%', up: true,
       Icon: AlertTriangle, accent: '#F59E0B', pale: '#FFFBEB',
       sub: 'All-time SOS events',
-      to: '/admin/sos',
+      to: '/admin/sos?filter=ALL',
     },
     {
       label: 'Verified Responders', value: stats.onlineResponders,
       trend: '+3', up: true,
       Icon: Zap, accent: '#10B981', pale: '#ECFDF5',
       sub: 'Ready to respond',
-      to: '/admin/verify',
+      to: '/admin/users?role=RESPONDER',
     },
   ] : Array(4).fill(null);
 

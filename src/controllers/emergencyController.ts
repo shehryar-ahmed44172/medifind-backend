@@ -1,9 +1,7 @@
 import { Request, Response } from 'express';
 import * as emergencyService from '../services/emergencyService';
 import { sendSuccess, sendError } from '../utils/response';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma';
 
 /**
  * POST /api/emergencies
@@ -83,11 +81,20 @@ export const cancelEmergency = async (req: Request, res: Response) => {
 
 /**
  * GET /api/emergencies
- * Get all active emergencies (Responder/Admin only)
+ * - ADMIN: returns ALL emergencies across all statuses (for dashboard breakdown)
+ * - RESPONDER: returns only ACTIVE emergencies (for dispatch list)
  */
 export const getActiveEmergencies = async (req: Request, res: Response) => {
   try {
     if (!req.user) return sendError(res, 'Unauthorized', 401);
+
+    if (req.user.role === 'ADMIN') {
+      // Admin needs all statuses so the dashboard can show Cancelled, Resolved, etc.
+      const emergencies = await emergencyService.getAllEmergenciesForAdmin();
+      return sendSuccess(res, emergencies, 'All emergencies retrieved');
+    }
+
+    // Responders only need the active queue
     const emergencies = await emergencyService.getActiveEmergencies();
     sendSuccess(res, emergencies, 'Active emergencies retrieved');
   } catch (error: any) {

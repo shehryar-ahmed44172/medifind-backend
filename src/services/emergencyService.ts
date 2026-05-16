@@ -7,8 +7,7 @@ import { getIo } from '../server';
 import * as caregiverRepository from '../repositories/caregiverRepository';
 import { sendNotification } from './notification';
 import { NotificationType, NotificationChannel } from '../types/notification';
-import { PrismaClient } from '@prisma/client';
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma';
 
 const CANCELLATION_WINDOW_SECONDS = parseInt(process.env.EMERGENCY_CANCELLATION_WINDOW_SECONDS || '60', 10);
 
@@ -111,14 +110,18 @@ export const cancelEmergency = async (emergencyId: string, patientId: string) =>
     }).catch(err => logger.error(`Failed to notify responder ${responderId} of cancellation: ${err.message}`));
   }
 
-  getIo().to(`emergency:${emergencyId}`).emit('EMERGENCY_STATUS_CHANGE', {
+  const cancelPayload = {
     type: "EMERGENCY_STATUS_CHANGE",
     data: {
       emergencyId,
       newStatus: "CANCELLED",
       timestamp: new Date().toISOString()
     }
-  });
+  };
+  // Notify the emergency room (mobile clients watching this emergency)
+  getIo().to(`emergency:${emergencyId}`).emit('EMERGENCY_STATUS_CHANGE', cancelPayload);
+  // Notify admin dashboard so it updates in real-time without waiting for the poll
+  getIo().to('admin_notifications').emit('EMERGENCY_STATUS_CHANGE', cancelPayload);
 
   return cancelled;
 };
@@ -141,23 +144,33 @@ export const updateEmergencyStatus = async (emergencyId: string, status: string)
 
   const updated = await (emergencyRepository as any).updateStatus(emergencyId, status);
 
-  getIo().to(`emergency:${emergencyId}`).emit('EMERGENCY_STATUS_CHANGE', {
+  const statusPayload = {
     type: "EMERGENCY_STATUS_CHANGE",
     data: {
       emergencyId,
       newStatus: status,
       timestamp: new Date().toISOString()
     }
-  });
+  };
+  getIo().to(`emergency:${emergencyId}`).emit('EMERGENCY_STATUS_CHANGE', statusPayload);
+  // Also broadcast to admin dashboard for real-time updates
+  getIo().to('admin_notifications').emit('EMERGENCY_STATUS_CHANGE', statusPayload);
 
   return updated;
 };
 
 /**
- * Get all active emergencies (for admin/responders).
+ * Get all active emergencies (for responders — ACTIVE only).
  */
 export const getActiveEmergencies = async () => {
   return await emergencyRepository.findAllActive();
+};
+
+/**
+ * Get ALL emergencies across all statuses (admin dashboard only).
+ */
+export const getAllEmergenciesForAdmin = async () => {
+  return await (emergencyRepository as any).findAllForAdmin();
 };
 
 /**

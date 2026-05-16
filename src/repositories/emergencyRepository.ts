@@ -1,6 +1,4 @@
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma';
 
 export const emergencyRepository = {
   create: async (data: {
@@ -46,13 +44,19 @@ export const emergencyRepository = {
     return await prisma.emergency.findMany({
       where: { status: 'ACTIVE' },
       include: {
-        patient: { 
-          select: { 
-            id: true, 
-            fullName: true, 
-            phoneNumber: true,
-          } 
-        },
+        patient: { select: { id: true, fullName: true, phoneNumber: true } },
+        emergencyRequests: { select: { id: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  },
+
+  /** Admin-only: returns ALL emergencies across all statuses for the dashboard */
+  findAllForAdmin: async () => {
+    return await prisma.emergency.findMany({
+      include: {
+        patient: { select: { id: true, fullName: true, phoneNumber: true } },
+        emergencyRequests: { select: { id: true } },
       },
       orderBy: { createdAt: 'desc' },
     });

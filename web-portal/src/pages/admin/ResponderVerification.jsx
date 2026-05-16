@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { UserCheck, Shield, ExternalLink, Check, X, FileText, RefreshCw, ChevronRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import api from '../../services/api';
+import { resolveFileUrl } from '../../utils/resolveFileUrl';
 
 const ResponderVerification = () => {
   const [pending, setPending] = useState([]);
@@ -61,7 +62,7 @@ const ResponderVerification = () => {
           <img
             src={url}
             alt={label}
-            style={{ width: '100%', height: '110px', objectFit: 'cover', display: 'block', background: '#f1f5f9' }}
+            style={{ width: '100%', height: '110px', objectFit: 'cover', display: 'block', background: 'var(--surface-raised)' }}
             onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
           />
           {/* Fallback if image fails to load */}
@@ -122,7 +123,7 @@ const ResponderVerification = () => {
     >
       <div style={{
         width: '32px', height: '32px', borderRadius: '8px',
-        background: url ? 'var(--primary-pale)' : '#f1f5f9',
+        background: url ? 'var(--primary-pale)' : 'var(--surface-raised)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         color: url ? 'var(--primary)' : 'var(--text-muted)',
         flexShrink: 0
@@ -364,9 +365,9 @@ const ResponderVerification = () => {
                     Identity Documents
                   </p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                    {docBtn('CNIC Front', selectedResponder.cnicImageUrl, FileText)}
-                    {docBtn('CNIC Back', selectedResponder.cnicBackImageUrl, FileText)}
-                    {docBtn('Professional ID / Card', selectedResponder.employeeCardImageUrl, Shield)}
+                    {docBtn('CNIC Front', resolveFileUrl(selectedResponder.cnicImageUrl), FileText)}
+                    {docBtn('CNIC Back', resolveFileUrl(selectedResponder.cnicBackImageUrl), FileText)}
+                    {docBtn('Professional ID / Card', resolveFileUrl(selectedResponder.employeeCardImageUrl), Shield)}
                   </div>
                 </div>
               </div>
