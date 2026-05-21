@@ -21,9 +21,7 @@ const LegalPage = ({ type }) => {
       <nav style={{ background: 'rgba(255, 255, 255, 0.9)', backdropFilter: 'blur(10px)', position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100, borderBottom: '1px solid #e2e8f0' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0.5rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Link to="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
-            <div style={{ height: '56px', overflow: 'hidden', display: 'flex', alignItems: 'flex-start' }}>
-              <img src={logo} alt="MediFind" style={{ height: '70px', objectFit: 'contain', display: 'block' }} />
-            </div>
+            <img src={logo} alt="MediFind" style={{ height: '40px', objectFit: 'contain', display: 'block' }} />
           </Link>
           <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#475569', textDecoration: 'none', fontSize: '0.9rem', fontWeight: 600 }}>
             <ChevronLeft size={16} /> <span style={{ opacity: 0.8 }}>Back to Home</span>

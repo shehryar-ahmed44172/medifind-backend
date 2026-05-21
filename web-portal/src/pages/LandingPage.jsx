@@ -874,9 +874,7 @@ const LandingPage = () => {
       }}>
         <div style={{ padding: PX, display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '80px' }}>
           <Link to="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
-            <div style={{ height: '54px', overflow: 'hidden', display: 'flex', alignItems: 'flex-start' }}>
-              <img src={logo} alt="MediFind" style={{ height: '68px', objectFit: 'contain', display: 'block' }} />
-            </div>
+            <img src={logo} alt="MediFind" style={{ height: '40px', objectFit: 'contain', display: 'block' }} />
           </Link>
           <div style={{ display: 'flex', gap: '2rem', alignItems: 'center' }}>
             {navLinks.map(([label, href]) => {
@@ -1832,9 +1830,7 @@ const LandingPage = () => {
             {/* ── Brand Column ── */}
             <div>
               <div style={{ marginBottom: '1.25rem' }}>
-                <div style={{ height: '72px', overflow: 'hidden', display: 'flex', alignItems: 'flex-start' }}>
-                  <img src={logo} alt="MediFind" style={{ height: '90px', objectFit: 'contain', display: 'block', filter: 'brightness(1.15) drop-shadow(0 0 8px rgba(36,150,167,0.45))' }} loading="lazy" />
-                </div>
+                <img src={logo} alt="MediFind" style={{ height: '52px', objectFit: 'contain', display: 'block', filter: 'brightness(1.15) drop-shadow(0 0 8px rgba(36,150,167,0.45))' }} loading="lazy" />
               </div>
               <p style={{ fontSize: '0.875rem', lineHeight: 1.85, maxWidth: '270px', fontFamily: P, fontWeight: 400, color: 'rgba(255,255,255,0.5)', marginBottom: '1.75rem' }}>
                 Pakistan's first inclusive emergency response platform. Built to save every life.

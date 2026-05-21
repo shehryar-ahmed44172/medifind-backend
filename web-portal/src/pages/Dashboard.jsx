@@ -97,11 +97,10 @@ function Sidebar({ open, onToggle, onLogout }) {
       }}>
         {open && (
           <Link to="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
-            <div style={{ height: '60px', overflow: 'hidden', display: 'flex', alignItems: 'flex-start' }}>
               <img
                 src={logo} alt="MediFind"
                 style={{
-                  height: '75px', objectFit: 'contain', display: 'block',
+                  height: '44px', objectFit: 'contain', display: 'block',
                   filter: 'brightness(1.15) drop-shadow(0 1px 6px rgba(0,0,0,0.35))',
                   cursor: 'pointer'
                 }}
