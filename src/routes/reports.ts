@@ -2,12 +2,13 @@ import { Router } from 'express';
 import * as medicalReportController from '../controllers/medicalReportController';
 import { authMiddleware, roleMiddleware } from '../middleware/authMiddleware';
 import { upload } from '../middleware/uploadMiddleware';
+import { requirePlan } from '../middleware/planMiddleware';
 
 const router = Router();
 router.use(authMiddleware);
 
-// Upload a report to patient profile (no emergency)
-router.post('/profile', roleMiddleware('PATIENT'), upload.single('report'), medicalReportController.uploadProfileReport);
+// Upload a report to patient profile — PROFESSIONAL plan required for > 5 reports (enforced in controller)
+router.post('/profile', roleMiddleware('PATIENT'), requirePlan('FREE'), upload.single('report'), medicalReportController.uploadProfileReport);
 
 // Get all reports for a user's profile
 router.get('/profile', roleMiddleware('PATIENT'), medicalReportController.getProfileReports);

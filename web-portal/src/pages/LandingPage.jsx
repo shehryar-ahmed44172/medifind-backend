@@ -146,7 +146,7 @@ const Badge = ({ icon: Icon, label, bg = '#E2F0F3', color = '#0C637E' }) => (
 
 /* ── Section Heading ──────────────────────────────────────────── */
 const SectionHead = ({ badge, badgeBg, badgeColor, badgeIcon, title, sub, light = false }) => (
-  <div style={{ textAlign: 'center', marginBottom: '3.5rem' }}>
+  <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
     <Badge icon={badgeIcon} label={badge} bg={badgeBg} color={badgeColor} />
     <h2 style={{ fontSize: '2rem', fontWeight: 700, color: light ? 'white' : '#0F172A', marginBottom: '0.75rem', fontFamily: P, lineHeight: 1.25 }}>{title}</h2>
     {sub && <p style={{ fontSize: '0.95rem', color: light ? 'rgba(255,255,255,0.75)' : '#64748B', maxWidth: '520px', margin: '0 auto', lineHeight: 1.75, fontFamily: P, fontWeight: 400 }}>{sub}</p>}
@@ -344,7 +344,7 @@ const EcosystemScreenPlaceholder = ({ type, color, gradient, role }) => {
     if (type === 'primary') {
       /* My Patients list */
       return (
-        <div style={{ width: '100%', height: '100%', background: '#FFFBEB', display: 'flex', flexDirection: 'column', fontFamily: P }}>
+        <div style={{ width: '100%', height: '100%', background: '#EBF5FB', display: 'flex', flexDirection: 'column', fontFamily: P }}>
           <div style={{ height: 14, background: color, display: 'flex', alignItems: 'center', paddingLeft: 8 }}>
             <div style={{ fontSize: 6, color: 'rgba(255,255,255,0.85)', fontWeight: 700 }}>MEDIFIND — CAREGIVER</div>
           </div>
@@ -389,7 +389,7 @@ const EcosystemScreenPlaceholder = ({ type, color, gradient, role }) => {
     } else {
       /* Secondary — Emergency monitor map */
       return (
-        <div style={{ width: '100%', height: '100%', background: '#FFF7ED', display: 'flex', flexDirection: 'column', fontFamily: P }}>
+        <div style={{ width: '100%', height: '100%', background: '#EBF5FB', display: 'flex', flexDirection: 'column', fontFamily: P }}>
           {/* Alert banner */}
           <div style={{ background: '#EF4444', padding: '7px 10px', display: 'flex', alignItems: 'center', gap: 5 }}>
             <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'rgba(255,255,255,0.5)', animation: 'pulse 1s infinite' }} />
@@ -407,8 +407,8 @@ const EcosystemScreenPlaceholder = ({ type, color, gradient, role }) => {
             </div>
           </div>
           {/* Bottom info */}
-          <div style={{ background: 'white', padding: '7px 9px', borderTop: '1px solid #FDE68A' }}>
-            <div style={{ fontSize: 7, fontWeight: 700, color: '#92400E', marginBottom: 3 }}>Responder assigned — ETA 5 min</div>
+          <div style={{ background: 'white', padding: '7px 9px', borderTop: '1px solid #BFDBF7' }}>
+            <div style={{ fontSize: 7, fontWeight: 700, color: '#1A5276', marginBottom: 3 }}>Responder assigned — ETA 5 min</div>
             <div style={{ display: 'flex', gap: 4 }}>
               {bar('50%', 4, '#FDE68A')}
               {bar('30%', 4, '#FCA5A5')}
@@ -571,19 +571,19 @@ const LandingPage = () => {
 
   /* ── Static data ─────────────────────────────────────────── */
   const features = [
-    { icon: Zap,          title: 'Instant SOS',               desc: 'One-tap emergency alert reaches all nearby verified responders within seconds.',                                               color: '#FF6B6B', bg: '#FFF5F5' },
-    { icon: MapPin,       title: 'Live GPS Tracking',          desc: 'Real-time responder location on an interactive map so you always know when help arrives.',                                     color: '#0C637E', bg: '#EBF8FF' },
-    { icon: FileText,     title: 'Medical Profile Sharing',    desc: 'Blood type, allergies, medications — instantly delivered to incoming responders.',                                             color: '#2496A7', bg: '#E0F7FA' },
-    { icon: Heart,        title: 'Caregiver Alerts',           desc: 'Family members receive live push notifications and a map view the moment an SOS is triggered.',                               color: '#F59E0B', bg: '#FFFBEB' },
-    { icon: Mic,          title: 'Silent SOS for Deaf Users',  desc: 'Icon-driven, voice-free emergency interface built specifically for Deaf and Mute patients.',                                  color: '#8B5CF6', bg: '#F5F3FF' },
-    { icon: Lock,         title: 'End-to-End Encryption',      desc: 'All communications and medical data are encrypted at rest and in transit.',                                                   color: '#10B981', bg: '#ECFDF5' },
+    { icon: Zap,          title: 'Instant SOS',               desc: 'One-tap emergency alert reaches all nearby verified responders within seconds.',                                               color: '#DC2626', bg: '#FEF2F2' },
+    { icon: MapPin,       title: 'Live GPS Tracking',          desc: 'Real-time responder location on an interactive map so you always know when help arrives.',                                     color: '#0C637E', bg: '#E2F0F3' },
+    { icon: FileText,     title: 'Medical Profile Sharing',    desc: 'Blood type, allergies, medications — instantly delivered to incoming responders.',                                             color: '#2496A7', bg: '#E0F4F7' },
+    { icon: Heart,        title: 'Caregiver Alerts',           desc: 'Family members receive live push notifications and a map view the moment an SOS is triggered.',                               color: '#2891C2', bg: '#EBF5FB' },
+    { icon: Mic,          title: 'Silent SOS for Deaf Users',  desc: 'Icon-driven, voice-free emergency interface built specifically for Deaf and Mute patients.',                                  color: '#03293C', bg: '#E2F0F3' },
+    { icon: Lock,         title: 'End-to-End Encryption',      desc: 'All communications and medical data are encrypted at rest and in transit.',                                                   color: '#0E6E82', bg: '#D9EDF1' },
   ];
 
   const steps = [
-    { num: '01', icon: Zap,         title: 'Trigger SOS',         desc: 'One tap sends your GPS coordinates and medical snapshot to our dispatch network.',    color: '#FF6B6B' },
-    { num: '02', icon: Bell,        title: 'Responders Notified',  desc: 'Nearest verified responders are alerted with your location and condition summary.',   color: '#F59E0B' },
+    { num: '01', icon: Zap,         title: 'Trigger SOS',         desc: 'One tap sends your GPS coordinates and medical snapshot to our dispatch network.',    color: '#DC2626' },
+    { num: '02', icon: Bell,        title: 'Responders Notified',  desc: 'Nearest verified responders are alerted with your location and condition summary.',   color: '#0C637E' },
     { num: '03', icon: MapPin,      title: 'Live Tracking',        desc: 'You and your caregivers watch the responder navigate to you on a live map.',          color: '#2496A7' },
-    { num: '04', icon: CheckCircle, title: 'Resolution & Report',  desc: 'Responder confirms arrival, logs the outcome. Your caregiver gets notified.',        color: '#10B981' },
+    { num: '04', icon: CheckCircle, title: 'Resolution & Report',  desc: 'Responder confirms arrival, logs the outcome. Your caregiver gets notified.',        color: '#2891C2' },
   ];
 
   const roles = [
@@ -594,13 +594,13 @@ const LandingPage = () => {
       points: ['One-tap SOS with instant GPS sharing', 'Silent Request for Deaf & Mute users', 'Medical profile auto-shared with responder', 'Live ETA tracking on map'],
     },
     {
-      icon: Heart,     title: 'For Caregivers',     gradient: 'linear-gradient(135deg,#F59E0B,#EF6C00)',
+      icon: Heart,     title: 'For Caregivers',     gradient: 'linear-gradient(135deg,#1A6FA5,#2891C2)',
       headline: 'Stay Connected to the People You Love',
       desc: 'Receive instant alerts the moment your patient triggers SOS. Track the responder live and stay informed at every step — without being physically there.',
       points: ['Instant push notification on SOS trigger', 'Live responder tracking on map', 'Real-time emergency status updates', 'Emergency history & outcome reports'],
     },
     {
-      icon: Truck,     title: 'For Responders',     gradient: 'linear-gradient(135deg,#2496A7,#2891C2)',
+      icon: HeartPulse, title: 'For Responders',    gradient: 'linear-gradient(135deg,#2496A7,#2891C2)',
       headline: 'Precision Emergency Dispatch',
       desc: 'Receive verified SOS signals with full patient context before you arrive. Smart routing means you are always the right person in the right place.',
       points: ['Smart dispatch with patient data preview', 'Voice-guided GPS navigation', 'Digital credential management', 'Emergency history & outcome logging'],
@@ -694,9 +694,9 @@ const LandingPage = () => {
       ],
     },
     Caregiver: {
-      color: '#D97706',
-      gradient: 'linear-gradient(135deg,#F59E0B,#EF6C00)',
-      lightBg: '#FFFBEB',
+      color: '#1A6FA5',
+      gradient: 'linear-gradient(135deg,#1A6FA5,#2891C2)',
+      lightBg: '#EBF5FB',
       icon: Heart,
       tagline: 'Start watching over your loved ones today',
       steps: [
@@ -732,7 +732,7 @@ const LandingPage = () => {
       color: '#2496A7',
       gradient: 'linear-gradient(135deg,#2496A7,#2891C2)',
       lightBg: '#E0F7FA',
-      icon: Truck,
+      icon: HeartPulse,
       tagline: 'Full account activation within 24–48 hours',
       steps: [
         {
@@ -811,25 +811,25 @@ const LandingPage = () => {
       ],
     },
     Caregiver: {
-      color: '#D97706', gradient: 'linear-gradient(135deg,#F59E0B,#EF6C00)',
+      color: '#1A6FA5', gradient: 'linear-gradient(135deg,#1A6FA5,#2891C2)',
       icon: Heart, label: 'Caregiver App', device: 'phone',
       headline: 'The Caregiver Experience',
       tagline: 'Watch over loved ones from anywhere in the world',
       desc: 'A monitoring-first interface. Caregivers see all linked patients and their status at a glance. The moment SOS fires, a push notification appears and the live emergency map opens — showing both the patient and the incoming responder moving in real time.',
-      primaryScreenshot: null,   // e.g. import cgHome from '../assets/screens/caregiver-home.png'
-      secondaryScreenshot: null, // e.g. import cgEmergency from '../assets/screens/caregiver-emergency.png'
+      primaryScreenshot: null,
+      secondaryScreenshot: null,
       primaryLabel: 'My Patients',
       secondaryLabel: 'Emergency Monitor',
       callouts: [
-        { icon: Users,    label: 'Linked Patients List',   desc: 'All patients and their real-time status in one dashboard',   color: '#F59E0B', bg: '#FFFBEB' },
-        { icon: Bell,     label: 'Instant SOS Alert',      desc: 'Push notification fires the exact moment patient triggers SOS', color: '#EF4444', bg: '#FEF2F2' },
-        { icon: MapPin,   label: 'Dual Live Map',          desc: 'See patient and responder positions simultaneously on map',  color: '#0C637E', bg: '#E2F0F3' },
-        { icon: Clock,    label: 'Emergency History',      desc: 'Full outcome reports for every past emergency event',        color: '#64748B', bg: '#F1F5F9' },
+        { icon: Users,    label: 'Linked Patients List',   desc: 'All patients and their real-time status in one dashboard',      color: '#1A6FA5', bg: '#EBF5FB' },
+        { icon: Bell,     label: 'Instant SOS Alert',      desc: 'Push notification fires the exact moment patient triggers SOS', color: '#DC2626', bg: '#FEF2F2' },
+        { icon: MapPin,   label: 'Dual Live Map',          desc: 'See patient and responder positions simultaneously on map',     color: '#0C637E', bg: '#E2F0F3' },
+        { icon: Clock,    label: 'Emergency History',      desc: 'Full outcome reports for every past emergency event',           color: '#2891C2', bg: '#EBF5FB' },
       ],
     },
     Responder: {
       color: '#2496A7', gradient: 'linear-gradient(135deg,#2496A7,#2891C2)',
-      icon: Truck, label: 'Responder App', device: 'phone',
+      icon: HeartPulse, label: 'Responder App', device: 'phone',
       headline: 'The Responder Experience',
       tagline: 'Precision dispatch with full patient context before arrival',
       desc: 'A professional dispatch interface. Responders toggle availability with one tap, receive voice + haptic emergency alerts with the patient\'s full medical data, stream GPS live to the patient during response, and log resolution outcomes. Every interaction is designed around speed.',
@@ -872,9 +872,9 @@ const LandingPage = () => {
         borderBottom: scrolled ? '1px solid #E2E8F0' : '1px solid transparent',
         transition: 'all 0.3s ease',
       }}>
-        <div style={{ padding: PX, display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '120px' }}>
+        <div style={{ padding: PX, display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '80px' }}>
           <Link to="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
-            <img src={logo} alt="MediFind" style={{ height: '110px', objectFit: 'contain' }} />
+            <img src={logo} alt="MediFind" style={{ height: '68px', objectFit: 'contain' }} />
           </Link>
           <div style={{ display: 'flex', gap: '2rem', alignItems: 'center' }}>
             {navLinks.map(([label, href]) => {
@@ -912,7 +912,7 @@ const LandingPage = () => {
       </nav>
 
       {/* ── Hero ───────────────────────────────────────────────── */}
-      <section style={{ paddingTop: '110px', paddingBottom: '80px', background: 'linear-gradient(150deg,#F0F9FC 0%,#E8F5FA 55%,#F8FAFC 100%)' }}>
+      <section style={{ paddingTop: '88px', paddingBottom: '56px', background: 'linear-gradient(150deg,#F0F9FC 0%,#E8F5FA 55%,#F8FAFC 100%)' }}>
         <div style={{ padding: PX, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5rem', alignItems: 'center' }}>
           <div>
             <Badge icon={HeartPulse} label="Emergency Response Platform" />
@@ -975,8 +975,24 @@ const LandingPage = () => {
         </div>
       </section>
 
+      {/* ── Trust Stats Bar (moved here from mid-page per QA) ─────── */}
+      <section style={{ background: 'linear-gradient(135deg,#03293C 0%,#0C637E 55%,#2496A7 100%)', padding: '2.25rem 0' }}>
+        <div style={{ padding: PX, display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '1rem', textAlign: 'center' }}>
+          {stats.map((s, i) => (
+            <FadeIn key={s.label} delay={i * 80}>
+              <div style={{ padding: '0.5rem 1rem', borderRight: i < stats.length - 1 ? '1px solid rgba(255,255,255,0.15)' : 'none' }}>
+                <div style={{ fontSize: '1.9rem', fontWeight: 700, color: 'white', marginBottom: '0.25rem', fontFamily: P }}>
+                  <Counter end={s.value} suffix={s.suffix} prefix={s.prefix} />
+                </div>
+                <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.65)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.09em', fontFamily: P }}>{s.label}</div>
+              </div>
+            </FadeIn>
+          ))}
+        </div>
+      </section>
+
       {/* ── Brand Pillars (About) ────────────────────────────────── */}
-      <section id="about" style={{ padding: '8rem 0', background: '#0F172A', position: 'relative', overflow: 'hidden' }}>
+      <section id="about" style={{ padding: '5.5rem 0', background: '#0F172A', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', top: '10%', left: '-5%', width: '400px', height: '400px', background: 'radial-gradient(circle, rgba(12,99,126,0.15) 0%, transparent 70%)', borderRadius: '50%' }} />
         <div style={{ position: 'absolute', bottom: '10%', right: '-5%', width: '400px', height: '400px', background: 'radial-gradient(circle, rgba(36,150,167,0.1) 0%, transparent 70%)', borderRadius: '50%' }} />
         <div style={{ padding: PX, position: 'relative', zIndex: 1 }}>
@@ -1014,24 +1030,8 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* ── Stats Bar ──────────────────────────────────────────── */}
-      <section style={{ background: 'linear-gradient(135deg,#04364E 0%,#0C637E 50%,#2496A7 100%)', padding: '3rem 0' }}>
-        <div style={{ padding: PX, display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '1rem', textAlign: 'center' }}>
-          {stats.map((s, i) => (
-            <FadeIn key={s.label} delay={i * 100}>
-              <div style={{ padding: '1rem' }}>
-                <div style={{ fontSize: '2.25rem', fontWeight: 700, color: 'white', marginBottom: '0.4rem', fontFamily: P }}>
-                  <Counter end={s.value} suffix={s.suffix} prefix={s.prefix} />
-                </div>
-                <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.65)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: P }}>{s.label}</div>
-              </div>
-            </FadeIn>
-          ))}
-        </div>
-      </section>
-
       {/* ── Features ───────────────────────────────────────────── */}
-      <section id="features" style={{ padding: '6rem 0', background: '#F8FAFC' }}>
+      <section id="features" style={{ padding: '4.5rem 0', background: '#F8FAFC' }}>
         <div style={{ padding: PX }}>
           <FadeIn>
             <SectionHead badge="Core Features" badgeIcon={Zap} badgeBg="#E2F0F3" badgeColor="#0C637E"
@@ -1056,15 +1056,15 @@ const LandingPage = () => {
       </section>
 
       {/* ── How It Works ───────────────────────────────────────── */}
-      <section id="how-it-works" style={{ padding: '6rem 0', background: 'white' }}>
+      <section id="how-it-works" style={{ padding: '4.5rem 0', background: 'white' }}>
         <div style={{ padding: PX }}>
           <FadeIn>
-            <SectionHead badge="How It Works" badgeIcon={Activity} badgeBg="#FFF5F5" badgeColor="#FF6B6B"
+            <SectionHead badge="How It Works" badgeIcon={Activity} badgeBg="#E2F0F3" badgeColor="#0C637E"
               title="From SOS to Safety in 4 Steps"
               sub="A seamless emergency response pipeline designed to minimize every second of delay." />
           </FadeIn>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '1.5rem', position: 'relative' }}>
-            <div style={{ position: 'absolute', top: '2.4rem', left: 'calc(12.5% + 26px)', right: 'calc(12.5% + 26px)', height: '2px', background: 'linear-gradient(90deg,#FF6B6B,#F59E0B,#2496A7,#10B981)', borderRadius: '2px', zIndex: 0 }} />
+            <div style={{ position: 'absolute', top: '2.4rem', left: 'calc(12.5% + 26px)', right: 'calc(12.5% + 26px)', height: '2px', background: 'linear-gradient(90deg,#DC2626,#0C637E,#2496A7,#2891C2)', borderRadius: '2px', zIndex: 0 }} />
             {steps.map((s, i) => (
               <FadeIn key={s.title} delay={i * 110}>
                 <div style={{ textAlign: 'center', position: 'relative', zIndex: 1 }}>
@@ -1082,7 +1082,7 @@ const LandingPage = () => {
       </section>
 
       {/* ── Role Sections (Solutions) ───────────────────────────── */}
-      <section id="solutions" style={{ padding: '6rem 0', background: '#F8FAFC' }}>
+      <section id="solutions" style={{ padding: '4.5rem 0', background: '#F8FAFC' }}>
         <div style={{ padding: PX }}>
           <FadeIn>
             <SectionHead badge="Built for Every Role" badgeIcon={Users} badgeBg="#EEF2FF" badgeColor="#6366F1"
@@ -1126,7 +1126,7 @@ const LandingPage = () => {
           Device mockups + feature callouts per role.
           Add real screenshot paths to ecosystemData when available.
       ══════════════════════════════════════════════════════════ */}
-      <section id="ecosystem" style={{ padding: '7rem 0', background: '#0F172A', position: 'relative', overflow: 'hidden' }}>
+      <section id="ecosystem" style={{ padding: '5rem 0', background: '#0F172A', position: 'relative', overflow: 'hidden' }}>
 
         {/* Ambient background glow — shifts colour with active tab */}
         <motion.div
@@ -1473,7 +1473,7 @@ const LandingPage = () => {
           • Match with real world    — role icons + language
           • Consistency              — same teal brand colours
       ══════════════════════════════════════════════════════════ */}
-      <section id="get-started" style={{ padding: '7rem 0', background: 'white' }}>
+      <section id="get-started" style={{ padding: '5rem 0', background: 'white' }}>
         <div style={{ padding: PX }}>
 
           {/* Section header */}
@@ -1624,7 +1624,7 @@ const LandingPage = () => {
                             )}
 
                             {step.note && (
-                              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.45rem', padding: '0.55rem 0.85rem', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '10px', fontSize: '0.78rem', color: '#92400E', fontFamily: P, fontWeight: 500 }}>
+                              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.45rem', padding: '0.55rem 0.85rem', background: '#E2F0F3', border: '1px solid #A8D8E8', borderRadius: '10px', fontSize: '0.78rem', color: '#0C637E', fontFamily: P, fontWeight: 500 }}>
                                 <span style={{ flexShrink: 0, marginTop: '1px' }}>💡</span>
                                 <span>{step.note}</span>
                               </div>
@@ -1716,7 +1716,7 @@ const LandingPage = () => {
       </section>
 
       {/* ── FAQ ────────────────────────────────────────────────── */}
-      <section style={{ padding: '6rem 0', background: 'white' }}>
+      <section style={{ padding: '4.5rem 0', background: 'white' }}>
         <div style={{ padding: PX, maxWidth: '820px', margin: '0 auto' }}>
           <FadeIn>
             <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
@@ -1755,7 +1755,7 @@ const LandingPage = () => {
       </section>
 
       {/* ── Contact ────────────────────────────────────────────── */}
-      <section id="contact" style={{ padding: '6rem 0', background: '#F8FAFC' }}>
+      <section id="contact" style={{ padding: '4.5rem 0', background: '#F8FAFC' }}>
         <div style={{ padding: PX, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5rem', alignItems: 'start' }}>
           <FadeIn>
             <div>

@@ -1,8 +1,6 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 import { sendSuccess, sendError } from '../utils/response';
-
-const prisma = new PrismaClient();
 
 /**
  * Admin: List all users
@@ -482,6 +480,59 @@ export const getSystemHealth = async (req: Request, res: Response) => {
     },
     memory: { usedMB: memUsedMB, totalMB: memTotalMB, usedPct: memPct },
   }, 'System health retrieved');
+};
+
+/**
+ * Admin: Emergency Trend Analytics (last 14 days)
+ * GET /api/admin/analytics/emergencies
+ */
+export const getEmergencyTrend = async (req: Request, res: Response) => {
+  try {
+    const days = parseInt(req.query.days as string) || 14;
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+    // Fetch all emergencies in range
+    const emergencies = await prisma.emergency.findMany({
+      where: { createdAt: { gte: since } },
+      select: { createdAt: true, status: true, emergencyType: true },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    // Build daily buckets
+    const buckets: Record<string, { date: string; total: number; active: number; resolved: number; cancelled: number }> = {};
+    for (let i = 0; i < days; i++) {
+      const d = new Date(since.getTime() + i * 24 * 60 * 60 * 1000);
+      const key = d.toISOString().slice(0, 10);
+      buckets[key] = { date: key, total: 0, active: 0, resolved: 0, cancelled: 0 };
+    }
+
+    for (const e of emergencies) {
+      const key = new Date(e.createdAt).toISOString().slice(0, 10);
+      if (!buckets[key]) continue;
+      buckets[key].total++;
+      if (e.status === 'ACTIVE' || e.status === 'ASSIGNED' || e.status === 'ARRIVED') buckets[key].active++;
+      else if (e.status === 'RESOLVED' || e.status === 'COMPLETED') buckets[key].resolved++;
+      else if (e.status === 'CANCELLED') buckets[key].cancelled++;
+    }
+
+    // Type breakdown
+    const typeCounts: Record<string, number> = {};
+    for (const e of emergencies) {
+      typeCounts[e.emergencyType] = (typeCounts[e.emergencyType] || 0) + 1;
+    }
+    const typeBreakdown = Object.entries(typeCounts)
+      .map(([type, count]) => ({ type, count }))
+      .sort((a, b) => b.count - a.count);
+
+    sendSuccess(res, {
+      trend: Object.values(buckets),
+      typeBreakdown,
+      totalInPeriod: emergencies.length,
+      period: `Last ${days} days`,
+    }, 'Analytics retrieved');
+  } catch (error: any) {
+    sendError(res, error.message, 500);
+  }
 };
 
 /**

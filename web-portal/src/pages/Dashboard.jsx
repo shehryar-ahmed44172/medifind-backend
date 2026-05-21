@@ -13,6 +13,10 @@ import { useAuth } from '../context/AuthContext';
 import { useAlert } from '../context/AlertContext';
 import api from '../services/api';
 import { io } from 'socket.io-client';
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
+  BarChart, Bar, ResponsiveContainer, Legend,
+} from 'recharts';
 import UserManagement from './UserManagement';
 import ResponderVerification from './admin/ResponderVerification';
 import SOSMonitor from './admin/SOSMonitor';
@@ -449,6 +453,7 @@ function Overview() {
   const [loading,           setLoading]           = useState(true);
   const [error,             setError]             = useState('');
   const [recentActivity,    setRecentActivity]    = useState([]);
+  const [analytics,         setAnalytics]         = useState(null);
 
   const loadData = () => {
     setLoading(true);
@@ -457,16 +462,18 @@ function Overview() {
       api.get('/api/admin/responders/pending'),
       api.get('/api/admin/health'),
       api.get('/api/admin/logs?limit=7'),
+      api.get('/api/admin/analytics/emergencies?days=14'),
     ])
-      .then(([statsRes, pendRes, healthRes, logsRes]) => {
-        if (statsRes.data.success)  setStats(statsRes.data.data);
+      .then(([statsRes, pendRes, healthRes, logsRes, analyticsRes]) => {
+        if (statsRes.data.success)     setStats(statsRes.data.data);
         if (pendRes.data.success) {
           const arr = pendRes.data.data || [];
           setPendingCount(arr.length);
           setPendingResponders(arr);
         }
-        if (healthRes.data.success) setHealth(healthRes.data.data);
-        if (logsRes.data.success)   setRecentActivity(logsRes.data.data || []);
+        if (healthRes.data.success)    setHealth(healthRes.data.data);
+        if (logsRes.data.success)      setRecentActivity(logsRes.data.data || []);
+        if (analyticsRes.data.success) setAnalytics(analyticsRes.data.data);
       })
       .catch(() => setError('Unable to reach backend — check your server is running.'))
       .finally(() => setLoading(false));
@@ -956,6 +963,90 @@ function Overview() {
             )}
           </>
         )}
+      </div>
+
+      {/* ── Analytics Charts ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '16px', marginBottom: '20px' }}>
+
+        {/* Emergency Trend Area Chart */}
+        <div style={{ background: C.white, borderRadius: '16px', border: `1px solid ${C.border}`, boxShadow: '0 1px 4px rgba(12,99,126,0.05)', overflow: 'hidden' }}>
+          <div style={{ padding: '18px 24px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <h3 style={{ fontSize: '1rem', fontWeight: 800, color: C.textMain }}>Emergency Trend</h3>
+              <p style={{ fontSize: '0.75rem', color: C.textMuted, marginTop: '2px' }}>{analytics?.period ?? 'Last 14 days'}</p>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 10px', background: '#E2F0F3', borderRadius: '8px' }}>
+              <Activity size={12} color="#0C637E" />
+              <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#0C637E' }}>{analytics?.totalInPeriod ?? 0} total</span>
+            </div>
+          </div>
+          <div style={{ padding: '16px 8px 8px' }}>
+            {loading || !analytics ? (
+              <div style={{ height: '180px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Skeleton h={160} w="95%" />
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={180}>
+                <AreaChart data={analytics.trend} margin={{ top: 4, right: 16, left: -16, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="gradResolved" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%"  stopColor="#0C637E" stopOpacity={0.18} />
+                      <stop offset="95%" stopColor="#0C637E" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="gradTotal" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%"  stopColor="#2891C2" stopOpacity={0.12} />
+                      <stop offset="95%" stopColor="#2891C2" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E4EEF3" />
+                  <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#7A96A3' }}
+                    tickFormatter={d => { const dt = new Date(d); return `${dt.getDate()}/${dt.getMonth()+1}`; }} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: '#7A96A3' }} />
+                  <Tooltip
+                    contentStyle={{ borderRadius: '10px', border: `1px solid ${C.border}`, fontSize: '0.78rem', fontFamily: 'inherit' }}
+                    labelFormatter={d => new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+                  />
+                  <Legend wrapperStyle={{ fontSize: '0.72rem', paddingTop: '8px' }} />
+                  <Area type="monotone" dataKey="total"    name="Total"    stroke="#2891C2" fill="url(#gradTotal)"    strokeWidth={2} dot={false} />
+                  <Area type="monotone" dataKey="resolved" name="Resolved" stroke="#0C637E" fill="url(#gradResolved)" strokeWidth={2} dot={false} />
+                  <Area type="monotone" dataKey="cancelled" name="Cancelled" stroke="#EF4444" fill="none" strokeWidth={1.5} strokeDasharray="4 3" dot={false} />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
+
+        {/* Emergency Type Breakdown Bar Chart */}
+        <div style={{ background: C.white, borderRadius: '16px', border: `1px solid ${C.border}`, boxShadow: '0 1px 4px rgba(12,99,126,0.05)', overflow: 'hidden' }}>
+          <div style={{ padding: '18px 24px', borderBottom: `1px solid ${C.border}` }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 800, color: C.textMain }}>By Type</h3>
+            <p style={{ fontSize: '0.75rem', color: C.textMuted, marginTop: '2px' }}>Top emergency categories</p>
+          </div>
+          <div style={{ padding: '16px 8px 8px' }}>
+            {loading || !analytics ? (
+              <div style={{ height: '180px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Skeleton h={160} w="90%" />
+              </div>
+            ) : analytics.typeBreakdown.length === 0 ? (
+              <div style={{ height: '180px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.textMuted, fontSize: '0.82rem' }}>
+                No data yet
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={180}>
+                <BarChart data={analytics.typeBreakdown.slice(0, 6)} layout="vertical"
+                  margin={{ top: 0, right: 16, left: 8, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E4EEF3" horizontal={false} />
+                  <XAxis type="number" allowDecimals={false} tick={{ fontSize: 10, fill: '#7A96A3' }} />
+                  <YAxis type="category" dataKey="type" tick={{ fontSize: 9, fill: '#7A96A3' }} width={70} />
+                  <Tooltip
+                    contentStyle={{ borderRadius: '10px', border: `1px solid ${C.border}`, fontSize: '0.78rem', fontFamily: 'inherit' }}
+                  />
+                  <Bar dataKey="count" name="Count" fill="#0C637E" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* ── Bottom Row ── */}

@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import * as caregiverService from '../services/caregiverService';
 import { sendSuccess, sendError } from '../utils/response';
+import { PLAN_LIMITS } from '../middleware/planMiddleware';
+import prisma from '../lib/prisma';
 
 /**
  * POST /api/caregivers/link
@@ -20,6 +22,26 @@ export const linkCaregiver = async (req: Request, res: Response) => {
 
     if (!targetEmail || !relationship) {
       return sendError(res, 'target email and relationship are required', 400);
+    }
+
+    // Enforce per-plan caregiver limit (only for PATIENT role inviting caregivers)
+    if (req.user.role === 'PATIENT') {
+      const user = await prisma.user.findUnique({
+        where: { id: req.user.userId },
+        select: { subscriptionPlan: true },
+      });
+      const plan = (user?.subscriptionPlan ?? 'FREE') as keyof typeof PLAN_LIMITS;
+      const limit = PLAN_LIMITS[plan].maxCaregivers;
+      const activeCount = await prisma.caregiverLink.count({
+        where: { patientId: req.user.userId, status: 'ACCEPTED', isActive: true },
+      });
+      if (activeCount >= limit) {
+        return sendError(
+          res,
+          `Caregiver limit reached (${limit} on ${plan} plan). Upgrade to add more caregivers.`,
+          403
+        );
+      }
     }
 
     const link = await caregiverService.linkCaregiver(req.user.userId, targetEmail, relationship, req.user.role);
