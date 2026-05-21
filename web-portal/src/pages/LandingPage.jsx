@@ -1812,14 +1812,6 @@ const LandingPage = () => {
               >
                 <Download size={15} /> Download Free
               </motion.a>
-              <motion.a
-                href="#get-started"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.97 }}
-                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.8rem 1.6rem', borderRadius: '10px', background: 'rgba(255,255,255,0.14)', color: 'white', fontWeight: 600, fontSize: '0.875rem', textDecoration: 'none', border: '1px solid rgba(255,255,255,0.25)', cursor: 'pointer', fontFamily: P }}
-              >
-                <UserPlus size={14} /> Create Your Account <ArrowRight size={14} />
-              </motion.a>
               <Link to="/login" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.8rem 1.6rem', borderRadius: '10px', background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.75)', fontWeight: 600, fontSize: '0.875rem', textDecoration: 'none', border: '1px solid rgba(255,255,255,0.15)', fontFamily: P }}>
                 Admin Portal <ArrowRight size={14} />
               </Link>
@@ -1829,49 +1821,103 @@ const LandingPage = () => {
       </section>
 
       {/* ── Footer ─────────────────────────────────────────────── */}
-      <footer style={{ background: '#0F172A', color: 'rgba(255,255,255,0.55)', padding: '4rem 0 2rem', fontFamily: P }}>
-        <div style={{ padding: PX }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr 1fr', gap: '3rem', marginBottom: '3rem' }}>
+      <footer style={{ background: '#0B1628', color: 'rgba(255,255,255,0.55)', fontFamily: P }}>
+        {/* Brand-color top accent bar */}
+        <div style={{ height: '3px', background: 'linear-gradient(90deg, #03293C, #0C637E, #2496A7, #2891C2)' }} />
+
+        <div style={{ padding: PX, paddingTop: '4rem' }}>
+          {/* Main 3-column grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1.9fr 1fr 1fr', gap: '4rem', marginBottom: '3.5rem', alignItems: 'flex-start' }}>
+
+            {/* ── Brand Column ── */}
             <div>
-              <div style={{ marginBottom: '1.5rem' }}>
+              <div style={{ marginBottom: '1.25rem' }}>
                 <div style={{ height: '72px', overflow: 'hidden', display: 'flex', alignItems: 'flex-start' }}>
                   <img src={logo} alt="MediFind" style={{ height: '90px', objectFit: 'contain', display: 'block', filter: 'brightness(1.15) drop-shadow(0 0 8px rgba(36,150,167,0.45))' }} loading="lazy" />
                 </div>
               </div>
-              <p style={{ fontSize: '0.83rem', lineHeight: 1.75, maxWidth: '230px', fontFamily: P, fontWeight: 400 }}>Pakistan's first inclusive emergency response platform. Built to save every life.</p>
+              <p style={{ fontSize: '0.875rem', lineHeight: 1.85, maxWidth: '270px', fontFamily: P, fontWeight: 400, color: 'rgba(255,255,255,0.5)', marginBottom: '1.75rem' }}>
+                Pakistan's first inclusive emergency response platform. Built to save every life.
+              </p>
+              <motion.a
+                href={PLAY_STORE_URL} target="_blank" rel="noopener noreferrer"
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.25rem', borderRadius: '8px', background: 'rgba(36,150,167,0.12)', color: '#2496A7', fontWeight: 600, fontSize: '0.8rem', textDecoration: 'none', border: '1px solid rgba(36,150,167,0.28)', cursor: 'pointer', fontFamily: P, transition: 'all 0.2s' }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(36,150,167,0.22)'; e.currentTarget.style.color = '#ffffff'; e.currentTarget.style.borderColor = 'rgba(36,150,167,0.55)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(36,150,167,0.12)'; e.currentTarget.style.color = '#2496A7'; e.currentTarget.style.borderColor = 'rgba(36,150,167,0.28)'; }}
+              >
+                <Download size={13} /> Download Free App
+              </motion.a>
             </div>
+
+            {/* ── Platform Column ── */}
             <div>
-              <div style={{ fontWeight: 600, color: 'white', marginBottom: '1rem', fontSize: '0.83rem', fontFamily: P }}>Platform</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
+              <div style={{ fontWeight: 700, color: '#2496A7', marginBottom: '1.4rem', fontSize: '0.75rem', fontFamily: P, letterSpacing: '0.09em', textTransform: 'uppercase' }}>Platform</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
                 {[['Features', '#features'], ['How It Works', '#how-it-works'], ['Get Started', '#get-started']].map(([label, href]) => (
-                  <a key={href} href={href} style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.45)', textDecoration: 'none', transition: 'color 0.2s', fontFamily: P, fontWeight: 400 }}
-                    onMouseEnter={e => e.target.style.color = 'white'}
-                    onMouseLeave={e => e.target.style.color = 'rgba(255,255,255,0.45)'}>
+                  <a key={href} href={href}
+                    style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.5)', textDecoration: 'none', transition: 'color 0.2s', fontFamily: P, fontWeight: 400 }}
+                    onMouseEnter={e => e.currentTarget.style.color = '#2496A7'}
+                    onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.5)'}
+                  >
                     {label}
                   </a>
                 ))}
-                <Link to="/login" style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.45)', textDecoration: 'none', transition: 'color 0.2s', fontFamily: P, fontWeight: 400 }}>Admin Portal</Link>
+                <Link to="/login"
+                  style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.5)', textDecoration: 'none', transition: 'color 0.2s', fontFamily: P, fontWeight: 400 }}
+                  onMouseEnter={e => e.currentTarget.style.color = '#2496A7'}
+                  onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.5)'}
+                >Admin Portal</Link>
               </div>
             </div>
+
+            {/* ── Legal & Company Column ── */}
             <div>
-              <div style={{ fontWeight: 600, color: 'white', marginBottom: '1rem', fontSize: '0.83rem', fontFamily: P }}>Legal</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
-                <Link to="/terms" style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.45)', textDecoration: 'none', fontFamily: P, fontWeight: 400 }}>Terms & Conditions</Link>
-                <Link to="/privacy" style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.45)', textDecoration: 'none', fontFamily: P, fontWeight: 400 }}>Privacy Policy</Link>
-                <a href="#contact" style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.45)', textDecoration: 'none', fontFamily: P, fontWeight: 400 }}>Contact Us</a>
+              <div style={{ fontWeight: 700, color: '#2496A7', marginBottom: '1.4rem', fontSize: '0.75rem', fontFamily: P, letterSpacing: '0.09em', textTransform: 'uppercase' }}>Legal</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', marginBottom: '2rem' }}>
+                <Link to="/terms"
+                  style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.5)', textDecoration: 'none', transition: 'color 0.2s', fontFamily: P, fontWeight: 400 }}
+                  onMouseEnter={e => e.currentTarget.style.color = '#2496A7'}
+                  onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.5)'}
+                >Terms &amp; Conditions</Link>
+                <Link to="/privacy"
+                  style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.5)', textDecoration: 'none', transition: 'color 0.2s', fontFamily: P, fontWeight: 400 }}
+                  onMouseEnter={e => e.currentTarget.style.color = '#2496A7'}
+                  onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.5)'}
+                >Privacy Policy</Link>
+                <a href="#contact"
+                  style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.5)', textDecoration: 'none', transition: 'color 0.2s', fontFamily: P, fontWeight: 400 }}
+                  onMouseEnter={e => e.currentTarget.style.color = '#2496A7'}
+                  onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.5)'}
+                >Contact Us</a>
+                <a href="#about"
+                  style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.5)', textDecoration: 'none', transition: 'color 0.2s', fontFamily: P, fontWeight: 400 }}
+                  onMouseEnter={e => e.currentTarget.style.color = '#2496A7'}
+                  onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.5)'}
+                >About MediFind</a>
               </div>
             </div>
-            <div>
-              <div style={{ fontWeight: 600, color: 'white', marginBottom: '1rem', fontSize: '0.83rem', fontFamily: P }}>Company</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
-                <a href="#about" style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.45)', textDecoration: 'none', fontFamily: P, fontWeight: 400 }}>About</a>
-                <a href="#" style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.45)', textDecoration: 'none', fontFamily: P, fontWeight: 400 }}>Team</a>
-                <a href="#" style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.45)', textDecoration: 'none', fontFamily: P, fontWeight: 400 }}>Blog</a>
-              </div>
-            </div>
+
           </div>
-          <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: '1.75rem', display: 'flex', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-            <p style={{ fontSize: '0.78rem', fontFamily: P, fontWeight: 400 }}>© 2026 MediFind. All rights reserved. Made with ❤️ in Pakistan.</p>
+
+          {/* ── Bottom Bar ── */}
+          <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: '1.5rem', paddingBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+            <p style={{ fontSize: '0.78rem', fontFamily: P, fontWeight: 400, color: 'rgba(255,255,255,0.35)', margin: 0 }}>
+              © 2026 MediFind Emergency Response Platform. All rights reserved. Made with ❤️ in Pakistan.
+            </p>
+            <div style={{ display: 'flex', gap: '1.5rem' }}>
+              <Link to="/terms"
+                style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.3)', textDecoration: 'none', transition: 'color 0.2s', fontFamily: P }}
+                onMouseEnter={e => e.currentTarget.style.color = 'rgba(255,255,255,0.65)'}
+                onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.3)'}
+              >Terms</Link>
+              <Link to="/privacy"
+                style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.3)', textDecoration: 'none', transition: 'color 0.2s', fontFamily: P }}
+                onMouseEnter={e => e.currentTarget.style.color = 'rgba(255,255,255,0.65)'}
+                onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.3)'}
+              >Privacy</Link>
+            </div>
           </div>
         </div>
       </footer>
