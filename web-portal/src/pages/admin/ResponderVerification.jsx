@@ -46,7 +46,6 @@ const ApplicationModal = ({ responder, onClose }) => {
   // Admin review state (on-screen editable, also captured in print)
   const [reviewedBy,   setReviewedBy]   = React.useState('');
   const [reviewDate,   setReviewDate]   = React.useState(new Date().toLocaleDateString('en-PK'));
-  const [decision,     setDecision]     = React.useState('');
   const [rejectReason, setRejectReason] = React.useState('');
   const [adminSig,     setAdminSig]     = React.useState('');
 
@@ -339,26 +338,27 @@ const ApplicationModal = ({ responder, onClose }) => {
               <ReviewField label="Review Date" value={reviewDate}
                 onChange={e => setReviewDate(e.target.value)} placeholder="DD/MM/YYYY" />
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem', marginBottom: '1.25rem' }}>
-              {/* Decision with checkboxes */}
-              <div>
-                <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.6rem' }}>Decision</div>
-                <div style={{ display: 'flex', gap: '1.5rem' }}>
-                  {['Approved', 'Rejected'].map(opt => (
-                    <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontSize: '0.875rem', fontWeight: 600, color: '#374151' }}>
-                      <input type="radio" name="decision" value={opt}
-                        checked={decision === opt}
-                        onChange={() => setDecision(opt)}
-                        style={{ accentColor: opt === 'Approved' ? '#059669' : '#DC2626', width: '16px', height: '16px' }}
-                      />
-                      {opt}
-                    </label>
-                  ))}
+            <div style={{ marginBottom: '1.25rem' }}>
+              {/* Decision note — actual action is via Approve/Reject buttons in main panel */}
+              <div style={{
+                display: 'flex', alignItems: 'flex-start', gap: '0.6rem',
+                background: '#EFF6FF', border: '1px solid #BFDBFE',
+                borderRadius: '8px', padding: '0.75rem 1rem',
+              }}>
+                <span style={{ fontSize: '1rem', flexShrink: 0 }}>ℹ️</span>
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#1D4ED8', marginBottom: '0.2rem' }}>
+                    Decision Recorded Digitally
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: '#3B82F6', lineHeight: 1.5 }}>
+                    The approval or rejection is executed via the <strong>Approve Responder</strong> / <strong>Reject</strong> buttons in the Verification Queue. The outcome is automatically logged in the system audit trail.
+                  </div>
                 </div>
-                <div style={{ borderBottom: '1.5px solid #D1D5DB', marginTop: '0.75rem' }} />
               </div>
-              <ReviewField label="Rejection Reason (if applicable)" value={rejectReason}
-                onChange={e => setRejectReason(e.target.value)} placeholder="State reason if rejected" />
+            </div>
+            <div style={{ marginBottom: '1.25rem' }}>
+              <ReviewField label="Notes / Rejection Reason (if applicable)" value={rejectReason}
+                onChange={e => setRejectReason(e.target.value)} placeholder="Add review notes or state reason if rejected" />
             </div>
             <SignatureStampField value={adminSig} onChange={e => setAdminSig(e.target.value)} />
           </div>
@@ -446,71 +446,57 @@ const ReviewField = ({ label, value, onChange, placeholder }) => (
 
 /**
  * Admin Signature + Stamp field
- * • Text input where admin types their name
- * • Live preview renders the name in Great Vibes cursive (handwriting font)
- * • Circular MediFind official stamp shown beside the signature
+ * • Single cursive input — the input IS the signature (no duplicate preview)
+ * • Circular MediFind official stamp shown beside it
  */
 const SignatureStampField = ({ value, onChange }) => (
   <div>
-    {/* Label */}
-    <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.6rem' }}>
+    <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.75rem' }}>
       Admin Signature &amp; Official Stamp
     </div>
 
-    {/* Signature preview + stamp side by side */}
-    <div style={{ display: 'flex', alignItems: 'flex-end', gap: '2rem' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
 
-      {/* Left: type + cursive preview */}
+      {/* Left: single cursive input field — types directly in handwriting style */}
       <div style={{ flex: 1 }}>
-        <input
-          type="text"
-          value={value}
-          onChange={onChange}
-          placeholder="Type your full name to generate signature"
-          style={{
-            width: '100%', padding: '0.5rem 0.6rem',
-            border: 'none', borderBottom: '1.5px solid #9CA3AF',
-            fontSize: '0.875rem', fontFamily: 'Arial, sans-serif',
-            color: '#1A2E3A', background: 'transparent', outline: 'none',
-            boxSizing: 'border-box',
-          }}
-          onFocus={e => e.target.style.borderBottomColor = '#0C637E'}
-          onBlur={e => e.target.style.borderBottomColor = '#9CA3AF'}
-        />
-
-        {/* Live cursive preview */}
         <div style={{
-          minHeight: '56px',
-          marginTop: '0.5rem',
-          padding: '0.5rem 0.75rem',
-          borderBottom: value ? '1.5px solid #0C637E' : '1.5px dashed #D1D5DB',
-          background: value ? 'rgba(12,99,126,0.03)' : 'transparent',
-          borderRadius: '4px 4px 0 0',
-          transition: 'all 0.3s',
-          display: 'flex', alignItems: 'center',
+          position: 'relative',
+          background: value ? 'rgba(12,99,126,0.03)' : '#FAFAFA',
+          borderRadius: '8px 8px 0 0',
+          border: '1px solid #E5E7EB',
+          borderBottom: `2px solid ${value ? '#0C637E' : '#D1D5DB'}`,
+          transition: 'border-color 0.25s',
+          padding: '0.75rem 1rem 0.6rem',
         }}>
-          {value ? (
-            <span style={{
-              fontFamily: '"Great Vibes", cursive',
-              fontSize: '2.2rem',
-              color: '#03293C',
-              letterSpacing: '0.02em',
-              lineHeight: 1.2,
-              userSelect: 'none',
-            }}>
-              {value}
-            </span>
-          ) : (
-            <span style={{ fontSize: '0.8rem', color: '#CBD5E1', fontStyle: 'italic' }}>
-              Signature will appear here as you type…
+          <input
+            type="text"
+            value={value}
+            onChange={onChange}
+            placeholder="Click here and sign your name…"
+            style={{
+              width: '100%',
+              border: 'none', outline: 'none', background: 'transparent',
+              fontFamily: value ? '"Great Vibes", cursive' : 'inherit',
+              fontSize: value ? '2rem' : '0.9rem',
+              color: value ? '#03293C' : '#9CA3AF',
+              lineHeight: 1.3,
+              transition: 'font-size 0.2s, font-family 0.1s',
+              boxSizing: 'border-box',
+            }}
+            onFocus={e => e.currentTarget.parentElement.style.borderBottomColor = '#0C637E'}
+            onBlur={e => e.currentTarget.parentElement.style.borderBottomColor = value ? '#0C637E' : '#D1D5DB'}
+          />
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.3rem' }}>
+          <span style={{ fontSize: '0.62rem', color: '#9CA3AF', letterSpacing: '0.06em' }}>
+            AUTHORIZED SIGNATURE
+          </span>
+          {value && (
+            <span style={{ fontSize: '0.62rem', color: '#0C637E', fontWeight: 600, letterSpacing: '0.04em' }}>
+              ✓ SIGNED
             </span>
           )}
         </div>
-        {value && (
-          <div style={{ fontSize: '0.65rem', color: '#9CA3AF', marginTop: '0.3rem', letterSpacing: '0.05em' }}>
-            AUTHORIZED SIGNATURE
-          </div>
-        )}
       </div>
 
       {/* Right: Official circular stamp */}
