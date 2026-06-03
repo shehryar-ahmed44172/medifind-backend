@@ -13,12 +13,14 @@ export const register = async (req: Request, res: Response) => {
   try {
     const {
       fullName, email, phoneNumber, password, role,
-      // Optional role-specific fields
-      cnic, city, address, patientType,
-      organization, licenseNumber, responderType, vehicleType,
+      // Personal
+      cnic, city, address, patientType, dateOfBirth,
+      // Responder credentials
+      organization, licenseNumber, responderType, vehicleType, specialization,
+      // Responder document URLs (uploaded separately via /upload-document)
+      cnicImageUrl, cnicBackImageUrl, employeeCardImageUrl, employeeCardBackImageUrl,
     } = req.body as RegisterRequest;
 
-    
     // Basic validation
     if (!fullName || !email || !phoneNumber || !password || !role) {
       return sendError(res, 'Missing required fields: fullName, email, phoneNumber, password, role', 400);
@@ -35,8 +37,9 @@ export const register = async (req: Request, res: Response) => {
 
     const result = await authService.register({
       fullName, email, phoneNumber, password, role,
-      cnic, city, address, patientType,
-      organization, licenseNumber, responderType, vehicleType,
+      cnic, city, address, patientType, dateOfBirth,
+      organization, licenseNumber, responderType, vehicleType, specialization,
+      cnicImageUrl, cnicBackImageUrl, employeeCardImageUrl, employeeCardBackImageUrl,
     });
 
     sendSuccess(res, result, 'Registration successful', 201);
