@@ -6,11 +6,12 @@ import {
   ChevronLeft, ChevronRight, TrendingUp, TrendingDown,
   Shield, Clock, ArrowRight, PanelLeftClose, PanelLeftOpen,
   Circle, Settings, CheckCircle, XCircle, EarOff, RefreshCw,
-  Send, LayoutDashboard,
+  Send, LayoutDashboard, Sun, Moon,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { useAlert } from '../context/AlertContext';
+import { useTheme } from '../context/ThemeContext';
 import api from '../services/api';
 import { io } from 'socket.io-client';
 import {
@@ -232,6 +233,8 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { showAlert } = useAlert();
+  const { theme, toggleTheme } = useTheme();
+  const isDark = theme === 'dark';
 
   const [showProfile, setShowProfile] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -316,7 +319,7 @@ export default function Dashboard() {
   )?.label ?? 'Dashboard';
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: C.bg }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: isDark ? 'var(--background)' : C.bg }}>
       <Sidebar open={open} onToggle={() => setOpen(o => !o)} onLogout={handleLogout} />
 
       {/* ── Main ── */}
@@ -328,12 +331,13 @@ export default function Dashboard() {
       >
         {/* ── Top Bar ── */}
         <header style={{
-          height: '64px', background: C.white,
-          borderBottom: `1px solid ${C.border}`,
+          height: '64px',
+          background: isDark ? 'var(--surface)' : C.white,
+          borderBottom: `1px solid ${isDark ? 'var(--border)' : C.border}`,
           display: 'flex', alignItems: 'center',
           justifyContent: 'space-between',
           padding: '0 28px', position: 'sticky', top: 0, zIndex: 100,
-          boxShadow: '0 1px 3px rgba(12,99,126,0.06)',
+          boxShadow: isDark ? '0 1px 3px rgba(0,0,0,0.2)' : '0 1px 3px rgba(12,99,126,0.06)',
         }}>
           {/* Left: page title */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -355,8 +359,8 @@ export default function Dashboard() {
               style={{
                 width: '100%', height: '40px', paddingLeft: '38px',
                 border: `1.5px solid ${searchFocused ? C.accent : C.border}`, borderRadius: '10px',
-                background: C.bg, outline: 'none', fontSize: '0.875rem',
-                fontFamily: 'inherit', color: C.textMain, transition: 'border 0.2s',
+                background: isDark ? 'var(--input-bg)' : C.bg, outline: 'none', fontSize: '0.875rem',
+                fontFamily: 'inherit', color: isDark ? 'var(--text-main)' : C.textMain, transition: 'border 0.2s',
               }}
             />
 
@@ -439,10 +443,42 @@ export default function Dashboard() {
             </AnimatePresence>
           </div>
 
-          {/* Right: bell + user */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', position: 'relative' }}>
+          {/* Right: theme toggle + bell + user */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', position: 'relative' }}>
+
+            {/* ── Theme Toggle ── */}
+            <motion.button
+              onClick={toggleTheme}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.93 }}
+              title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+              style={{
+                width: '40px', height: '40px', borderRadius: '10px',
+                background: isDark ? 'rgba(255,255,255,0.08)' : C.bg,
+                border: `1.5px solid ${isDark ? 'rgba(255,255,255,0.15)' : C.border}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', color: isDark ? '#fcd34d' : C.textMuted,
+                transition: 'all 0.2s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = C.accent; e.currentTarget.style.color = isDark ? '#fcd34d' : C.accent; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = isDark ? 'rgba(255,255,255,0.15)' : C.border; e.currentTarget.style.color = isDark ? '#fcd34d' : C.textMuted; }}
+            >
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.span
+                  key={theme}
+                  initial={{ rotate: -30, opacity: 0, scale: 0.7 }}
+                  animate={{ rotate: 0, opacity: 1, scale: 1 }}
+                  exit={{ rotate: 30, opacity: 0, scale: 0.7 }}
+                  transition={{ duration: 0.2 }}
+                  style={{ display: 'flex' }}
+                >
+                  {isDark ? <Sun size={18} /> : <Moon size={18} />}
+                </motion.span>
+              </AnimatePresence>
+            </motion.button>
+
             <div ref={notifRef} style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-              <button 
+              <button
                 onClick={() => { setShowNotifs(!showNotifs); setUnread(0); }}
                 style={{
                   position: 'relative', width: '40px', height: '40px', borderRadius: '10px',
@@ -627,7 +663,7 @@ export default function Dashboard() {
         </header>
 
         {/* ── Page Content ── */}
-        <div style={{ flex: 1, padding: '28px 32px', overflow: 'auto' }}>
+        <div style={{ flex: 1, padding: '28px 32px', overflow: 'auto', background: isDark ? 'var(--background)' : C.bg }}>
           <AnimatePresence mode="wait">
             <Routes location={location} key={location.pathname}>
               <Route path="/" element={<Overview />} />
