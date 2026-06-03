@@ -43,6 +43,49 @@ const ApplicationModal = ({ responder, onClose }) => {
     ? new Date(responder.user.createdAt).toLocaleDateString('en-PK', { year: 'numeric', month: 'long', day: 'numeric' })
     : 'N/A';
 
+  // Admin review state (on-screen editable, also captured in print)
+  const [reviewedBy,   setReviewedBy]   = React.useState('');
+  const [reviewDate,   setReviewDate]   = React.useState(new Date().toLocaleDateString('en-PK'));
+  const [decision,     setDecision]     = React.useState('');
+  const [rejectReason, setRejectReason] = React.useState('');
+  const [adminSig,     setAdminSig]     = React.useState('');
+
+  // ── Print in new window (avoids React root / portal print issues) ─────────
+  const handlePrint = () => {
+    const printArea = document.getElementById('application-print-area');
+    if (!printArea) return;
+
+    const win = window.open('', '_blank', 'width=900,height=700');
+    win.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>MediFind — Emergency Responder Application</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { font-family: Arial, sans-serif; color: #111; background: white; }
+            @media print {
+              @page { margin: 12mm; size: A4; }
+              body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            }
+            /* force gradient backgrounds to print */
+            .header-banner { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            input, textarea {
+              border: none; border-bottom: 1.5px solid #9CA3AF;
+              width: 100%; padding: 4px 0; font-size: 0.85rem;
+              font-family: Arial, sans-serif; background: transparent; outline: none;
+            }
+          </style>
+        </head>
+        <body>${printArea.innerHTML}</body>
+      </html>
+    `);
+    win.document.close();
+    win.focus();
+    setTimeout(() => { win.print(); win.close(); }, 500);
+  };
+
   const docs = [
     { label: 'CNIC — Front',                        url: resolveFileUrl(responder.cnicImageUrl),              required: true  },
     { label: 'CNIC — Back',                         url: resolveFileUrl(responder.cnicBackImageUrl),          required: true  },
@@ -65,7 +108,7 @@ const ApplicationModal = ({ responder, onClose }) => {
         width: '100%', maxWidth: '820px', marginBottom: '0.75rem',
       }}>
         <button
-          onClick={() => window.print()}
+          onClick={handlePrint}
           style={{
             display: 'flex', alignItems: 'center', gap: '0.5rem',
             padding: '0.6rem 1.25rem', borderRadius: '10px',
@@ -108,10 +151,10 @@ const ApplicationModal = ({ responder, onClose }) => {
               <div style={{ fontSize: '0.7rem', letterSpacing: '0.12em', textTransform: 'uppercase', opacity: 0.7, marginBottom: '0.4rem' }}>
                 MediFind Healthcare Emergency Network · Pakistan
               </div>
-              <h1 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0, letterSpacing: '-0.02em' }}>
+              <h1 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0, letterSpacing: '-0.02em', color: 'white' }}>
                 Emergency Responder Application Form
               </h1>
-              <p style={{ margin: '0.35rem 0 0', opacity: 0.75, fontSize: '0.875rem' }}>
+              <p style={{ margin: '0.35rem 0 0', opacity: 0.75, fontSize: '0.875rem', color: 'white' }}>
                 Submitted for Administrative Review &amp; Credential Verification
               </p>
             </div>
@@ -254,21 +297,41 @@ const ApplicationModal = ({ responder, onClose }) => {
             </ol>
           </div>
 
-          {/* ── 5. Admin Review Section (for print) ── */}
+          {/* ── 5. Admin Review Section ── */}
           <AppSectionTitle num="5" title="Administrative Review — For Official Use Only" />
           <div style={{
             border: '1.5px dashed #D1D5DB', borderRadius: '10px',
-            padding: '1.25rem 1.5rem', marginBottom: '1.5rem',
+            padding: '1.25rem 1.5rem', marginBottom: '1.5rem', background: '#FAFAFA',
           }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-              <SignatureLine label="Reviewed by (Admin Name)" />
-              <SignatureLine label="Review Date" />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem', marginBottom: '1.25rem' }}>
+              <ReviewField label="Reviewed by (Admin Name)" value={reviewedBy}
+                onChange={e => setReviewedBy(e.target.value)} placeholder="Enter admin name" />
+              <ReviewField label="Review Date" value={reviewDate}
+                onChange={e => setReviewDate(e.target.value)} placeholder="DD/MM/YYYY" />
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-              <SignatureLine label="Decision  ( ☐ Approved   ☐ Rejected )" />
-              <SignatureLine label="Rejection Reason (if applicable)" />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem', marginBottom: '1.25rem' }}>
+              {/* Decision with checkboxes */}
+              <div>
+                <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.6rem' }}>Decision</div>
+                <div style={{ display: 'flex', gap: '1.5rem' }}>
+                  {['Approved', 'Rejected'].map(opt => (
+                    <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontSize: '0.875rem', fontWeight: 600, color: '#374151' }}>
+                      <input type="radio" name="decision" value={opt}
+                        checked={decision === opt}
+                        onChange={() => setDecision(opt)}
+                        style={{ accentColor: opt === 'Approved' ? '#059669' : '#DC2626', width: '16px', height: '16px' }}
+                      />
+                      {opt}
+                    </label>
+                  ))}
+                </div>
+                <div style={{ borderBottom: '1.5px solid #D1D5DB', marginTop: '0.75rem' }} />
+              </div>
+              <ReviewField label="Rejection Reason (if applicable)" value={rejectReason}
+                onChange={e => setRejectReason(e.target.value)} placeholder="State reason if rejected" />
             </div>
-            <SignatureLine label="Admin Signature &amp; Stamp" />
+            <ReviewField label="Admin Signature &amp; Stamp" value={adminSig}
+              onChange={e => setAdminSig(e.target.value)} placeholder="Type full name as digital signature" />
           </div>
 
           {/* Footer */}
@@ -284,18 +347,6 @@ const ApplicationModal = ({ responder, onClose }) => {
         </div>
       </div>
 
-      {/* Print styles */}
-      <style>{`
-        @media print {
-          body > * { display: none !important; }
-          #application-print-area {
-            display: block !important;
-            position: fixed; top: 0; left: 0; width: 100%;
-            border-radius: 0 !important; box-shadow: none !important;
-          }
-          .no-print { display: none !important; }
-        }
-      `}</style>
     </div>
   );
 };
@@ -337,6 +388,29 @@ const SignatureLine = ({ label }) => (
     <div style={{ fontSize: '0.7rem', color: '#6B7280', marginBottom: '0.375rem', fontWeight: 600 }}
       dangerouslySetInnerHTML={{ __html: label }} />
     <div style={{ borderBottom: '1.5px solid #9CA3AF', height: '28px' }} />
+  </div>
+);
+
+/** Typeable review field — shows as a labelled input on-screen, prints as filled line */
+const ReviewField = ({ label, value, onChange, placeholder }) => (
+  <div>
+    <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.4rem' }}
+      dangerouslySetInnerHTML={{ __html: label }} />
+    <input
+      type="text"
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      style={{
+        width: '100%', padding: '0.5rem 0.6rem',
+        border: 'none', borderBottom: '1.5px solid #9CA3AF',
+        fontSize: '0.875rem', fontFamily: 'Arial, sans-serif',
+        color: '#1A2E3A', background: 'transparent', outline: 'none',
+        fontWeight: value ? 600 : 400,
+      }}
+      onFocus={e => e.target.style.borderBottomColor = '#0C637E'}
+      onBlur={e => e.target.style.borderBottomColor = '#9CA3AF'}
+    />
   </div>
 );
 
