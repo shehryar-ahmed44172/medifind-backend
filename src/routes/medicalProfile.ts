@@ -3,6 +3,8 @@ import {
   getMedicalProfile,
   updateMedicalProfile,
   getMedicalProfileByUserId,
+  addEmergencyContact,
+  removeEmergencyContact,
 } from '../controllers/medicalProfileController';
 import { authMiddleware, roleMiddleware } from '../middleware/authMiddleware';
 import * as caregiverService from '../services/caregiverService';
@@ -23,6 +25,18 @@ router.get('/', getMedicalProfile);
  * Create or update current user's medical profile
  */
 router.put('/', updateMedicalProfile);
+
+/**
+ * POST /api/medical-profile/emergency-contacts
+ * Add a single emergency contact (PATIENT only)
+ */
+router.post('/emergency-contacts', addEmergencyContact);
+
+/**
+ * DELETE /api/medical-profile/emergency-contacts/:phone
+ * Remove an emergency contact by phone number (PATIENT only)
+ */
+router.delete('/emergency-contacts/:phone', removeEmergencyContact);
 
 /**
  * GET /api/medical-profile/:userId
