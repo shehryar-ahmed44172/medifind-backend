@@ -194,13 +194,17 @@ const ApplicationModal = ({ responder, onClose }) => {
           {/* ── 2. Professional Credentials ── */}
           <AppSectionTitle num="2" title="Professional Credentials" />
           <AppFieldGrid fields={[
-            { label: 'Responder Type',   value: RESPONDER_TYPE_LABELS[responder.responderType] || responder.responderType || '—' },
-            { label: 'License Number',   value: responder.licenseNumber  || '—' },
-            { label: 'Organization',     value: responder.organization   || 'Independent / Not Affiliated' },
-            { label: 'Vehicle Type',     value: responder.vehicleType    || 'Not Provided' },
-            { label: 'Specializations',  value: Array.isArray(responder.specialization) && responder.specialization.length
-                ? responder.specialization.join(', ') : 'General Emergency' },
+            { label: 'Responder Type',  value: RESPONDER_TYPE_LABELS[responder.responderType] || responder.responderType || '—' },
+            { label: 'License Number',  value: responder.licenseNumber  || '—' },
+            { label: 'Organization',    value: responder.organization   || 'Independent / Not Affiliated' },
+            { label: 'Vehicle Type',    value: responder.vehicleType    || 'Not Provided' },
           ]} />
+          {/* Specializations — full-width with chips */}
+          <SpecializationRow specs={
+            Array.isArray(responder.specialization) && responder.specialization.length
+              ? responder.specialization
+              : ['General Emergency']
+          } />
 
           {/* ── 3. Identity Documents ── */}
           <AppSectionTitle num="3" title="Identity &amp; Credential Documents" />
@@ -411,6 +415,31 @@ const ReviewField = ({ label, value, onChange, placeholder }) => (
       onFocus={e => e.target.style.borderBottomColor = '#0C637E'}
       onBlur={e => e.target.style.borderBottomColor = '#9CA3AF'}
     />
+  </div>
+);
+
+/** Full-width specializations row with individual chips */
+const SpecializationRow = ({ specs }) => (
+  <div style={{
+    background: '#F7FAFB', borderRadius: '8px',
+    padding: '0.6rem 0.875rem', border: '1px solid #E0EEF3',
+    marginBottom: '0.5rem',
+  }}>
+    <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.5rem' }}>
+      Specializations ({specs.length})
+    </div>
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+      {specs.map(spec => (
+        <span key={spec} style={{
+          padding: '0.25rem 0.75rem', borderRadius: '999px',
+          background: '#E2F0F3', color: '#0C637E',
+          fontSize: '0.78rem', fontWeight: 700,
+          border: '1px solid #C8E4EC',
+        }}>
+          {spec}
+        </span>
+      ))}
+    </div>
   </div>
 );
 
@@ -921,7 +950,11 @@ const ResponderVerification = () => {
                       {[
                         { label: 'License Number',  value: selectedResponder.licenseNumber || '—' },
                         { label: 'Responder Type',  value: RESPONDER_TYPE_LABELS[selectedResponder.responderType] || selectedResponder.responderType || '—' },
-                        { label: 'Specialization',  value: Array.isArray(selectedResponder.specialization) && selectedResponder.specialization.length ? selectedResponder.specialization.join(', ') : 'General Emergency' },
+                        { label: 'Specialization',  value: (() => {
+                            const specs = Array.isArray(selectedResponder.specialization) && selectedResponder.specialization.length
+                              ? selectedResponder.specialization : ['General Emergency'];
+                            return specs.join(' · ');
+                          })() },
                         { label: 'Vehicle Type',    value: selectedResponder.vehicleType   || 'Not specified' },
                         { label: 'Organization',    value: selectedResponder.organization  || 'Independent' },
                       ].map((item) => (
