@@ -131,13 +131,21 @@ const ApplicationModal = ({ responder, onClose }) => {
           {/* ── 1. Personal Information ── */}
           <AppSectionTitle num="1" title="Personal Information" />
           <AppFieldGrid fields={[
-            { label: 'Full Name',        value: responder.user?.fullName    || '—' },
-            { label: 'Email Address',    value: responder.user?.email       || '—' },
-            { label: 'Phone Number',     value: responder.user?.phoneNumber || '—' },
-            { label: 'City / Address',   value: responder.user?.city || responder.user?.address || '—' },
-            { label: 'CNIC Number',      value: responder.cnic              || '—' },
-            { label: 'Date of Birth',    value: responder.user?.dateOfBirth
-                ? new Date(responder.user.dateOfBirth).toLocaleDateString('en-PK') : '—' },
+            { label: 'Full Name',      value: responder.user?.fullName    || '—' },
+            { label: 'Email Address',  value: responder.user?.email       || '—' },
+            { label: 'Phone Number',   value: responder.user?.phoneNumber || '—' },
+            { label: 'City',           value: responder.user?.city        || '—' },
+            { label: 'CNIC Number',    value: responder.cnic              || '—' },
+            {
+              label: 'Date of Birth',
+              value: (() => {
+                if (!responder.user?.dateOfBirth) return '—';
+                const dob = new Date(responder.user.dateOfBirth);
+                const age = Math.floor((Date.now() - dob.getTime()) / (365.25 * 24 * 3600 * 1000));
+                const dobStr = dob.toLocaleDateString('en-PK', { year: 'numeric', month: 'long', day: 'numeric' });
+                return `${dobStr}  (Age: ${age})`;
+              })(),
+            },
           ]} />
 
           {/* ── 2. Professional Credentials ── */}

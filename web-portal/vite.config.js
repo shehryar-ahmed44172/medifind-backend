@@ -11,6 +11,13 @@ export default defineConfig({
         target: 'http://localhost:3000',
         changeOrigin: true,
       },
+      // Proxy /uploads so document images stored as relative paths
+      // (/uploads/documents/file.jpg) load correctly in the admin portal
+      // regardless of which host the mobile app used during upload.
+      '/uploads': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
     },
   },
 })

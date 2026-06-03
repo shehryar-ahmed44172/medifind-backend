@@ -240,12 +240,15 @@ export const uploadDocument = async (req: Request, res: Response) => {
       return sendError(res, 'No file uploaded', 400);
     }
 
-    // Build the URL relative to the uploads root so static serving works correctly.
-    // req.file.path = absolute path e.g. /project/uploads/documents/file-123.jpg
-    // We need: http://host/uploads/documents/file-123.jpg
+    // Store a ROOT-RELATIVE path (e.g. /uploads/documents/file-123.jpg)
+    // NOT an absolute URL — the mobile device's host differs from the admin
+    // portal host, so storing http://10.0.2.2:3000/... or an ngrok URL would
+    // break document viewing in the web portal.
+    // The web portal resolveFileUrl() prepends BACKEND_ORIGIN when it needs a
+    // full URL, and Vite proxies /uploads → http://localhost:3000.
     const uploadsRoot = path.join(process.cwd(), 'uploads');
     const relativePath = path.relative(uploadsRoot, req.file.path).replace(/\\/g, '/');
-    const fileUrl = `${req.protocol}://${req.get('host')}/uploads/${relativePath}`;
+    const fileUrl = `/uploads/${relativePath}`;   // relative — host-agnostic
 
     sendSuccess(res, { url: fileUrl }, 'File uploaded successfully', 200);
   } catch (error: any) {

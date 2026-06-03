@@ -1,27 +1,30 @@
 /**
- * resolveFileUrl — converts any stored file URL to a fully-qualified URL
- * that the browser can load directly.
+ * resolveFileUrl — converts any stored file URL to a URL the browser can load.
  *
- * The backend has historically stored two URL formats:
- *   • Absolute: "http://localhost:3000/uploads/documents/cnic-xxx.jpg"  (new format)
- *   • Relative: "/uploads/profile/image-xxx.jpg"                        (old format)
- *
- * Relative paths must be resolved against the backend origin, NOT the Vite
- * dev-server origin (localhost:5173), because the files live on the backend.
- */
-const BACKEND_ORIGIN =
-  import.meta.env.VITE_API_URL ||   // e.g. "https://api.medifind.app" in production
-  'http://localhost:3000';           // local dev default
-
-/**
- * @param {string | null | undefined} url  Raw URL as stored in the database
- * @returns {string | null}               Absolute URL ready for <img src> or window.open
+ * URL formats stored in DB:
+ *   • New (relative): "/uploads/documents/cnic-xxx.jpg"
+ *     → returned as-is; Vite proxies /uploads → http://localhost:3000
+ *   • Old (absolute, any host): "http://10.0.2.2:3000/uploads/..." or ngrok
+ *     → strip to just the path, let Vite proxy handle it
+ *   • Production absolute: "https://api.medifind.app/uploads/..."
+ *     → returned as-is
  */
 export function resolveFileUrl(url) {
   if (!url) return null;
+
+  // Already a relative path starting with /uploads — Vite proxy handles it
+  if (url.startsWith('/uploads/')) return url;
+
+  // Absolute URL — extract just the /uploads/... path so Vite proxy works
+  // This fixes old records stored with mobile-device hosts (10.0.2.2, ngrok, etc.)
+  if (url.includes('/uploads/')) {
+    const idx = url.indexOf('/uploads/');
+    return url.slice(idx); // e.g. "/uploads/documents/file.jpg"
+  }
+
+  // Production or other external URLs — return as-is
   if (url.startsWith('http://') || url.startsWith('https://')) return url;
-  // Relative path — prepend backend origin
-  const base = BACKEND_ORIGIN.replace(/\/$/, ''); // strip trailing slash
-  const relative = url.startsWith('/') ? url : `/${url}`;
-  return `${base}${relative}`;
+
+  // Bare relative path without leading slash
+  return `/${url}`;
 }

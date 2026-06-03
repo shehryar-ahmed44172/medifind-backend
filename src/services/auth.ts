@@ -6,10 +6,9 @@ import { RegisterRequest, AuthResponse } from '../types/auth';
 import { recordFailedLoginAttempt, recordSuccessfulLogin } from '../middleware/loginRateLimitMiddleware';
 import { sendEmail } from '../utils/email';
 import crypto from 'crypto';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 import { getIo } from '../server';
-
-const prisma = new PrismaClient();
+import logger from '../utils/logger';
 
 /**
  * Register a new user
@@ -30,6 +29,16 @@ export const register = async (data: RegisterRequest) => {
   // Validate RESPONDER has a license number
   if (data.role === 'RESPONDER' && !data.licenseNumber) {
     throw new Error('Responders must provide a license number');
+  }
+
+  // Enforce 18+ age for Responders
+  if (data.role === 'RESPONDER' && data.dateOfBirth) {
+    const dob = new Date(data.dateOfBirth);
+    const ageMs = Date.now() - dob.getTime();
+    const ageYears = ageMs / (365.25 * 24 * 3600 * 1000);
+    if (ageYears < 18) {
+      throw new Error('Responders must be at least 18 years old.');
+    }
   }
 
   const user = await userRepository.create({
@@ -110,7 +119,9 @@ export const sendVerificationCode = async (userId: string, email: string, fullNa
     create: { userId: userId, otp, expiresAt: otpExpires },
   });
 
-  console.log(`\n📧 VERIFICATION CODE FOR ${email}: [ ${otp} ]\n`);
+  if (process.env.NODE_ENV !== 'production') {
+    logger.debug(`[DEV ONLY] Verification OTP for ${email}: ${otp}`);
+  }
   
   await sendEmail({
     to: email,
@@ -211,7 +222,9 @@ export const resendVerificationCode = async (email: string) => {
     create: { userId: user.id, otp, expiresAt: otpExpires },
   });
 
-  console.log(`\n📧 RESENT VERIFICATION CODE FOR ${user.email}: [ ${otp} ]\n`);
+  if (process.env.NODE_ENV !== 'production') {
+    logger.debug(`[DEV ONLY] Resent verification OTP for ${user.email}: ${otp}`);
+  }
 
   await sendEmail({
     to: user.email,
@@ -256,8 +269,26 @@ export const login = async (email: string, password: string, ipAddress?: string)
 
   const passwordMatch = await verifyPassword(password, user.passwordHash);
   if (!passwordMatch) {
-    // Track failed login attempt
+    // Track failed login attempt (this may lock the account)
     await recordFailedLoginAttempt(user.id);
+
+    // Re-fetch to get the updated attempt count (recordFailedLoginAttempt mutates DB)
+    const updated = await userRepository.findById(user.id);
+    const failedAttempts = updated?.failedLoginAttempts ?? 0;
+    const MAX_ATTEMPTS = 5;
+
+    if (updated?.accountLockedUntil && updated.accountLockedUntil > new Date()) {
+      // Just got locked on this attempt
+      throw new Error('Account is temporarily locked. Try again in 30 minutes.');
+    }
+
+    const remaining = MAX_ATTEMPTS - failedAttempts;
+    if (remaining <= 2 && remaining > 0) {
+      throw new Error(
+        `Invalid credentials. Warning: ${remaining} attempt${remaining === 1 ? '' : 's'} remaining before your account is locked for 30 minutes.`
+      );
+    }
+
     throw new Error('Invalid credentials');
   }
 
@@ -343,6 +374,7 @@ export const logout = async (refreshToken: string) => {
 
 /**
  * Request password reset (Forgot Password)
+ * Generates a 6-digit numeric OTP, stores its bcrypt hash, and emails it.
  */
 export const requestPasswordReset = async (email: string) => {
   const user = await userRepository.findByEmail(email);
@@ -350,70 +382,71 @@ export const requestPasswordReset = async (email: string) => {
     throw new Error('Email is not registered');
   }
 
-  // 1. Generate random token
-  const resetToken = crypto.randomBytes(32).toString('hex');
-  const tokenHash = await hashPassword(resetToken);
-  
-  // 2. Set expiration (1 hour)
-  const expiresAt = new Date();
-  expiresAt.setHours(expiresAt.getHours() + 1);
+  // Invalidate any existing unused tokens for this user (one active reset at a time)
+  const existing = await passwordResetRepository.getRecentResetRequests(user.id, 24);
+  for (const t of existing) {
+    if (!t.usedAt) {
+      await passwordResetRepository.markTokenAsUsed(t.id);
+    }
+  }
 
-  // 3. Save to database
-  await passwordResetRepository.createResetToken(user.id, tokenHash, expiresAt);
+  // Generate a 6-digit numeric OTP (easy to type on mobile)
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  const otpHash = await hashPassword(otp);
 
-  // 4. Send email
-  const resetLink = `medifind://reset-password?token=${resetToken}&email=${email}`;
-  const resetCode = resetToken.substring(0, 6).toUpperCase();
-  
-  console.log(`\n🔑 PASSWORD RESET REQUESTED for ${user.email}`);
-  console.log(`🔗 Reset Link: ${resetLink}`);
-  console.log(`🔢 Reset Code: ${resetCode}\n`);
+  // OTP expires in 15 minutes
+  const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
+  await passwordResetRepository.createResetToken(user.id, otpHash, expiresAt);
+
+  if (process.env.NODE_ENV !== 'production') {
+    logger.debug(`[DEV ONLY] Password reset OTP for ${user.email}: ${otp}`);
+  }
 
   await sendEmail({
     to: user.email,
-    subject: 'MediFind Password Reset',
+    subject: 'MediFind — Password Reset Code',
     html: `
-      <div style="font-family: sans-serif; padding: 20px; color: #333;">
+      <div style="font-family: sans-serif; padding: 20px; color: #333; max-width: 480px; margin: auto;">
         <h2 style="color: #0E9AA7;">Password Reset Request</h2>
         <p>Hello ${user.fullName},</p>
-        <p>You requested a password reset for your MediFind account. Use the code below or click the link to reset your password:</p>
-        <div style="background: #f4f4f4; padding: 15px; border-radius: 8px; font-size: 24px; font-weight: bold; text-align: center; margin: 20px 0;">
-          ${resetToken.substring(0, 6).toUpperCase()}
+        <p>We received a request to reset your <strong>MediFind</strong> account password. Enter the code below in the app:</p>
+        <div style="background: #f4f4f4; padding: 20px; border-radius: 10px; font-size: 36px; font-weight: bold; text-align: center; letter-spacing: 10px; margin: 24px 0; color: #0E9AA7;">
+          ${otp}
         </div>
-        <p>This code will expire in 1 hour.</p>
-        <p>If you didn't request this, you can safely ignore this email.</p>
+        <p>This code will expire in <strong>15 minutes</strong>.</p>
+        <p style="color: #e74c3c;">If you didn't request a password reset, please ignore this email. Your password will not be changed.</p>
         <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
-        <p style="font-size: 12px; color: #999;">MediFind - Your Health, Our Priority</p>
+        <p style="font-size: 12px; color: #999;">MediFind — Your Health, Our Priority</p>
       </div>
     `
   });
 
-  return { success: true, message: 'Reset email sent' };
+  return { success: true, message: 'A 6-digit reset code has been sent to your email.' };
 };
 
 /**
- * Reset user password with token
+ * Reset user password using the 6-digit OTP from email.
+ * The `otp` parameter is the raw 6-digit code the user typed in the app.
  */
-export const resetUserPassword = async (email: string, token: string, newPassword: string) => {
+export const resetUserPassword = async (email: string, otp: string, newPassword: string) => {
   const user = await userRepository.findByEmail(email);
   if (!user) {
     throw new Error('User not found');
   }
 
-  // Tokens are hashed in DB, but the one sent is raw. 
-  // We need to verify which token matches by iterating or using a more direct lookup if possible.
-  // Actually, the findActiveToken logic in repository needs the hash.
-  
-  // For simplicity and security, we lookup by the raw token provided (verified via hash)
-  // But wait, the repository uses findFirst with tokenHash.
-  // We should fetch active tokens for this user and verify the hash.
-  
+  if (!newPassword || newPassword.length < 8) {
+    throw new Error('Password must be at least 8 characters long.');
+  }
+
+  // Look up active (unused, not expired) tokens for this user created in the last hour
   const tokens = await passwordResetRepository.getRecentResetRequests(user.id, 1);
   let validToken = null;
-  
+
   for (const t of tokens) {
     if (!t.usedAt && t.expiresAt > new Date()) {
-      const match = await verifyPassword(token, t.tokenHash);
+      // The stored tokenHash is the bcrypt hash of the 6-digit OTP
+      const match = await verifyPassword(otp, t.tokenHash);
       if (match) {
         validToken = t;
         break;
@@ -422,17 +455,22 @@ export const resetUserPassword = async (email: string, token: string, newPasswor
   }
 
   if (!validToken) {
-    throw new Error('Invalid or expired reset token');
+    throw new Error('Invalid or expired reset code. Please request a new one.');
   }
 
-  // 1. Hash new password
-  const newPasswordHash = await hashPassword(newPassword);
+  // Prevent reusing the same password
+  const isSameAsCurrent = await verifyPassword(newPassword, user.passwordHash);
+  if (isSameAsCurrent) {
+    throw new Error('New password cannot be the same as your current password.');
+  }
 
-  // 2. Update user
+  // Hash and save new password
+  const newPasswordHash = await hashPassword(newPassword);
   await userRepository.updatePassword(user.id, newPasswordHash);
 
-  // 3. Mark token as used
+  // Invalidate the used token
   await passwordResetRepository.markTokenAsUsed(validToken.id);
 
-  return { success: true, message: 'Password has been reset successfully' };
+  logger.info(`Password reset successfully for user: ${user.id}`);
+  return { success: true, message: 'Password has been reset successfully. Please log in.' };
 };
