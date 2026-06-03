@@ -848,10 +848,14 @@ const ResponderVerification = () => {
           {/* ── Right: Detail Panel ── */}
           <div className="card" style={{
             border: '1px solid var(--border)', borderRadius: 'var(--radius-md)',
-            overflow: 'auto', background: 'var(--surface)',
+            overflow: 'hidden', background: 'var(--surface)',
+            display: 'flex', flexDirection: 'column',
           }}>
             {selectedResponder ? (
-              <div style={{ padding: '2.25rem', height: '100%', display: 'flex', flexDirection: 'column' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+
+              {/* ── Scrollable top section (header + credentials + docs) ── */}
+              <div style={{ flex: 1, overflowY: 'auto', padding: '2.25rem 2.25rem 0' }}>
 
                 {/* Detail header */}
                 <div style={{
@@ -904,7 +908,7 @@ const ResponderVerification = () => {
                 </div>
 
                 {/* Credentials + Documents grid */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: '2rem', flex: 1 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: '2rem', paddingBottom: '1.5rem' }}>
 
                   <div>
                     <p style={{
@@ -948,11 +952,16 @@ const ResponderVerification = () => {
                   </div>
                 </div>
 
-                {/* Action buttons */}
-                <div style={{
-                  display: 'flex', gap: '1.25rem',
-                  paddingTop: '2rem', borderTop: '1px solid var(--border)', marginTop: '2rem',
-                }}>
+              </div>{/* end scrollable section */}
+
+              {/* ── Action buttons — always visible, pinned at bottom ── */}
+              <div style={{
+                display: 'flex', gap: '1.25rem',
+                padding: '1.25rem 2.25rem',
+                borderTop: '1px solid var(--border)',
+                background: 'var(--surface)',
+                flexShrink: 0,
+              }}>
                   <button
                     disabled={!!processingId}
                     onClick={() => setShowRejectModal(true)}
