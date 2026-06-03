@@ -55,6 +55,24 @@ const ApplicationModal = ({ responder, onClose }) => {
     const printArea = document.getElementById('application-print-area');
     if (!printArea) return;
 
+    // Clone so we can patch values without touching live DOM
+    const clone = printArea.cloneNode(true);
+
+    // innerHTML doesn't capture the current .value of inputs/textareas.
+    // Sync each element's live value into the cloned node's value attribute.
+    const origEls  = printArea.querySelectorAll('input, textarea, select');
+    const cloneEls = clone.querySelectorAll('input, textarea, select');
+    origEls.forEach((orig, i) => {
+      if (!cloneEls[i]) return;
+      if (orig.type === 'radio' || orig.type === 'checkbox') {
+        if (orig.checked) cloneEls[i].setAttribute('checked', 'checked');
+        else cloneEls[i].removeAttribute('checked');
+      } else {
+        cloneEls[i].setAttribute('value', orig.value);
+        cloneEls[i].textContent = orig.value; // for textarea
+      }
+    });
+
     const win = window.open('', '_blank', 'width=900,height=700');
     win.document.write(`
       <!DOCTYPE html>
@@ -62,28 +80,35 @@ const ApplicationModal = ({ responder, onClose }) => {
         <head>
           <meta charset="utf-8" />
           <title>MediFind — Emergency Responder Application</title>
+          <link rel="preconnect" href="https://fonts.googleapis.com" />
+          <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap" rel="stylesheet" />
           <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body { font-family: Arial, sans-serif; color: #111; background: white; }
             @media print {
-              @page { margin: 12mm; size: A4; }
+              @page { margin: 15mm; size: A4; }
               body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+              /* Section 5 always starts on its own fresh page */
+              .print-page-break {
+                page-break-before: always !important;
+                break-before: page !important;
+              }
             }
-            /* force gradient backgrounds to print */
             .header-banner { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             input, textarea {
               border: none; border-bottom: 1.5px solid #9CA3AF;
-              width: 100%; padding: 4px 0; font-size: 0.85rem;
+              width: 100%; padding: 4px 0; font-size: 0.875rem;
               font-family: Arial, sans-serif; background: transparent; outline: none;
             }
           </style>
         </head>
-        <body>${printArea.innerHTML}</body>
+        <body>${clone.innerHTML}</body>
       </html>
     `);
     win.document.close();
     win.focus();
-    setTimeout(() => { win.print(); win.close(); }, 500);
+    // Give fonts time to load before triggering print
+    setTimeout(() => { win.print(); win.close(); }, 900);
   };
 
   const docs = [
@@ -301,7 +326,8 @@ const ApplicationModal = ({ responder, onClose }) => {
             </ol>
           </div>
 
-          {/* ── 5. Admin Review Section ── */}
+          {/* ── 5. Admin Review Section — page-break forces it onto its own page ── */}
+          <div className="print-page-break" style={{ paddingTop: '0.5rem' }}>
           <AppSectionTitle num="5" title="Administrative Review — For Official Use Only" />
           <div style={{
             border: '1.5px dashed #D1D5DB', borderRadius: '10px',
@@ -336,6 +362,7 @@ const ApplicationModal = ({ responder, onClose }) => {
             </div>
             <SignatureStampField value={adminSig} onChange={e => setAdminSig(e.target.value)} />
           </div>
+          </div>{/* end print-page-break wrapper */}
 
           {/* Footer */}
           <div style={{
