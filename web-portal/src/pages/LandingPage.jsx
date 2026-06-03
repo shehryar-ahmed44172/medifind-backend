@@ -872,9 +872,9 @@ const LandingPage = () => {
         borderBottom: scrolled ? '1px solid #E2E8F0' : '1px solid transparent',
         transition: 'all 0.3s ease',
       }}>
-        <div style={{ padding: PX, display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '80px' }}>
+        <div style={{ padding: PX, display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '92px' }}>
           <Link to="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
-            <img src={logo} alt="MediFind" style={{ height: '68px', objectFit: 'contain' }} />
+            <img src={logo} alt="MediFind" style={{ height: '86px', objectFit: 'contain' }} />
           </Link>
           <div style={{ display: 'flex', gap: '2rem', alignItems: 'center' }}>
             {navLinks.map(([label, href]) => {
@@ -912,7 +912,7 @@ const LandingPage = () => {
       </nav>
 
       {/* ── Hero ───────────────────────────────────────────────── */}
-      <section style={{ paddingTop: '88px', paddingBottom: '56px', background: 'linear-gradient(150deg,#F0F9FC 0%,#E8F5FA 55%,#F8FAFC 100%)' }}>
+      <section style={{ paddingTop: '128px', paddingBottom: '72px', background: 'linear-gradient(150deg,#F0F9FC 0%,#E8F5FA 55%,#F8FAFC 100%)' }}>
         <div style={{ padding: PX, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5rem', alignItems: 'center' }}>
           <div>
             <Badge icon={HeartPulse} label="Emergency Response Platform" />
