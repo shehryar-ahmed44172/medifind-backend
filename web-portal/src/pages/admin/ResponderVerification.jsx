@@ -334,8 +334,7 @@ const ApplicationModal = ({ responder, onClose }) => {
               <ReviewField label="Rejection Reason (if applicable)" value={rejectReason}
                 onChange={e => setRejectReason(e.target.value)} placeholder="State reason if rejected" />
             </div>
-            <ReviewField label="Admin Signature &amp; Stamp" value={adminSig}
-              onChange={e => setAdminSig(e.target.value)} placeholder="Type full name as digital signature" />
+            <SignatureStampField value={adminSig} onChange={e => setAdminSig(e.target.value)} />
           </div>
 
           {/* Footer */}
@@ -415,6 +414,134 @@ const ReviewField = ({ label, value, onChange, placeholder }) => (
       onFocus={e => e.target.style.borderBottomColor = '#0C637E'}
       onBlur={e => e.target.style.borderBottomColor = '#9CA3AF'}
     />
+  </div>
+);
+
+/**
+ * Admin Signature + Stamp field
+ * • Text input where admin types their name
+ * • Live preview renders the name in Great Vibes cursive (handwriting font)
+ * • Circular MediFind official stamp shown beside the signature
+ */
+const SignatureStampField = ({ value, onChange }) => (
+  <div>
+    {/* Label */}
+    <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.6rem' }}>
+      Admin Signature &amp; Official Stamp
+    </div>
+
+    {/* Signature preview + stamp side by side */}
+    <div style={{ display: 'flex', alignItems: 'flex-end', gap: '2rem' }}>
+
+      {/* Left: type + cursive preview */}
+      <div style={{ flex: 1 }}>
+        <input
+          type="text"
+          value={value}
+          onChange={onChange}
+          placeholder="Type your full name to generate signature"
+          style={{
+            width: '100%', padding: '0.5rem 0.6rem',
+            border: 'none', borderBottom: '1.5px solid #9CA3AF',
+            fontSize: '0.875rem', fontFamily: 'Arial, sans-serif',
+            color: '#1A2E3A', background: 'transparent', outline: 'none',
+            boxSizing: 'border-box',
+          }}
+          onFocus={e => e.target.style.borderBottomColor = '#0C637E'}
+          onBlur={e => e.target.style.borderBottomColor = '#9CA3AF'}
+        />
+
+        {/* Live cursive preview */}
+        <div style={{
+          minHeight: '56px',
+          marginTop: '0.5rem',
+          padding: '0.5rem 0.75rem',
+          borderBottom: value ? '1.5px solid #0C637E' : '1.5px dashed #D1D5DB',
+          background: value ? 'rgba(12,99,126,0.03)' : 'transparent',
+          borderRadius: '4px 4px 0 0',
+          transition: 'all 0.3s',
+          display: 'flex', alignItems: 'center',
+        }}>
+          {value ? (
+            <span style={{
+              fontFamily: '"Great Vibes", cursive',
+              fontSize: '2.2rem',
+              color: '#03293C',
+              letterSpacing: '0.02em',
+              lineHeight: 1.2,
+              userSelect: 'none',
+            }}>
+              {value}
+            </span>
+          ) : (
+            <span style={{ fontSize: '0.8rem', color: '#CBD5E1', fontStyle: 'italic' }}>
+              Signature will appear here as you type…
+            </span>
+          )}
+        </div>
+        {value && (
+          <div style={{ fontSize: '0.65rem', color: '#9CA3AF', marginTop: '0.3rem', letterSpacing: '0.05em' }}>
+            AUTHORIZED SIGNATURE
+          </div>
+        )}
+      </div>
+
+      {/* Right: Official circular stamp */}
+      <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem' }}>
+        <div style={{
+          width: '110px', height: '110px',
+          border: '3px solid #0C637E',
+          borderRadius: '50%',
+          display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center',
+          position: 'relative',
+          opacity: value ? 1 : 0.3,
+          transition: 'opacity 0.4s',
+          background: value ? 'rgba(12,99,126,0.04)' : 'transparent',
+        }}>
+          {/* Outer dashed ring */}
+          <div style={{
+            position: 'absolute', inset: '5px',
+            border: '1.5px dashed #0C637E',
+            borderRadius: '50%',
+          }} />
+          {/* Inner content */}
+          <div style={{ textAlign: 'center', zIndex: 1, padding: '0 8px' }}>
+            <div style={{
+              fontSize: '0.52rem', fontWeight: 800, color: '#0C637E',
+              textTransform: 'uppercase', letterSpacing: '0.12em',
+              lineHeight: 1.4, marginBottom: '3px',
+            }}>
+              MediFind
+            </div>
+            {/* MediFind logo M mark */}
+            <div style={{
+              fontSize: '1.1rem', fontWeight: 900, color: '#0C637E',
+              fontFamily: 'Arial, sans-serif', lineHeight: 1,
+            }}>✦</div>
+            <div style={{
+              fontSize: '0.42rem', fontWeight: 800, color: '#0C637E',
+              textTransform: 'uppercase', letterSpacing: '0.1em',
+              lineHeight: 1.5, marginTop: '3px',
+            }}>
+              Emergency Response<br />Network · Pakistan
+            </div>
+          </div>
+
+          {/* Circular text around stamp (top arc) */}
+          <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }} viewBox="0 0 110 110">
+            <path id="topArc" d="M 10,55 A 45,45 0 0 1 100,55" fill="none" />
+            <text fontSize="7" fontWeight="800" fill="#0C637E" fontFamily="Arial, sans-serif" letterSpacing="2">
+              <textPath href="#topArc" startOffset="8%">OFFICIAL · VERIFIED · AUTHORIZED</textPath>
+            </text>
+          </svg>
+        </div>
+        <div style={{ fontSize: '0.6rem', color: value ? '#0C637E' : '#CBD5E1', fontWeight: 700, letterSpacing: '0.08em', transition: 'color 0.4s' }}>
+          OFFICIAL STAMP
+        </div>
+      </div>
+
+    </div>
   </div>
 );
 
