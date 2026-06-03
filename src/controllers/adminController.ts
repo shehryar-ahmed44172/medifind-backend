@@ -1,6 +1,9 @@
 import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
 import { sendSuccess, sendError } from '../utils/response';
+import { sendNotification } from '../services/notification/index';
+import { NotificationChannel } from '../types/notification';
+import { sendEmail } from '../utils/email';
 
 /**
  * Admin: List all users
@@ -189,6 +192,9 @@ export const getPendingResponders = async (req: Request, res: Response) => {
             phoneNumber: true,
             createdAt: true,
             profileImageUrl: true,
+            city: true,
+            address: true,
+            dateOfBirth: true,
           }
         }
       },
@@ -205,67 +211,126 @@ export const getPendingResponders = async (req: Request, res: Response) => {
  */
 export const processVerification = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params; // responder userId
+    const { id } = req.params;           // responder userId
     const { action, reason } = req.body; // action: VERIFY | REJECT
 
+    // ── APPROVE ────────────────────────────────────────────────────────────
     if (action === 'VERIFY') {
       const responder = await prisma.responder.update({
         where: { userId: id },
-        data: {
-          verificationStatus: 'VERIFIED' as any,
-          isVerified: true
-        } as any,
+        data: { verificationStatus: 'VERIFIED' as any, isVerified: true } as any,
         include: { user: true }
       });
 
-      // Send OTP after admin verification
+      // 1. Send email OTP so responder can activate their account
       const { sendVerificationCode } = await import('../services/auth');
       await sendVerificationCode(responder.userId, responder.user.email, responder.user.fullName);
 
-      // Notify responder in-app (Plan v4)
-      try {
-        const { getIo } = await import('../server');
-        const io = getIo();
-        if (io) {
-          io.to(`notifications:${responder.userId}`).emit('notification', {
-            type: 'VERIFICATION_APPROVED',
-            title: 'Account Verified!',
-            body: 'Congratulations! Your professional credentials have been approved. You can now use the verification code sent to your email to activate your account.',
-            timestamp: new Date().toISOString()
-          });
-        }
-      } catch (err) {
-        console.error('Failed to emit verification approval notification:', err);
-      }
+      // 2. In-app + push notification (works even if app is in background)
+      await sendNotification(responder.userId, {
+        type: 'VERIFICATION_APPROVED' as any,
+        title: '🎉 Application Approved!',
+        body: 'Congratulations! Your credentials have been verified by MediFind. Check your email for the 6-digit code to activate your account.',
+        channels: [NotificationChannel.IN_APP, NotificationChannel.PUSH],
+      });
 
-      sendSuccess(res, null, 'Responder verified and code sent');
+      // 3. Confirmation email
+      await sendEmail({
+        to: responder.user.email,
+        subject: 'MediFind — Your Responder Application Has Been Approved ✅',
+        html: `
+          <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
+            <div style="background:linear-gradient(135deg,#03293C,#0C637E);padding:30px;border-radius:12px 12px 0 0;text-align:center;">
+              <h1 style="color:white;margin:0;font-size:24px;">Application Approved</h1>
+              <p style="color:rgba(255,255,255,0.8);margin:8px 0 0;">MediFind Emergency Response Network</p>
+            </div>
+            <div style="background:#f8fafc;padding:30px;border-radius:0 0 12px 12px;border:1px solid #e2e8f0;">
+              <p style="font-size:16px;color:#0f172a;">Dear <strong>${responder.user.fullName}</strong>,</p>
+              <p style="color:#475569;line-height:1.7;">
+                We are pleased to inform you that your application to join the MediFind Emergency Response Network
+                has been <strong style="color:#059669;">approved</strong> by our administrative team.
+              </p>
+              <div style="background:#d1fae5;border:1px solid #6ee7b7;border-radius:8px;padding:16px;margin:20px 0;">
+                <strong style="color:#065f46;">Next Step:</strong>
+                <p style="color:#065f46;margin:6px 0 0;">
+                  A 6-digit verification code has been sent to this email address.
+                  Open the MediFind app and enter the code to activate your account and start responding to emergencies.
+                </p>
+              </div>
+              <p style="color:#64748b;font-size:13px;">If you did not apply for a MediFind responder account, please ignore this email.</p>
+              <hr style="border:none;border-top:1px solid #e2e8f0;margin:20px 0;" />
+              <p style="color:#94a3b8;font-size:12px;text-align:center;">
+                MediFind Healthcare Emergency Network · Pakistan<br/>This is an automated message — do not reply.
+              </p>
+            </div>
+          </div>`,
+      });
+
+      sendSuccess(res, null, 'Responder approved — OTP and notification sent');
+
+    // ── REJECT ─────────────────────────────────────────────────────────────
     } else if (action === 'REJECT') {
-      await prisma.responder.update({
+      const responder = await prisma.responder.update({
         where: { userId: id },
         data: {
           verificationStatus: 'REJECTED' as any,
           isVerified: false,
           rejectionReason: reason
-        } as any
+        } as any,
+        include: { user: true }
       });
 
-      // Notify responder in-app (Plan v4)
-      try {
-        const { getIo } = await import('../server');
-        const io = getIo();
-        if (io) {
-          io.to(`notifications:${id}`).emit('notification', {
-            type: 'VERIFICATION_REJECTED',
-            title: 'Verification Update',
-            body: `Your verification request was not approved. Reason: ${reason || 'Incomplete documents'}. Please update your profile and try again.`,
-            timestamp: new Date().toISOString()
-          });
-        }
-      } catch (err) {
-        console.error('Failed to emit verification rejection notification:', err);
-      }
+      const rejectionReason = reason || 'Incomplete or unverifiable documents';
 
-      sendSuccess(res, null, 'Responder rejected');
+      // 1. In-app + push notification (reaches responder even when app is closed)
+      await sendNotification(id, {
+        type: 'VERIFICATION_REJECTED' as any,
+        title: 'Application Update — Action Required',
+        body: `Your MediFind application was not approved. Reason: ${rejectionReason}. Please review and resubmit.`,
+        channels: [NotificationChannel.IN_APP, NotificationChannel.PUSH],
+      });
+
+      // 2. Email — primary channel since push may not be set up yet
+      await sendEmail({
+        to: responder.user.email,
+        subject: 'MediFind — Application Status Update',
+        html: `
+          <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
+            <div style="background:linear-gradient(135deg,#03293C,#0C637E);padding:30px;border-radius:12px 12px 0 0;text-align:center;">
+              <h1 style="color:white;margin:0;font-size:24px;">Application Status Update</h1>
+              <p style="color:rgba(255,255,255,0.8);margin:8px 0 0;">MediFind Emergency Response Network</p>
+            </div>
+            <div style="background:#f8fafc;padding:30px;border-radius:0 0 12px 12px;border:1px solid #e2e8f0;">
+              <p style="font-size:16px;color:#0f172a;">Dear <strong>${responder.user.fullName}</strong>,</p>
+              <p style="color:#475569;line-height:1.7;">
+                Thank you for applying to the MediFind Emergency Response Network. After reviewing your credentials,
+                our administrative team was unable to approve your application at this time.
+              </p>
+              <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:16px;margin:20px 0;">
+                <strong style="color:#991b1b;">Reason for Rejection:</strong>
+                <p style="color:#7f1d1d;margin:6px 0 0;">${rejectionReason}</p>
+              </div>
+              <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:16px;margin:20px 0;">
+                <strong style="color:#1e40af;">What to do next:</strong>
+                <ul style="color:#1e3a8a;margin:8px 0 0;padding-left:20px;line-height:2;">
+                  <li>Open the MediFind app</li>
+                  <li>Go to your Profile and update your documents</li>
+                  <li>Submit a new verification request</li>
+                </ul>
+              </div>
+              <p style="color:#64748b;font-size:13px;">
+                If you believe this is an error or need assistance, please contact MediFind support.
+              </p>
+              <hr style="border:none;border-top:1px solid #e2e8f0;margin:20px 0;" />
+              <p style="color:#94a3b8;font-size:12px;text-align:center;">
+                MediFind Healthcare Emergency Network · Pakistan<br/>This is an automated message — do not reply.
+              </p>
+            </div>
+          </div>`,
+      });
+
+      sendSuccess(res, null, 'Responder rejected — email and push notification sent');
+
     } else {
       sendError(res, 'Invalid action. Use VERIFY or REJECT', 400);
     }
