@@ -1292,9 +1292,9 @@ function Overview() {
       </div>
 
       {/* ── Bottom Row ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '16px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '16px' }}>
 
-        {/* ── Active Emergency Status ── */}
+        {/* ── Recent Activity (full-height, wider) ── */}
         <div style={{
           background: C.white, borderRadius: '16px',
           border: `1px solid ${C.border}`,
@@ -1306,108 +1306,21 @@ function Overview() {
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           }}>
             <div>
-              <h3 style={{ fontSize: '1rem', fontWeight: 800, color: C.textMain }}>Network Overview</h3>
-              <p style={{ fontSize: '0.8rem', color: C.textMuted, marginTop: '2px' }}>Emergency response network health</p>
+              <h3 style={{ fontSize: '1rem', fontWeight: 800, color: C.textMain }}>Recent Activity</h3>
+              <p style={{ fontSize: '0.8rem', color: C.textMuted, marginTop: '2px' }}>Latest system events across the platform</p>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', background: '#FEF2F2', borderRadius: '8px', border: '1px solid #FECACA' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <motion.div
                 animate={{ opacity: [1, 0.2, 1] }}
                 transition={{ repeat: Infinity, duration: 1.6 }}
-                style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#EF4444' }}
+                style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10B981' }}
               />
-              <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#EF4444' }}>MONITORING</span>
+              <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#10B981' }}>LIVE</span>
             </div>
           </div>
 
-          {/* Status metrics grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1px', background: C.border }}>
-            {[
-              {
-                label: 'Active SOS Events', value: stats?.activeEmergencies ?? '—',
-                color: '#EF4444', bg: '#FEF2F2', Icon: Activity,
-                action: () => navigate('/admin/sos'), actionLabel: 'Open SOS Monitor',
-              },
-              {
-                label: 'Verified Responders', value: stats?.onlineResponders ?? '—',
-                color: '#10B981', bg: '#ECFDF5', Icon: CheckCircle,
-                action: () => navigate('/admin/verify'), actionLabel: 'Verification Queue',
-              },
-              {
-                label: 'Pending Verifications', value: pendingCount ?? '—',
-                color: '#F59E0B', bg: '#FFFBEB', Icon: Clock,
-                action: () => navigate('/admin/verify'), actionLabel: 'Review Now',
-              },
-              {
-                label: 'Total Users', value: stats?.totalUsers ?? '—',
-                color: '#0C637E', bg: '#E2F0F3', Icon: Users,
-                action: () => navigate('/admin/users'), actionLabel: 'User Management',
-              },
-            ].map((m, i) => (
-              <div key={i} style={{ background: C.white, padding: '22px 24px' }}>
-                {loading ? (
-                  <><Skeleton h={12} w="60%" mb={10} /><Skeleton h={28} w="40%" mb={8} /><Skeleton h={10} w="50%" /></>
-                ) : (
-                  <>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-                      <div style={{ width: '32px', height: '32px', borderRadius: '9px', background: m.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <m.Icon size={16} color={m.color} />
-                      </div>
-                      <span style={{ fontSize: '0.8rem', color: C.textMuted, fontWeight: 600 }}>{m.label}</span>
-                    </div>
-                    <p style={{ fontSize: '2rem', fontWeight: 800, color: m.color, lineHeight: 1, marginBottom: '10px' }}>
-                      {typeof m.value === 'number' ? m.value.toLocaleString() : m.value}
-                    </p>
-                    <button
-                      onClick={m.action}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: '4px',
-                        background: 'none', border: 'none', padding: 0,
-                        fontSize: '0.78rem', fontWeight: 700, color: m.color,
-                        cursor: 'pointer', fontFamily: 'inherit',
-                      }}
-                    >
-                      {m.actionLabel} <ArrowRight size={12} />
-                    </button>
-                  </>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* ── Right Panel: System Integrity + Quick Stats ── */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-
-          {/* System Health — real data from /api/admin/health */}
-          <SystemHealthPanel health={health} loading={loading} />
-
-          {/* Recent Activity Feed */}
-          <div style={{
-            background: C.white, borderRadius: '16px',
-            border: `1px solid ${C.border}`,
-            boxShadow: '0 1px 4px rgba(12,99,126,0.05)',
-            overflow: 'hidden', flex: 1,
-          }}>
-            <div style={{
-              padding: '18px 22px', borderBottom: `1px solid ${C.border}`,
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            }}>
-              <div>
-                <h3 style={{ fontSize: '1rem', fontWeight: 800, color: C.textMain }}>Recent Activity</h3>
-                <p style={{ fontSize: '0.72rem', color: C.textMuted, marginTop: '2px' }}>Latest system events</p>
-              </div>
-              <Link
-                to="/admin/logs"
-                style={{
-                  fontSize: '0.75rem', fontWeight: 700, color: C.accent,
-                  textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '3px',
-                }}
-              >
-                View all <ArrowRight size={12} />
-              </Link>
-            </div>
-
-            <div style={{ padding: '8px 0' }}>
+          {/* Recent Activity list */}
+          <div style={{ padding: '8px 0', maxHeight: '340px', overflowY: 'auto' }}>
               {loading ? (
                 Array(5).fill(null).map((_, i) => (
                   <div key={i} style={{ padding: '12px 20px', display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
@@ -1503,9 +1416,62 @@ function Overview() {
                   );
                 })
               )}
-            </div>
+          </div>
+
+          {/* View all link at bottom */}
+          <div style={{ padding: '12px 24px', borderTop: `1px solid ${C.border}`, textAlign: 'right' }}>
+            <Link to="/admin/logs" style={{ fontSize: '0.78rem', fontWeight: 700, color: C.accent, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              View all logs <ArrowRight size={12} />
+            </Link>
           </div>
         </div>
+
+        {/* ── Right: Quick Actions ── */}
+        <div style={{
+          background: C.white, borderRadius: '16px',
+          border: `1px solid ${C.border}`,
+          boxShadow: '0 1px 4px rgba(12,99,126,0.05)',
+          overflow: 'hidden',
+        }}>
+          <div style={{ padding: '18px 22px', borderBottom: `1px solid ${C.border}` }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 800, color: C.textMain }}>Quick Actions</h3>
+            <p style={{ fontSize: '0.72rem', color: C.textMuted, marginTop: '2px' }}>Jump to key admin tasks</p>
+          </div>
+          <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {[
+              { label: 'Review Pending Responders', sub: `${pendingCount ?? 0} awaiting approval`, icon: UserCheck, color: '#F59E0B', bg: '#FFFBEB', to: '/admin/verify' },
+              { label: 'Monitor Active SOS', sub: `${stats?.activeEmergencies ?? 0} active emergencies`, icon: Activity, color: '#EF4444', bg: '#FEF2F2', to: '/admin/sos' },
+              { label: 'User Management', sub: `${stats?.totalUsers ?? 0} total users`, icon: Users, color: '#0C637E', bg: '#E2F0F3', to: '/admin/users' },
+              { label: 'Send Notification', sub: 'Broadcast to all users', icon: Bell, color: '#6366F1', bg: '#EEF2FF', to: '/admin/notifications' },
+              { label: 'Communication Audit', sub: 'Email & push history', icon: Send, color: '#2496A7', bg: '#E0F7FA', to: '/admin/emails' },
+              { label: 'Subscription Plans', sub: 'Manage user subscriptions', icon: CreditCard, color: '#10B981', bg: '#ECFDF5', to: '/admin/subscriptions' },
+            ].map((item, i) => (
+              <Link
+                key={i}
+                to={item.to}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '12px',
+                  padding: '10px 12px', borderRadius: '12px',
+                  border: `1px solid ${C.border}`,
+                  textDecoration: 'none', transition: 'all 0.15s',
+                  background: 'transparent',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = item.bg; e.currentTarget.style.borderColor = item.color + '44'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = C.border; }}
+              >
+                <div style={{ width: '34px', height: '34px', borderRadius: '9px', background: item.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <item.icon size={16} color={item.color} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: '0.82rem', fontWeight: 700, color: C.textMain, marginBottom: '1px' }}>{item.label}</p>
+                  <p style={{ fontSize: '0.7rem', color: C.textMuted }}>{item.sub}</p>
+                </div>
+                <ArrowRight size={13} color={C.textMuted} />
+              </Link>
+            ))}
+          </div>
+        </div>
+
       </div>
     </motion.div>
   );
