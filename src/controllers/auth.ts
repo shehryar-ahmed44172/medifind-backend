@@ -19,6 +19,8 @@ export const register = async (req: Request, res: Response) => {
       organization, licenseNumber, responderType, vehicleType, specialization,
       // Responder document URLs (uploaded separately via /upload-document)
       cnicImageUrl, cnicBackImageUrl, employeeCardImageUrl, employeeCardBackImageUrl,
+      // FCM token — sent at registration so push works before first login
+      fcmToken,
     } = req.body as RegisterRequest;
 
     // Basic validation
@@ -40,6 +42,7 @@ export const register = async (req: Request, res: Response) => {
       cnic, city, address, patientType, dateOfBirth,
       organization, licenseNumber, responderType, vehicleType, specialization,
       cnicImageUrl, cnicBackImageUrl, employeeCardImageUrl, employeeCardBackImageUrl,
+      fcmToken,
     });
 
     sendSuccess(res, result, 'Registration successful', 201);

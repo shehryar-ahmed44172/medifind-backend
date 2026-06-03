@@ -30,6 +30,8 @@ export interface RegisterRequest {
   cnicBackImageUrl?: string;
   employeeCardImageUrl?: string;
   employeeCardBackImageUrl?: string;
+  // FCM token sent at registration time so push works before first login
+  fcmToken?: string;
 }
 
 export interface LoginRequest {

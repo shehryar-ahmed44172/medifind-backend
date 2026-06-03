@@ -65,6 +65,22 @@ export const register = async (data: RegisterRequest) => {
     dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null,
   });
 
+  // Store FCM token immediately if provided during registration.
+  // Responders sit on the pending screen and can't log in until approved,
+  // so the normal post-login FCM sync never fires for them. Storing the
+  // token here ensures approval/rejection push notifications are delivered.
+  if (data.fcmToken) {
+    try {
+      await (prisma as any).user.update({
+        where: { id: user.id },
+        data: { fcmTokens: [data.fcmToken] },
+      });
+      logger.info(`[Register] FCM token stored for user ${user.id}`);
+    } catch (err: any) {
+      logger.warn(`[Register] Failed to store FCM token: ${err.message}`);
+    }
+  }
+
   // For PATIENTS and CAREGIVERS, send verification code immediately
   // For RESPONDERS, we wait for admin approval before sending OTP
   if (user.role !== 'RESPONDER') {
