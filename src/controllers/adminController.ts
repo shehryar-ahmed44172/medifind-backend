@@ -232,6 +232,7 @@ export const processVerification = async (req: Request, res: Response) => {
         title: '🎉 Application Approved!',
         body: 'Congratulations! Your credentials have been verified by MediFind. Check your email for the 6-digit code to activate your account.',
         channels: [NotificationChannel.IN_APP, NotificationChannel.PUSH],
+        priority: 'high',
       });
 
       // 3. Confirmation email
@@ -288,6 +289,7 @@ export const processVerification = async (req: Request, res: Response) => {
         title: 'Application Update — Action Required',
         body: `Your MediFind application was not approved. Reason: ${rejectionReason}. Please review and resubmit.`,
         channels: [NotificationChannel.IN_APP, NotificationChannel.PUSH],
+        priority: 'high',
       });
 
       // 2. Email — primary channel since push may not be set up yet
