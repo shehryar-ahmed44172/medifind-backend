@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Zap, MapPin, FileText, Users, Lock, ArrowRight,
-  Phone, Heart, Truck, User, Shield, Activity, Clock,
-  CheckCircle, Star, MessageSquare, Bell, BarChart3,
-  Download, Play, HeartPulse, ChevronDown, Menu, X,
-  Mic, Eye, Smartphone, UserPlus, ChevronUp
+  Heart, User, Shield, Activity, Clock,
+  CheckCircle, Bell, BarChart3,
+  Download, Play, HeartPulse, Mic,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -61,7 +60,7 @@ const FadeIn = ({ children, delay = 0 }) => (
   >{children}</motion.div>
 );
 
-/* ── Contact Form ─────────────────────────────────────────────── */
+/* ── Contact Form (kept for potential future use) ─────────────── */
 const ContactForm = () => {
   const { showAlert } = useAlert();
   const [form, setForm] = useState({ name: '', email: '', role: '', message: '' });
@@ -172,7 +171,7 @@ const StoreButton = ({ store, available, href, roleColor }) => {
         transition: 'transform 0.2s, box-shadow 0.2s',
         position: 'relative', overflow: 'hidden',
       }}
-      onMouseEnter={e => { if (available) { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.15)'; }}}
+      onMouseEnter={e => { if (available) { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.15)'; } }}
       onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}
     >
       {/* Icon */}
@@ -182,8 +181,8 @@ const StoreButton = ({ store, available, href, roleColor }) => {
           <svg viewBox="0 0 24 24" width="28" height="28">
             <defs>
               <linearGradient id="pg1" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#00BCD4"/>
-                <stop offset="100%" stopColor="#00E676"/>
+                <stop offset="0%" stopColor="#00BCD4" />
+                <stop offset="100%" stopColor="#00E676" />
               </linearGradient>
             </defs>
             <path d="M3 20.5v-17c0-.83 1.008-1.28 1.6-.67l14 8.5c.53.32.53 1.02 0 1.34L4.6 21.17C4.008 21.78 3 21.33 3 20.5z" fill="url(#pg1)" />
@@ -191,7 +190,7 @@ const StoreButton = ({ store, available, href, roleColor }) => {
         ) : (
           /* Apple logo */
           <svg viewBox="0 0 24 24" width="26" height="26" fill={available ? '#1E293B' : 'white'}>
-            <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+            <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
           </svg>
         )}
       </div>
@@ -246,7 +245,7 @@ const EcosystemScreenPlaceholder = ({ type, color, gradient, role }) => {
         <div style={{ width: '100%', height: '100%', background: '#F8FAFC', display: 'flex', flexDirection: 'column', fontFamily: P }}>
           {/* Status bar */}
           <div style={{ height: 14, background: color, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingRight: 8, gap: 4 }}>
-            {[1,0.7,0.4].map((o,i) => <div key={i} style={{ width: 3, height: 7+(i*2), borderRadius: 1, background: `rgba(255,255,255,${o})` }} />)}
+            {[1, 0.7, 0.4].map((o, i) => <div key={i} style={{ width: 3, height: 7 + (i * 2), borderRadius: 1, background: `rgba(255,255,255,${o})` }} />)}
           </div>
           {/* Header */}
           <div style={{ background: color, padding: '8px 10px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -286,7 +285,7 @@ const EcosystemScreenPlaceholder = ({ type, color, gradient, role }) => {
             </div>
             {/* Bottom nav */}
             <div style={{ width: '100%', marginTop: 'auto', borderTop: '1px solid #F1F5F9', paddingTop: 6, display: 'flex', justifyContent: 'space-around' }}>
-              {['⚡','📋','👥','👤'].map((icon,i) => (
+              {['⚡', '📋', '👥', '👤'].map((icon, i) => (
                 <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
                   <div style={{ fontSize: 11 }}>{icon}</div>
                   <div style={{ width: i === 0 ? 16 : 0, height: 2, borderRadius: 1, background: color }} />
@@ -356,7 +355,7 @@ const EcosystemScreenPlaceholder = ({ type, color, gradient, role }) => {
             {[
               { name: 'Ali Hassan', status: 'Safe', dot: '#10B981', bg: '#ECFDF5', alert: false },
               { name: 'Sara Malik', status: 'SOS Active!', dot: '#EF4444', bg: '#FEF2F2', alert: true },
-              { name: 'Ahmed K.',  status: 'Safe', dot: '#10B981', bg: '#ECFDF5', alert: false },
+              { name: 'Ahmed K.', status: 'Safe', dot: '#10B981', bg: '#ECFDF5', alert: false },
             ].map((p, i) => (
               <div key={i} style={{ background: 'white', borderRadius: 10, padding: '7px 8px', display: 'flex', alignItems: 'center', gap: 7, border: `1.5px solid ${p.alert ? '#EF444430' : '#F1F5F9'}`, boxShadow: p.alert ? '0 2px 10px rgba(239,68,68,0.12)' : 'none' }}>
                 {avatar(p.name[0], p.alert ? '#FEF2F2' : '#E2F0F3', p.alert ? '#EF4444' : color, 24)}
@@ -376,7 +375,7 @@ const EcosystemScreenPlaceholder = ({ type, color, gradient, role }) => {
             ))}
             {/* Bottom nav */}
             <div style={{ marginTop: 'auto', borderTop: '1px solid #F1F5F9', paddingTop: 6, display: 'flex', justifyContent: 'space-around' }}>
-              {['👥','🗺️','📋','👤'].map((icon,i) => (
+              {['👥', '🗺️', '📋', '👤'].map((icon, i) => (
                 <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
                   <div style={{ fontSize: 11 }}>{icon}</div>
                   <div style={{ width: i === 0 ? 16 : 0, height: 2, borderRadius: 1, background: color }} />
@@ -448,8 +447,8 @@ const EcosystemScreenPlaceholder = ({ type, color, gradient, role }) => {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 5 }}>
               {[
                 { label: 'Responses', value: '47', color: color },
-                { label: 'Avg Time',  value: '3.8m', color: '#F59E0B' },
-                { label: 'Rating',    value: '4.9★', color: '#EF4444' },
+                { label: 'Avg Time', value: '3.8m', color: '#F59E0B' },
+                { label: 'Rating', value: '4.9★', color: '#EF4444' },
               ].map(s => (
                 <div key={s.label} style={{ background: 'white', borderRadius: 8, padding: '6px 5px', textAlign: 'center', border: '1px solid #E2E8F0' }}>
                   <div style={{ fontSize: 9, fontWeight: 800, color: s.color }}>{s.value}</div>
@@ -472,7 +471,7 @@ const EcosystemScreenPlaceholder = ({ type, color, gradient, role }) => {
             </div>
             {/* Bottom nav */}
             <div style={{ marginTop: 'auto', borderTop: '1px solid #F1F5F9', paddingTop: 5, display: 'flex', justifyContent: 'space-around' }}>
-              {['🏠','🗺️','📋','👤'].map((icon,i) => (
+              {['🏠', '🗺️', '📋', '👤'].map((icon, i) => (
                 <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
                   <div style={{ fontSize: 11 }}>{icon}</div>
                   <div style={{ width: i === 0 ? 16 : 0, height: 2, borderRadius: 1, background: color }} />
@@ -536,12 +535,9 @@ const EcosystemScreenPlaceholder = ({ type, color, gradient, role }) => {
    Main Landing Page
 ══════════════════════════════════════════════════════════════ */
 const LandingPage = () => {
-  const [openFaq, setOpenFaq] = useState(null);
   const [scrolled, setScrolled] = useState(false);
-  const [activeRole, setActiveRole] = useState('Patient');
   const [activeSection, setActiveSection] = useState('');
   const [showBackToTop, setShowBackToTop] = useState(false);
-  const [activeEcosystem, setActiveEcosystem] = useState('Patient');
 
   /* scroll-based effects */
   useEffect(() => {
@@ -555,7 +551,7 @@ const LandingPage = () => {
 
   /* active nav section tracking via IntersectionObserver */
   useEffect(() => {
-    const sectionIds = ['about', 'features', 'how-it-works', 'solutions', 'ecosystem', 'get-started', 'contact'];
+    const sectionIds = ['features', 'how-it-works', 'solutions'];
     const observers = sectionIds.map(id => {
       const el = document.getElementById(id);
       if (!el) return null;
@@ -571,36 +567,36 @@ const LandingPage = () => {
 
   /* ── Static data ─────────────────────────────────────────── */
   const features = [
-    { icon: Zap,          title: 'Instant SOS',               desc: 'One-tap emergency alert reaches all nearby verified responders within seconds.',                                               color: '#DC2626', bg: '#FEF2F2' },
-    { icon: MapPin,       title: 'Live GPS Tracking',          desc: 'Real-time responder location on an interactive map so you always know when help arrives.',                                     color: '#0C637E', bg: '#E2F0F3' },
-    { icon: FileText,     title: 'Medical Profile Sharing',    desc: 'Blood type, allergies, medications — instantly delivered to incoming responders.',                                             color: '#2496A7', bg: '#E0F4F7' },
-    { icon: Heart,        title: 'Caregiver Alerts',           desc: 'Family members receive live push notifications and a map view the moment an SOS is triggered.',                               color: '#2891C2', bg: '#EBF5FB' },
-    { icon: Mic,          title: 'Silent SOS for Deaf Users',  desc: 'Icon-driven, voice-free emergency interface built specifically for Deaf and Mute patients.',                                  color: '#03293C', bg: '#E2F0F3' },
-    { icon: Lock,         title: 'End-to-End Encryption',      desc: 'All communications and medical data are encrypted at rest and in transit.',                                                   color: '#0E6E82', bg: '#D9EDF1' },
+    { icon: Zap, title: 'Instant SOS', desc: 'One-tap emergency alert reaches all nearby verified responders within seconds.', color: '#DC2626', bg: '#FEF2F2' },
+    { icon: MapPin, title: 'Live GPS Tracking', desc: 'Real-time responder location on an interactive map so you always know when help arrives.', color: '#0C637E', bg: '#E2F0F3' },
+    { icon: FileText, title: 'Medical Profile Sharing', desc: 'Blood type, allergies, medications — instantly delivered to incoming responders.', color: '#2496A7', bg: '#E0F4F7' },
+    { icon: Heart, title: 'Caregiver Alerts', desc: 'Family members receive live push notifications and a map view the moment an SOS is triggered.', color: '#2891C2', bg: '#EBF5FB' },
+    { icon: Mic, title: 'Silent SOS for Deaf Users', desc: 'Icon-driven, voice-free emergency interface built specifically for Deaf and Mute patients.', color: '#03293C', bg: '#E2F0F3' },
+    { icon: Lock, title: 'End-to-End Encryption', desc: 'All communications and medical data are encrypted at rest and in transit.', color: '#0E6E82', bg: '#D9EDF1' },
   ];
 
   const steps = [
-    { num: '01', icon: Zap,         title: 'Trigger SOS',         desc: 'One tap sends your GPS coordinates and medical snapshot to our dispatch network.',    color: '#DC2626' },
-    { num: '02', icon: Bell,        title: 'Responders Notified',  desc: 'Nearest verified responders are alerted with your location and condition summary.',   color: '#0C637E' },
-    { num: '03', icon: MapPin,      title: 'Live Tracking',        desc: 'You and your caregivers watch the responder navigate to you on a live map.',          color: '#2496A7' },
-    { num: '04', icon: CheckCircle, title: 'Resolution & Report',  desc: 'Responder confirms arrival, logs the outcome. Your caregiver gets notified.',        color: '#2891C2' },
+    { num: '01', icon: Zap, title: 'Trigger SOS', desc: 'One tap sends your GPS coordinates and medical snapshot to our dispatch network.', color: '#DC2626' },
+    { num: '02', icon: Bell, title: 'Responders Notified', desc: 'Nearest verified responders are alerted with your location and condition summary.', color: '#0C637E' },
+    { num: '03', icon: MapPin, title: 'Live Tracking', desc: 'You and your caregivers watch the responder navigate to you on a live map.', color: '#2496A7' },
+    { num: '04', icon: CheckCircle, title: 'Resolution & Report', desc: 'Responder confirms arrival, logs the outcome. Your caregiver gets notified.', color: '#2891C2' },
   ];
 
   const roles = [
     {
-      icon: User,      title: 'For Patients',       gradient: 'linear-gradient(135deg,#0C637E,#2496A7)',
+      icon: User, title: 'For Patients', gradient: 'linear-gradient(135deg,#0C637E,#2496A7)',
       headline: 'Help is One Tap Away',
       desc: "No calls. No delays. Whether you speak or not, MediFind's inclusive SOS works for everyone — including Deaf and Mute users through our Silent Request feature.",
       points: ['One-tap SOS with instant GPS sharing', 'Silent Request for Deaf & Mute users', 'Medical profile auto-shared with responder', 'Live ETA tracking on map'],
     },
     {
-      icon: Heart,     title: 'For Caregivers',     gradient: 'linear-gradient(135deg,#1A6FA5,#2891C2)',
+      icon: Heart, title: 'For Caregivers', gradient: 'linear-gradient(135deg,#1A6FA5,#2891C2)',
       headline: 'Stay Connected to the People You Love',
       desc: 'Receive instant alerts the moment your patient triggers SOS. Track the responder live and stay informed at every step — without being physically there.',
       points: ['Instant push notification on SOS trigger', 'Live responder tracking on map', 'Real-time emergency status updates', 'Emergency history & outcome reports'],
     },
     {
-      icon: HeartPulse, title: 'For Responders',    gradient: 'linear-gradient(135deg,#2496A7,#2891C2)',
+      icon: HeartPulse, title: 'For Responders', gradient: 'linear-gradient(135deg,#2496A7,#2891C2)',
       headline: 'Precision Emergency Dispatch',
       desc: 'Receive verified SOS signals with full patient context before you arrive. Smart routing means you are always the right person in the right place.',
       points: ['Smart dispatch with patient data preview', 'Voice-guided GPS navigation', 'Digital credential management', 'Emergency history & outcome logging'],
@@ -614,22 +610,15 @@ const LandingPage = () => {
   ];
 
   const stats = [
-    { value: 4,     suffix: ' min', prefix: '< ', label: 'Avg Response Time',   icon: Clock    },
-    { value: 99.9,  suffix: '%',    prefix: '',   label: 'System Uptime',       icon: Activity },
-    { value: 10000, suffix: '+',    prefix: '',   label: 'Registered Users',    icon: Users    },
-    { value: 500,   suffix: '+',    prefix: '',   label: 'Verified Responders', icon: Shield   },
+    { value: 4, suffix: ' min', prefix: '< ', label: 'Avg Response Time', icon: Clock },
+    { value: 99.9, suffix: '%', prefix: '', label: 'System Uptime', icon: Activity },
+    { value: 10000, suffix: '+', prefix: '', label: 'Registered Users', icon: Users },
+    { value: 500, suffix: '+', prefix: '', label: 'Verified Responders', icon: Shield },
   ];
 
-  const faqs = [
-    { q: 'How are emergency responders verified?',     a: 'Every responder submits professional credentials — CNIC, license number, and employee ID — which are manually audited by our admin team before they can receive any SOS signals.' },
-    { q: 'Does MediFind work for Deaf or Mute users?', a: 'Yes. Our "Silent Request" interface uses an icon-driven emergency protocol designed for non-verbal communication, with pre-written phrases and haptic feedback.' },
-    { q: 'Where is my medical data stored?',           a: 'Your data is stored in localized encrypted databases. It is only shared temporarily during an active emergency event, then re-encrypted immediately after.' },
-    { q: 'What happens if my GPS or internet is off?', a: 'MediFind caches your last known GPS location and queues the SOS signal for immediate transmission when connectivity restores. An offline banner keeps you informed.' },
-    { q: 'Can I add family members as caregivers?',    a: 'Yes. Invite caregivers directly from the app. Once accepted, they receive real-time push notifications and a live map view every time you trigger an SOS.' },
-  ];
 
-  /* ── Get Started role data ───────────────────────────────── */
-  const getStartedData = {
+  /* ── Get Started role data (removed) ───────────────────────── */
+  const _unused = {
     Patient: {
       color: '#0C637E',
       gradient: 'linear-gradient(135deg,#0C637E,#2496A7)',
@@ -777,21 +766,15 @@ const LandingPage = () => {
   };
 
   const PX = '0 5%';
-  const gs = getStartedData[activeRole]; // current tab data
 
   const navLinks = [
-    ['About',        '#about'],
-    ['Features',     '#features'],
+    ['Features', '#features'],
     ['How It Works', '#how-it-works'],
-    ['Ecosystem',    '#ecosystem'],
-    ['Get Started',  '#get-started'],
-    ['Contact',      '#contact'],
+    ['For Each Role', '#solutions'],
   ];
 
-  /* ── Ecosystem showcase data ─────────────────────────────── */
-  const ecosystemTabs = ['Patient', 'Caregiver', 'Responder', 'Admin'];
-
-  const ecosystemData = {
+  /* ── Removed: Ecosystem / Get Started data ─────────────────── */
+  const _unused2 = {
     Patient: {
       color: '#0C637E', gradient: 'linear-gradient(135deg,#0C637E,#2496A7)',
       icon: User, label: 'Patient App', device: 'phone',
@@ -804,10 +787,10 @@ const LandingPage = () => {
       primaryLabel: 'Home · SOS Screen',
       secondaryLabel: 'Live Tracking',
       callouts: [
-        { icon: Zap,      label: 'One-Tap SOS Button',    desc: 'Dominant centre-screen trigger — always one tap, never buried', color: '#EF4444', bg: '#FEF2F2' },
-        { icon: MapPin,   label: 'Live Responder Map',    desc: 'GPS of assigned responder updates every 5 seconds en route',   color: '#0C637E', bg: '#E2F0F3' },
-        { icon: FileText, label: 'Medical Profile Share', desc: 'Blood type, allergies & meds auto-delivered to responder',     color: '#10B981', bg: '#ECFDF5' },
-        { icon: Mic,      label: 'Deaf & Mute Mode',      desc: 'Silent icon-only SOS with haptic feedback and screen flash',   color: '#8B5CF6', bg: '#F5F3FF' },
+        { icon: Zap, label: 'One-Tap SOS Button', desc: 'Dominant centre-screen trigger — always one tap, never buried', color: '#EF4444', bg: '#FEF2F2' },
+        { icon: MapPin, label: 'Live Responder Map', desc: 'GPS of assigned responder updates every 5 seconds en route', color: '#0C637E', bg: '#E2F0F3' },
+        { icon: FileText, label: 'Medical Profile Share', desc: 'Blood type, allergies & meds auto-delivered to responder', color: '#10B981', bg: '#ECFDF5' },
+        { icon: Mic, label: 'Deaf & Mute Mode', desc: 'Silent icon-only SOS with haptic feedback and screen flash', color: '#8B5CF6', bg: '#F5F3FF' },
       ],
     },
     Caregiver: {
@@ -821,10 +804,10 @@ const LandingPage = () => {
       primaryLabel: 'My Patients',
       secondaryLabel: 'Emergency Monitor',
       callouts: [
-        { icon: Users,    label: 'Linked Patients List',   desc: 'All patients and their real-time status in one dashboard',      color: '#1A6FA5', bg: '#EBF5FB' },
-        { icon: Bell,     label: 'Instant SOS Alert',      desc: 'Push notification fires the exact moment patient triggers SOS', color: '#DC2626', bg: '#FEF2F2' },
-        { icon: MapPin,   label: 'Dual Live Map',          desc: 'See patient and responder positions simultaneously on map',     color: '#0C637E', bg: '#E2F0F3' },
-        { icon: Clock,    label: 'Emergency History',      desc: 'Full outcome reports for every past emergency event',           color: '#2891C2', bg: '#EBF5FB' },
+        { icon: Users, label: 'Linked Patients List', desc: 'All patients and their real-time status in one dashboard', color: '#1A6FA5', bg: '#EBF5FB' },
+        { icon: Bell, label: 'Instant SOS Alert', desc: 'Push notification fires the exact moment patient triggers SOS', color: '#DC2626', bg: '#FEF2F2' },
+        { icon: MapPin, label: 'Dual Live Map', desc: 'See patient and responder positions simultaneously on map', color: '#0C637E', bg: '#E2F0F3' },
+        { icon: Clock, label: 'Emergency History', desc: 'Full outcome reports for every past emergency event', color: '#2891C2', bg: '#EBF5FB' },
       ],
     },
     Responder: {
@@ -838,10 +821,10 @@ const LandingPage = () => {
       primaryLabel: 'Responder Dashboard',
       secondaryLabel: 'Incoming Request',
       callouts: [
-        { icon: Activity, label: 'Availability Toggle',    desc: 'Go on/off duty instantly — dispatches only reach available responders', color: '#10B981', bg: '#ECFDF5' },
-        { icon: Bell,     label: 'Emergency Alert Modal',  desc: 'Voice + haptic + fullscreen modal with patient name and location',      color: '#EF4444', bg: '#FEF2F2' },
-        { icon: FileText, label: 'Patient Data Preview',   desc: 'Blood type, allergies and conditions shown before you arrive',          color: '#2496A7', bg: '#E0F7FA' },
-        { icon: Star,     label: 'Response History',       desc: 'Track total responses, average time and your responder rating',         color: '#F59E0B', bg: '#FFFBEB' },
+        { icon: Activity, label: 'Availability Toggle', desc: 'Go on/off duty instantly — dispatches only reach available responders', color: '#10B981', bg: '#ECFDF5' },
+        { icon: Bell, label: 'Emergency Alert Modal', desc: 'Voice + haptic + fullscreen modal with patient name and location', color: '#EF4444', bg: '#FEF2F2' },
+        { icon: FileText, label: 'Patient Data Preview', desc: 'Blood type, allergies and conditions shown before you arrive', color: '#2496A7', bg: '#E0F7FA' },
+        { icon: Star, label: 'Response History', desc: 'Track total responses, average time and your responder rating', color: '#F59E0B', bg: '#FFFBEB' },
       ],
     },
     Admin: {
@@ -853,10 +836,10 @@ const LandingPage = () => {
       primaryScreenshot: null,   // e.g. import adminDash from '../assets/screens/admin-dashboard.png'
       primaryLabel: 'Admin Overview Dashboard',
       callouts: [
-        { icon: BarChart3, label: 'Live Analytics',          desc: 'KPI cards, sparkline trends and MRR — refreshed in real time',   color: '#0C637E', bg: '#E2F0F3' },
-        { icon: Shield,    label: 'Responder Verification',  desc: 'Review CNIC, employee card and licence — approve or reject',     color: '#10B981', bg: '#ECFDF5' },
-        { icon: Activity,  label: 'SOS Live Monitor',        desc: 'All active emergencies on one auto-updating board',              color: '#EF4444', bg: '#FEF2F2' },
-        { icon: Users,     label: 'User Management',         desc: 'Patients, Caregivers and Responders — searchable, paginated',    color: '#8B5CF6', bg: '#F5F3FF' },
+        { icon: BarChart3, label: 'Live Analytics', desc: 'KPI cards, sparkline trends and MRR — refreshed in real time', color: '#0C637E', bg: '#E2F0F3' },
+        { icon: Shield, label: 'Responder Verification', desc: 'Review CNIC, employee card and licence — approve or reject', color: '#10B981', bg: '#ECFDF5' },
+        { icon: Activity, label: 'SOS Live Monitor', desc: 'All active emergencies on one auto-updating board', color: '#EF4444', bg: '#FEF2F2' },
+        { icon: Users, label: 'User Management', desc: 'Patients, Caregivers and Responders — searchable, paginated', color: '#8B5CF6', bg: '#F5F3FF' },
       ],
     },
   };
@@ -874,7 +857,7 @@ const LandingPage = () => {
       }}>
         <div style={{ padding: PX, display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '80px' }}>
           <Link to="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
-            <img src={logo} alt="MediFind" style={{ height: '40px', objectFit: 'contain', display: 'block' }} />
+            <img src={logo} alt="MediFind" style={{ height: '42px', objectFit: 'contain', display: 'block' }} />
           </Link>
           <div style={{ display: 'flex', gap: '2rem', alignItems: 'center' }}>
             {navLinks.map(([label, href]) => {
@@ -991,8 +974,8 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* ── Brand Pillars (About) ────────────────────────────────── */}
-      <section id="about" style={{ padding: '5.5rem 0', background: '#0F172A', position: 'relative', overflow: 'hidden' }}>
+      {/* About section removed — content folded into hero */}
+      {false && <section id="about" style={{ display: 'none' }}>
         <div style={{ position: 'absolute', top: '10%', left: '-5%', width: '400px', height: '400px', background: 'radial-gradient(circle, rgba(12,99,126,0.15) 0%, transparent 70%)', borderRadius: '50%' }} />
         <div style={{ position: 'absolute', bottom: '10%', right: '-5%', width: '400px', height: '400px', background: 'radial-gradient(circle, rgba(36,150,167,0.1) 0%, transparent 70%)', borderRadius: '50%' }} />
         <div style={{ padding: PX, position: 'relative', zIndex: 1 }}>
@@ -1002,9 +985,9 @@ const LandingPage = () => {
             light />
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '2.5rem', marginTop: '2rem' }}>
             {[
-              { icon: Mic,    title: 'Universal Inclusivity', color: '#8B5CF6', desc: 'We are the first emergency platform built for silence. Our mission is to ensure that being Deaf or Mute is never a barrier to being saved.', tag: 'The Silent SOS' },
-              { icon: Users,  title: 'The Human Network',     color: '#0C637E', desc: 'We bridge the gap between Patient, Caregiver, and Responder, creating a unified ecosystem of trust and real-time coordination.',           tag: 'Bonded Safety' },
-              { icon: Shield, title: 'Verified Precision',    color: '#10B981', desc: 'Trust is our foundation. We verify every responder and encrypt every medical report to ensure professional-grade care.',                    tag: 'Security & Integrity' },
+              { icon: Mic, title: 'Universal Inclusivity', color: '#8B5CF6', desc: 'We are the first emergency platform built for silence. Our mission is to ensure that being Deaf or Mute is never a barrier to being saved.', tag: 'The Silent SOS' },
+              { icon: Users, title: 'The Human Network', color: '#0C637E', desc: 'We bridge the gap between Patient, Caregiver, and Responder, creating a unified ecosystem of trust and real-time coordination.', tag: 'Bonded Safety' },
+              { icon: Shield, title: 'Verified Precision', color: '#10B981', desc: 'Trust is our foundation. We verify every responder and encrypt every medical report to ensure professional-grade care.', tag: 'Security & Integrity' },
             ].map((p, i) => (
               <FadeIn key={p.title} delay={i * 150}>
                 <motion.div whileHover={{ y: -15, background: 'rgba(255,255,255,0.05)' }}
@@ -1028,7 +1011,7 @@ const LandingPage = () => {
             </div>
           </FadeIn>
         </div>
-      </section>
+      </section>}
 
       {/* ── Features ───────────────────────────────────────────── */}
       <section id="features" style={{ padding: '4.5rem 0', background: '#F8FAFC' }}>
@@ -1081,52 +1064,52 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* ── Role Sections (Solutions) ───────────────────────────── */}
+      {/* ── Who Is It For (Solutions) ─────────────────────────── */}
       <section id="solutions" style={{ padding: '4.5rem 0', background: '#F8FAFC' }}>
         <div style={{ padding: PX }}>
           <FadeIn>
-            <SectionHead badge="Built for Every Role" badgeIcon={Users} badgeBg="#EEF2FF" badgeColor="#6366F1"
-              title="One Platform. Four Roles." />
+            <SectionHead badge="Built for Every Role" badgeIcon={Users} badgeBg="#E2F0F3" badgeColor="#0C637E"
+              title="One Platform. Four Roles."
+              sub="Whether you're a patient, caregiver, responder, or administrator — MediFind is built with your exact needs in mind." />
           </FadeIn>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: '1.5rem' }}>
             {roles.map((r, i) => (
               <FadeIn key={r.title} delay={i * 80}>
-                <div style={{ display: 'grid', gridTemplateColumns: i % 2 === 0 ? '1fr 1.5fr' : '1.5fr 1fr', gap: '0', borderRadius: '20px', overflow: 'hidden', boxShadow: '0 2px 20px rgba(0,0,0,0.05)' }}>
-                  <div style={{ order: i % 2 === 0 ? 0 : 1, background: r.gradient, padding: '2.5rem 2.75rem', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                    <div style={{ width: '48px', height: '48px', borderRadius: '13px', background: 'rgba(255,255,255,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1.25rem' }}>
-                      <r.icon size={24} color="white" />
+                <motion.div
+                  whileHover={{ y: -6, boxShadow: '0 24px 48px rgba(3,41,60,0.12)' }}
+                  style={{ background: 'white', borderRadius: '20px', overflow: 'hidden', border: '1px solid #E2E8F0', transition: 'box-shadow 0.3s ease' }}
+                >
+                  {/* Colour header strip */}
+                  <div style={{ background: r.gradient, padding: '1.75rem 2rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem', marginBottom: '0.875rem' }}>
+                      <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <r.icon size={22} color="white" />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '0.65rem', fontWeight: 700, color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase', letterSpacing: '0.12em', fontFamily: P }}>{r.title}</div>
+                        <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'white', lineHeight: 1.3, fontFamily: P, margin: 0 }}>{r.headline}</h3>
+                      </div>
                     </div>
-                    <div style={{ fontSize: '0.68rem', fontWeight: 600, color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.4rem', fontFamily: P }}>{r.title}</div>
-                    <h3 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'white', marginBottom: '0.9rem', lineHeight: 1.25, fontFamily: P }}>{r.headline}</h3>
-                    <p style={{ color: 'rgba(255,255,255,0.82)', fontSize: '0.875rem', lineHeight: 1.75, fontFamily: P, fontWeight: 400 }}>{r.desc}</p>
+                    <p style={{ color: 'rgba(255,255,255,0.82)', fontSize: '0.845rem', lineHeight: 1.7, fontFamily: P, fontWeight: 400, margin: 0 }}>{r.desc}</p>
                   </div>
-                  <div style={{ order: i % 2 === 0 ? 1 : 0, background: 'white', padding: '2.5rem 2.75rem', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
-                      {r.points.map((pt) => (
-                        <div key={pt} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.8rem' }}>
-                          <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#ECFDF5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '2px' }}>
-                            <CheckCircle size={12} color="#10B981" />
-                          </div>
-                          <span style={{ fontSize: '0.875rem', color: '#334155', fontWeight: 500, lineHeight: 1.55, fontFamily: P }}>{pt}</span>
-                        </div>
-                      ))}
-                    </div>
+                  {/* Feature points */}
+                  <div style={{ padding: '1.5rem 2rem', display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
+                    {r.points.map((pt) => (
+                      <div key={pt} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.7rem' }}>
+                        <CheckCircle size={15} color="#0C637E" style={{ flexShrink: 0, marginTop: '2px' }} />
+                        <span style={{ fontSize: '0.845rem', color: '#334155', fontWeight: 500, lineHeight: 1.5, fontFamily: P }}>{pt}</span>
+                      </div>
+                    ))}
                   </div>
-                </div>
+                </motion.div>
               </FadeIn>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ══════════════════════════════════════════════════════════
-          ── ECOSYSTEM SHOWCASE ──
-          Shows the actual interface for each role:
-          Patient App · Caregiver App · Responder App · Admin Portal
-          Device mockups + feature callouts per role.
-          Add real screenshot paths to ecosystemData when available.
-      ══════════════════════════════════════════════════════════ */}
-      <section id="ecosystem" style={{ padding: '5rem 0', background: '#0F172A', position: 'relative', overflow: 'hidden' }}>
+      {/* Sections removed: Ecosystem, Get Started, Deaf & Mute, FAQ, Contact */}
+      {false && <section style={{ display: 'none' }}>
 
         {/* Ambient background glow — shifts colour with active tab */}
         <motion.div
@@ -1341,7 +1324,7 @@ const LandingPage = () => {
                           <div style={{ width: '100px', height: '14px', borderRadius: '4px', background: 'rgba(255,255,255,0.15)', marginBottom: '16px' }} />
                           {/* Nav items */}
                           {[
-                            { w: '85%', active: true,  color: '#0C637E' },
+                            { w: '85%', active: true, color: '#0C637E' },
                             { w: '75%', active: false, color: null },
                             { w: '90%', active: false, color: null },
                             { w: '70%', active: false, color: null },
@@ -1372,10 +1355,10 @@ const LandingPage = () => {
                           {/* Stat cards row */}
                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '8px' }}>
                             {[
-                              { label: 'Total Users',    value: '10,482', color: '#0C637E', icon: '👥' },
-                              { label: 'Active SOS',     value: '3',       color: '#EF4444', icon: '🚨' },
-                              { label: 'Responders',     value: '500+',    color: '#10B981', icon: '🛡️' },
-                              { label: 'Monthly Revenue',value: 'PKR 12K', color: '#F59E0B', icon: '💰' },
+                              { label: 'Total Users', value: '10,482', color: '#0C637E', icon: '👥' },
+                              { label: 'Active SOS', value: '3', color: '#EF4444', icon: '🚨' },
+                              { label: 'Responders', value: '500+', color: '#10B981', icon: '🛡️' },
+                              { label: 'Monthly Revenue', value: 'PKR 12K', color: '#F59E0B', icon: '💰' },
                             ].map(card => (
                               <div key={card.label} style={{ background: 'white', borderRadius: '8px', padding: '8px 10px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #E8EDF2' }}>
                                 <div style={{ fontSize: '8px', color: '#94A3B8', fontFamily: P, marginBottom: '3px', display: 'flex', alignItems: 'center', gap: '3px' }}>
@@ -1385,7 +1368,7 @@ const LandingPage = () => {
                                 <div style={{ fontSize: '12px', fontWeight: 700, color: card.color, fontFamily: P }}>{card.value}</div>
                                 {/* Sparkline */}
                                 <div style={{ display: 'flex', alignItems: 'flex-end', gap: '2px', marginTop: '4px', height: '16px' }}>
-                                  {[40,60,45,75,55,80,70].map((h, i) => (
+                                  {[40, 60, 45, 75, 55, 80, 70].map((h, i) => (
                                     <div key={i} style={{ flex: 1, height: `${h}%`, borderRadius: '1px', background: `${card.color}40` }} />
                                   ))}
                                 </div>
@@ -1401,13 +1384,13 @@ const LandingPage = () => {
                               <div style={{ width: '100px', height: '7px', borderRadius: '3px', background: '#E2E8F0', marginBottom: '8px' }} />
                               {/* Bar chart */}
                               <div style={{ display: 'flex', alignItems: 'flex-end', gap: '5px', height: '60px', padding: '0 4px' }}>
-                                {[55,40,70,85,60,90,75,65,80,95,70,88].map((h, i) => (
+                                {[55, 40, 70, 85, 60, 90, 75, 65, 80, 95, 70, 88].map((h, i) => (
                                   <div key={i} style={{ flex: 1, height: `${h}%`, borderRadius: '3px 3px 0 0', background: i === 9 ? 'linear-gradient(180deg,#0C637E,#2496A7)' : `rgba(12,99,126,${0.2 + (i % 3) * 0.1})` }} />
                                 ))}
                               </div>
                               {/* X axis labels */}
                               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
-                                {['Jan','Apr','Jul','Oct'].map(m => (
+                                {['Jan', 'Apr', 'Jul', 'Oct'].map(m => (
                                   <div key={m} style={{ fontSize: '6px', color: '#94A3B8', fontFamily: P }}>{m}</div>
                                 ))}
                               </div>
@@ -1700,9 +1683,9 @@ const LandingPage = () => {
               light />
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '1rem', maxWidth: '680px', margin: '0 auto' }}>
               {[
-                { icon: Smartphone,    label: 'One-Tap SOS',         sub: 'No voice required' },
-                { icon: MessageSquare, label: 'Pre-Written Phrases',  sub: 'Customizable shortcuts' },
-                { icon: Eye,           label: 'Visual Alerts',        sub: 'Screen flash + vibration' },
+                { icon: Smartphone, label: 'One-Tap SOS', sub: 'No voice required' },
+                { icon: MessageSquare, label: 'Pre-Written Phrases', sub: 'Customizable shortcuts' },
+                { icon: Eye, label: 'Visual Alerts', sub: 'Screen flash + vibration' },
               ].map(item => (
                 <div key={item.label} style={{ background: 'rgba(255,255,255,0.1)', borderRadius: '14px', padding: '1.4rem 1rem', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.15)' }}>
                   <item.icon size={22} color="white" style={{ marginBottom: '0.6rem' }} />
@@ -1766,9 +1749,9 @@ const LandingPage = () => {
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
                 {[
-                  { icon: Phone,         label: 'Phone',    value: '+92 300 000 0000' },
-                  { icon: MessageSquare, label: 'Email',    value: 'support@medifind.pk' },
-                  { icon: MapPin,        label: 'Based in', value: 'Pakistan 🇵🇰' },
+                  { icon: Phone, label: 'Phone', value: '+92 300 000 0000' },
+                  { icon: MessageSquare, label: 'Email', value: 'support@medifind.pk' },
+                  { icon: MapPin, label: 'Based in', value: 'Pakistan 🇵🇰' },
                 ].map(item => (
                   <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
                     <div style={{ width: '42px', height: '42px', borderRadius: '11px', background: '#E2F0F3', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -1789,7 +1772,7 @@ const LandingPage = () => {
             </div>
           </FadeIn>
         </div>
-      </section>
+      </section>}
 
       {/* ── CTA Banner ─────────────────────────────────────────── */}
       <section style={{ padding: '5rem 0', background: 'linear-gradient(135deg,#04364E 0%,#0C637E 60%,#2496A7 100%)' }}>
@@ -1830,7 +1813,7 @@ const LandingPage = () => {
             {/* ── Brand Column ── */}
             <div>
               <div style={{ marginBottom: '1.25rem' }}>
-                <img src={logo} alt="MediFind" style={{ height: '52px', objectFit: 'contain', display: 'block', filter: 'brightness(1.15) drop-shadow(0 0 8px rgba(36,150,167,0.45))' }} loading="lazy" />
+                <img src={logo} alt="MediFind" style={{ height: '100px', objectFit: 'contain', display: 'block', filter: 'brightness(1.15) drop-shadow(0 0 8px rgba(36,150,167,0.45))', margin: '-15px 0' }} loading="lazy" />
               </div>
               <p style={{ fontSize: '0.875rem', lineHeight: 1.85, maxWidth: '270px', fontFamily: P, fontWeight: 400, color: 'rgba(255,255,255,0.5)', marginBottom: '1.75rem' }}>
                 Pakistan's first inclusive emergency response platform. Built to save every life.

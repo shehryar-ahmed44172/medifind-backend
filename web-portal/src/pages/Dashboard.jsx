@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   BarChart3, Users, UserCheck, Activity, History, Mail,
@@ -101,11 +101,10 @@ function Sidebar({ open, onToggle, onLogout }) {
                 src={logo} alt="MediFind"
                 style={{
                   height: '44px', objectFit: 'contain', display: 'block',
-                  filter: 'brightness(1.15) drop-shadow(0 1px 6px rgba(0,0,0,0.35))',
-                  cursor: 'pointer'
+                  filter: 'brightness(1.2) drop-shadow(0 1px 6px rgba(0,0,0,0.35))',
+                  cursor: 'pointer',
                 }}
               />
-            </div>
           </Link>
         )}
         {/* collapse / expand toggle */}
@@ -162,7 +161,7 @@ function Sidebar({ open, onToggle, onLogout }) {
                 textDecoration: 'none',
                 whiteSpace: 'nowrap', overflow: 'hidden',
                 position: 'relative',
-                borderLeft: on && open ? '3px solid #FF6B6B' : '3px solid transparent',
+                borderLeft: on && open ? '3px solid #2891C2' : '3px solid transparent',
               }}
               onMouseEnter={e => { if (!on) { e.currentTarget.style.background = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = 'rgba(255,255,255,0.8)'; } }}
               onMouseLeave={e => { if (!on) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.48)'; } }}
@@ -233,6 +232,44 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { showAlert } = useAlert();
+
+  const [showProfile, setShowProfile] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [users, setUsers] = useState([]);
+
+  // Refs for click outside
+  const notifRef = useRef(null);
+  const searchRef = useRef(null);
+  const profileRef = useRef(null);
+
+  // Fetch users for global search
+  useEffect(() => {
+    api.get('/api/admin/users').then(res => {
+      if (res.data && res.data.success && Array.isArray(res.data.data)) {
+        setUsers(res.data.data);
+      }
+    }).catch(err => console.error('Failed to load users for global search:', err));
+  }, []);
+
+  // Click outside listener for all dropdowns
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (showNotifs && notifRef.current && !notifRef.current.contains(event.target)) {
+        setShowNotifs(false);
+      }
+      if (showProfile && profileRef.current && !profileRef.current.contains(event.target)) {
+        setShowProfile(false);
+      }
+      if (searchFocused && searchRef.current && !searchRef.current.contains(event.target)) {
+        setSearchFocused(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showNotifs, showProfile, searchFocused]);
 
   const W = open ? 248 : 68;
 
@@ -307,117 +344,284 @@ export default function Dashboard() {
           </div>
 
           {/* Center: search */}
-          <div style={{ position: 'relative', width: '320px' }}>
+          <div ref={searchRef} style={{ position: 'relative', width: '320px' }}>
             <Search style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: C.textMuted }} size={16} />
             <input
               type="text"
-              placeholder="Search users, emergencies…"
+              placeholder="Search users, pages..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              onFocus={() => setSearchFocused(true)}
               style={{
                 width: '100%', height: '40px', paddingLeft: '38px',
-                border: `1.5px solid ${C.border}`, borderRadius: '10px',
+                border: `1.5px solid ${searchFocused ? C.accent : C.border}`, borderRadius: '10px',
                 background: C.bg, outline: 'none', fontSize: '0.875rem',
                 fontFamily: 'inherit', color: C.textMain, transition: 'border 0.2s',
               }}
-              onFocus={e => e.target.style.borderColor = C.accent}
-              onBlur={e => e.target.style.borderColor = C.border}
             />
-          </div>
 
-          {/* Right: bell + user */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', position: 'relative' }}>
-            <button 
-              onClick={() => { setShowNotifs(!showNotifs); setUnread(0); }}
-              style={{
-                position: 'relative', width: '40px', height: '40px', borderRadius: '10px',
-                background: C.bg, border: `1.5px solid ${showNotifs ? C.accent : C.border}`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', color: showNotifs ? C.accent : C.textMuted, transition: 'all 0.15s',
-              }}
-            >
-              <Bell size={18} />
-              {unread > 0 && (
-                <span style={{ position: 'absolute', top: '9px', right: '9px', width: '10px', height: '10px', background: '#FF6B6B', borderRadius: '50%', border: '2px solid white', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} />
-              )}
-            </button>
-
-            {/* Notification Dropdown */}
             <AnimatePresence>
-              {showNotifs && (
+              {searchFocused && (
                 <motion.div
                   initial={{ opacity: 0, y: 10, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 10, scale: 0.95 }}
                   style={{
-                    position: 'absolute', top: '55px', right: '60px', width: '320px',
-                    background: 'white', borderRadius: '16px', border: `1px solid ${C.border}`,
-                    boxShadow: '0 20px 40px rgba(0,0,0,0.12)', zIndex: 1000, overflow: 'hidden'
+                    position: 'absolute', top: '46px', left: 0, width: '360px',
+                    background: 'white', borderRadius: '12px', border: `1px solid ${C.border}`,
+                    boxShadow: '0 10px 25px rgba(0,0,0,0.08)', zIndex: 1000, overflow: 'hidden',
+                    padding: '8px 0', display: 'flex', flexDirection: 'column', gap: '4px'
                   }}
                 >
-                  <div style={{ padding: '16px 20px', borderBottom: `1px solid ${C.border}`, background: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700, color: C.textMain }}>Recent Alerts</h4>
-                    <span style={{ fontSize: '0.75rem', fontWeight: 600, color: C.accent, cursor: 'pointer' }} onClick={() => setNotifs([])}>Clear All</span>
+                  {/* Quick links & navigation */}
+                  <div style={{ padding: '4px 12px 2px 12px', fontSize: '0.7rem', fontWeight: 800, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    ⚡ Navigation & Quick Links
                   </div>
-                  <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                    {notifs.length === 0 ? (
-                      <div style={{ padding: '40px 20px', textAlign: 'center', color: C.textMuted }}>
-                        <Mail size={24} style={{ marginBottom: '10px', opacity: 0.3 }} />
-                        <p style={{ fontSize: '0.85rem', margin: 0 }}>All quiet on the network.</p>
+                  {NAV.filter(item => 
+                    item.label.toLowerCase().includes(searchQuery.toLowerCase())
+                  ).slice(0, 4).map(item => (
+                    <Link
+                      key={item.to}
+                      to={item.to}
+                      onClick={() => { setSearchFocused(false); setSearchQuery(''); }}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '8px',
+                        padding: '8px 16px', fontSize: '0.84rem', color: C.textSub,
+                        textDecoration: 'none', transition: 'background 0.15s'
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                    >
+                      <item.Icon size={14} color={C.accent} />
+                      <span>{item.label}</span>
+                    </Link>
+                  ))}
+
+                  {/* Users search */}
+                  {searchQuery && (
+                    <>
+                      <div style={{ padding: '8px 12px 2px 12px', borderTop: `1px solid ${C.border}`, fontSize: '0.7rem', fontWeight: 800, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '4px' }}>
+                        👤 Users & Responders
                       </div>
-                    ) : (
-                      notifs.map((n, i) => (
-                        <div key={i} 
-                          onClick={() => { if(n.type.includes('SOS')) navigate('/admin/sos'); setShowNotifs(false); }}
-                          style={{ 
-                            padding: '12px 20px', borderBottom: i < notifs.length - 1 ? `1px solid ${C.border}` : 'none',
-                            cursor: 'pointer', transition: 'background 0.2s'
-                          }}
-                          onMouseEnter={e => e.currentTarget.style.background = '#f1f5f9'}
-                          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                        >
-                          <div style={{ display: 'flex', gap: '12px' }}>
-                            <div style={{ 
-                              width: '8px', height: '8px', borderRadius: '50%', 
-                              background: n.type.includes('SOS') ? '#FF6B6B' : C.accent,
-                              marginTop: '6px', flexShrink: 0
-                            }} />
-                            <div>
-                              <p style={{ margin: '0 0 2px 0', fontSize: '0.875rem', fontWeight: 700, color: C.textMain }}>{n.title}</p>
-                              <p style={{ margin: 0, fontSize: '0.78rem', color: C.textSub, lineHeight: 1.4 }}>{n.body}</p>
-                              <p style={{ margin: '6px 0 0 0', fontSize: '0.7rem', color: C.textMuted }}>{new Date(n.timestamp).toLocaleTimeString()}</p>
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                  {notifs.length > 0 && (
-                    <div style={{ padding: '12px', textAlign: 'center', borderTop: `1px solid ${C.border}`, background: '#f8fafc' }}>
-                      <Link to="/admin/emails" onClick={() => setShowNotifs(false)} style={{ fontSize: '0.8rem', fontWeight: 700, color: C.accent, textDecoration: 'none' }}>View Communication Audit</Link>
-                    </div>
+                      {users.filter(u => 
+                        u.fullName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        u.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        u.phoneNumber?.toLowerCase().includes(searchQuery.toLowerCase())
+                      ).length === 0 ? (
+                        <div style={{ padding: '8px 16px', fontSize: '0.8rem', color: C.textMuted }}>No users found matching query</div>
+                      ) : (
+                        users.filter(u => 
+                          u.fullName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          u.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          u.phoneNumber?.toLowerCase().includes(searchQuery.toLowerCase())
+                        ).slice(0, 5).map(u => (
+                          <Link
+                            key={u.id}
+                            to={`/admin/users?search=${encodeURIComponent(u.fullName)}`}
+                            onClick={() => { setSearchFocused(false); setSearchQuery(''); }}
+                            style={{
+                              display: 'flex', flexDirection: 'column',
+                              padding: '8px 16px', fontSize: '0.84rem', color: C.textMain,
+                              textDecoration: 'none', transition: 'background 0.15s', borderBottom: '1px dotted #f1f5f9'
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                          >
+                            <span style={{ fontWeight: 700 }}>{u.fullName}</span>
+                            <span style={{ fontSize: '0.74rem', color: C.textMuted }}>{u.email} &bull; {u.role}</span>
+                          </Link>
+                        ))
+                      )}
+                    </>
                   )}
                 </motion.div>
               )}
             </AnimatePresence>
+          </div>
+
+          {/* Right: bell + user */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', position: 'relative' }}>
+            <div ref={notifRef} style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <button 
+                onClick={() => { setShowNotifs(!showNotifs); setUnread(0); }}
+                style={{
+                  position: 'relative', width: '40px', height: '40px', borderRadius: '10px',
+                  background: C.bg, border: `1.5px solid ${showNotifs ? C.accent : C.border}`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer', color: showNotifs ? C.accent : C.textMuted, transition: 'all 0.15s',
+                }}
+              >
+                <Bell size={18} />
+                {unread > 0 && (
+                  <span style={{ position: 'absolute', top: '9px', right: '9px', width: '10px', height: '10px', background: '#FF6B6B', borderRadius: '50%', border: '2px solid white', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} />
+                )}
+              </button>
+
+              {/* Notification Dropdown */}
+              <AnimatePresence>
+                {showNotifs && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    style={{
+                      position: 'absolute', top: '55px', right: 0, width: '320px',
+                      background: 'white', borderRadius: '16px', border: `1px solid ${C.border}`,
+                      boxShadow: '0 20px 40px rgba(0,0,0,0.12)', zIndex: 1000, overflow: 'hidden'
+                    }}
+                  >
+                    <div style={{ padding: '16px 20px', borderBottom: `1px solid ${C.border}`, background: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700, color: C.textMain }}>Recent Alerts</h4>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: C.accent, cursor: 'pointer' }} onClick={() => setNotifs([])}>Clear All</span>
+                    </div>
+                    <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                      {notifs.length === 0 ? (
+                        <div style={{ padding: '40px 20px', textAlign: 'center', color: C.textMuted }}>
+                          <Mail size={24} style={{ marginBottom: '10px', opacity: 0.3 }} />
+                          <p style={{ fontSize: '0.85rem', margin: 0 }}>All quiet on the network.</p>
+                        </div>
+                      ) : (
+                        notifs.map((n, i) => (
+                          <div key={i} 
+                            onClick={() => { if(n.type.includes('SOS')) navigate('/admin/sos'); setShowNotifs(false); }}
+                            style={{ 
+                              padding: '12px 20px', borderBottom: i < notifs.length - 1 ? `1px solid ${C.border}` : 'none',
+                              cursor: 'pointer', transition: 'background 0.2s'
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.background = '#f1f5f9'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                          >
+                            <div style={{ display: 'flex', gap: '12px' }}>
+                              <div style={{ 
+                                width: '8px', height: '8px', borderRadius: '50%', 
+                                background: n.type.includes('SOS') ? '#FF6B6B' : C.accent,
+                                marginTop: '6px', flexShrink: 0
+                              }} />
+                              <div>
+                                <p style={{ margin: '0 0 2px 0', fontSize: '0.875rem', fontWeight: 700, color: C.textMain }}>{n.title}</p>
+                                <p style={{ margin: 0, fontSize: '0.78rem', color: C.textSub, lineHeight: 1.4 }}>{n.body}</p>
+                                <p style={{ margin: '6px 0 0 0', fontSize: '0.7rem', color: C.textMuted }}>{new Date(n.timestamp).toLocaleTimeString()}</p>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    {notifs.length > 0 && (
+                      <div style={{ padding: '12px', textAlign: 'center', borderTop: `1px solid ${C.border}`, background: '#f8fafc' }}>
+                        <Link to="/admin/emails" onClick={() => setShowNotifs(false)} style={{ fontSize: '0.8rem', fontWeight: 700, color: C.accent, textDecoration: 'none' }}>View Communication Audit</Link>
+                      </div>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
 
             <div style={{ width: '1px', height: '28px', background: C.border }} />
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
-              <div style={{ textAlign: 'right' }}>
-                <p style={{ fontSize: '0.85rem', fontWeight: 700, color: C.textMain, lineHeight: 1.2 }}>{adminName}</p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px', justifyContent: 'flex-end' }}>
-                  <Circle size={7} fill="#10B981" color="#10B981" />
-                  <span style={{ fontSize: '0.72rem', color: C.textMuted, fontWeight: 600 }}>Network Online</span>
+            <div ref={profileRef} style={{ position: 'relative' }}>
+              <div 
+                onClick={() => setShowProfile(!showProfile)}
+                style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}
+              >
+                <div style={{ textAlign: 'right' }}>
+                  <p style={{ fontSize: '0.85rem', fontWeight: 700, color: C.textMain, lineHeight: 1.2 }}>{adminName}</p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px', justifyContent: 'flex-end' }}>
+                    <Circle size={7} fill="#10B981" color="#10B981" />
+                    <span style={{ fontSize: '0.72rem', color: C.textMuted, fontWeight: 600 }}>Network Online</span>
+                  </div>
+                </div>
+                <div style={{
+                  width: '40px', height: '40px',
+                  background: 'linear-gradient(135deg,#0C637E,#2496A7)',
+                  borderRadius: '11px', color: 'white',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontWeight: 800, fontSize: '1rem', flexShrink: 0,
+                }}>
+                  {adminInitial}
                 </div>
               </div>
-              <div style={{
-                width: '40px', height: '40px',
-                background: 'linear-gradient(135deg,#0C637E,#2496A7)',
-                borderRadius: '11px', color: 'white',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontWeight: 800, fontSize: '1rem', flexShrink: 0,
-              }}>
-                {adminInitial}
-              </div>
+
+              <AnimatePresence>
+                {showProfile && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    style={{
+                      position: 'absolute', top: '52px', right: 0, width: '280px',
+                      background: 'white', borderRadius: '16px', border: `1px solid ${C.border}`,
+                      boxShadow: '0 20px 40px rgba(0,0,0,0.12)', zIndex: 1000, overflow: 'hidden'
+                    }}
+                  >
+                    <div style={{ padding: '20px', background: 'linear-gradient(135deg,#0C637E,#2496A7)', color: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem', fontWeight: 800 }}>{adminInitial}</div>
+                      <div style={{ textAlign: 'center' }}>
+                        <p style={{ margin: 0, fontWeight: 700, fontSize: '1rem' }}>{adminName}</p>
+                        <p style={{ margin: '2px 0 0 0', fontSize: '0.78rem', color: '#E2F0F3', opacity: 0.9 }}>{user?.email || 'admin@medifind.com'}</p>
+                      </div>
+                      <span style={{ fontSize: '0.68rem', fontWeight: 800, padding: '2px 8px', borderRadius: '20px', background: 'rgba(255,255,255,0.25)', color: 'white' }}>System Admin</span>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <Link
+                        to="/admin/settings"
+                        onClick={() => setShowProfile(false)}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '10px',
+                          padding: '12px 20px', fontSize: '0.85rem', color: C.textSub,
+                          textDecoration: 'none', transition: 'all 0.15s', borderBottom: '1px solid #f1f5f9'
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.color = C.accent; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = C.textSub; }}
+                      >
+                        <Settings size={15} />
+                        <span>Platform Settings</span>
+                      </Link>
+                      <Link
+                        to="/admin/logs"
+                        onClick={() => setShowProfile(false)}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '10px',
+                          padding: '12px 20px', fontSize: '0.85rem', color: C.textSub,
+                          textDecoration: 'none', transition: 'all 0.15s', borderBottom: '1px solid #f1f5f9'
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.color = C.accent; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = C.textSub; }}
+                      >
+                        <History size={15} />
+                        <span>System Logs</span>
+                      </Link>
+                      <Link
+                        to="/admin/inbox"
+                        onClick={() => setShowProfile(false)}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '10px',
+                          padding: '12px 20px', fontSize: '0.85rem', color: C.textSub,
+                          textDecoration: 'none', transition: 'all 0.15s', borderBottom: '1px solid #f1f5f9'
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.color = C.accent; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = C.textSub; }}
+                      >
+                        <Mail size={15} />
+                        <span>Admin Inbox</span>
+                      </Link>
+                      <div
+                        onClick={() => { setShowProfile(false); handleLogout(); }}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '10px',
+                          padding: '12px 20px', fontSize: '0.85rem', color: '#EF4444',
+                          cursor: 'pointer', transition: 'all 0.15s'
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background = '#FEF2F2'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                      >
+                        <LogOut size={15} />
+                        <span style={{ fontWeight: 700 }}>Sign Out</span>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
         </header>
