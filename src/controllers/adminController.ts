@@ -181,8 +181,18 @@ export const getPendingResponders = async (req: Request, res: Response) => {
     const pending = await prisma.responder.findMany({
       where: { verificationStatus: 'PENDING' } as any,
       include: {
-        user: { select: { fullName: true, email: true, phoneNumber: true } }
-      }
+        user: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            phoneNumber: true,
+            createdAt: true,
+            profileImageUrl: true,
+          }
+        }
+      },
+      orderBy: { createdAt: 'asc' }, // oldest first (longest waiting)
     });
     sendSuccess(res, pending, 'Pending responders retrieved');
   } catch (error: any) {
