@@ -89,7 +89,7 @@ function Sidebar({ open, onToggle, onLogout }) {
     >
       {/* ── Logo + toggle row ── */}
       <div style={{
-        height: '95px',
+        height: '108px',
         display: 'flex', alignItems: 'center',
         justifyContent: open ? 'space-between' : 'center',
         padding: open ? '0 14px 0 16px' : '0',
@@ -101,7 +101,8 @@ function Sidebar({ open, onToggle, onLogout }) {
               <img
                 src={logo} alt="MediFind"
                 style={{
-                  height: '44px', objectFit: 'contain', display: 'block',
+                  height: '72px', objectFit: 'contain', display: 'block',
+                  maxWidth: '210px',
                   filter: 'brightness(1.2) drop-shadow(0 1px 6px rgba(0,0,0,0.35))',
                   cursor: 'pointer',
                 }}

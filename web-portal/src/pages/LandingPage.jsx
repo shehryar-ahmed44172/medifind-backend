@@ -872,9 +872,9 @@ const LandingPage = () => {
         borderBottom: scrolled ? '1px solid #E2E8F0' : '1px solid transparent',
         transition: 'all 0.3s ease',
       }}>
-        <div style={{ padding: PX, display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '92px' }}>
+        <div style={{ padding: PX, display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '104px' }}>
           <Link to="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
-            <img src={logo} alt="MediFind" style={{ height: '86px', objectFit: 'contain' }} />
+            <img src={logo} alt="MediFind" style={{ height: '96px', objectFit: 'contain' }} />
           </Link>
           <div style={{ display: 'flex', gap: '2rem', alignItems: 'center' }}>
             {navLinks.map(([label, href]) => {
@@ -912,7 +912,7 @@ const LandingPage = () => {
       </nav>
 
       {/* ── Hero ───────────────────────────────────────────────── */}
-      <section style={{ paddingTop: '128px', paddingBottom: '72px', background: 'linear-gradient(150deg,#F0F9FC 0%,#E8F5FA 55%,#F8FAFC 100%)' }}>
+      <section style={{ paddingTop: '140px', paddingBottom: '72px', background: 'linear-gradient(150deg,#F0F9FC 0%,#E8F5FA 55%,#F8FAFC 100%)' }}>
         <div style={{ padding: PX, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5rem', alignItems: 'center' }}>
           <div>
             <Badge icon={HeartPulse} label="Emergency Response Platform" />
@@ -1832,7 +1832,7 @@ const LandingPage = () => {
           <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr 1fr', gap: '3rem', marginBottom: '3rem' }}>
             <div>
               <div style={{ marginBottom: '1.5rem' }}>
-                <img src={logo} alt="MediFind" style={{ height: '90px', objectFit: 'contain', filter: 'brightness(1.15) drop-shadow(0 0 8px rgba(36,150,167,0.45))' }} loading="lazy" />
+                <img src={logo} alt="MediFind" style={{ height: '110px', objectFit: 'contain', filter: 'brightness(1.15) drop-shadow(0 0 8px rgba(36,150,167,0.45))' }} loading="lazy" />
               </div>
               <p style={{ fontSize: '0.83rem', lineHeight: 1.75, maxWidth: '230px', fontFamily: P, fontWeight: 400 }}>Pakistan's first inclusive emergency response platform. Built to save every life.</p>
             </div>
