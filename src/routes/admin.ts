@@ -23,4 +23,6 @@ router.patch('/users/:id/activate',    adminController.reactivateUser);
 router.delete('/users/:id',            adminController.deleteUser);
 router.post('/test-email',             adminController.sendTestEmail);
 router.post('/generate-draft',         adminController.generateDraft);
+router.get('/platform-settings',       adminController.getPlatformSettings);
+router.put('/platform-settings',       adminController.savePlatformSettings);
 export default router;

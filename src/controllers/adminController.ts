@@ -691,3 +691,67 @@ export const generateDraft = async (req: Request, res: Response) => {
     sendError(res, error.message, 500);
   }
 };
+
+// ─── Platform Settings (persisted to settings.json in project root) ───────────
+import fs from 'fs';
+import path from 'path';
+
+const SETTINGS_FILE = path.join(process.cwd(), 'platform-settings.json');
+
+const DEFAULT_SETTINGS = {
+  orgName: 'MediFind Emergency Response Network',
+  supportEmail: 'support@medifind.pk',
+  maintenanceMode: false,
+  debugLogging: false,
+  alertEmail: 'ops@medifind.pk',
+  alertWebhook: '',
+  twoFactorRequired: false,
+  sessionTimeoutMinutes: 30,
+  ipWhitelisting: false,
+};
+
+function readSettings() {
+  try {
+    if (fs.existsSync(SETTINGS_FILE)) {
+      return { ...DEFAULT_SETTINGS, ...JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf-8')) };
+    }
+  } catch {}
+  return { ...DEFAULT_SETTINGS };
+}
+
+export const getPlatformSettings = async (req: Request, res: Response) => {
+  try {
+    const settings = readSettings();
+    // Also expose read-only env-based settings so frontend can display them
+    const envInfo = {
+      smtpHost:    process.env.SMTP_HOST    || 'smtp.gmail.com',
+      smtpPort:    process.env.SMTP_PORT    || '465',
+      smtpUser:    process.env.SMTP_USER    ? `${process.env.SMTP_USER.slice(0, 4)}****` : '(not set)',
+      stripeMode:  process.env.STRIPE_SECRET_KEY ? (process.env.STRIPE_SECRET_KEY.startsWith('sk_live') ? 'LIVE' : 'TEST') : 'NOT CONFIGURED',
+      nodeEnv:     process.env.NODE_ENV     || 'development',
+    };
+    sendSuccess(res, { ...settings, envInfo }, 'Platform settings retrieved');
+  } catch (error: any) {
+    sendError(res, error.message, 500);
+  }
+};
+
+export const savePlatformSettings = async (req: Request, res: Response) => {
+  try {
+    const allowed = [
+      'orgName', 'supportEmail', 'maintenanceMode', 'debugLogging',
+      'alertEmail', 'alertWebhook', 'twoFactorRequired',
+      'sessionTimeoutMinutes', 'ipWhitelisting',
+    ];
+    const current = readSettings();
+    const update: any = {};
+    for (const key of allowed) {
+      if (req.body[key] !== undefined) update[key] = req.body[key];
+    }
+    const merged = { ...current, ...update };
+    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(merged, null, 2), 'utf-8');
+    sendSuccess(res, merged, 'Platform settings saved successfully');
+  } catch (error: any) {
+    sendError(res, error.message, 500);
+  }
+};
