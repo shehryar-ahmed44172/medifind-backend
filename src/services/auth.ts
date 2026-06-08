@@ -56,12 +56,15 @@ export const register = async (data: RegisterRequest) => {
     organization: data.organization,
     licenseNumber: data.licenseNumber,
     responderType: data.responderType,
-    vehicleType: data.vehicleType,
+    vehicleType: data.vehicleType ?? 'MOTORBIKE_AMBULANCE',
+    motorbikeNumber: data.motorbikeNumber,
     specialization: data.specialization ?? [],
     cnicImageUrl: data.cnicImageUrl,
     cnicBackImageUrl: data.cnicBackImageUrl,
     employeeCardImageUrl: data.employeeCardImageUrl,
     employeeCardBackImageUrl: data.employeeCardBackImageUrl,
+    drivingLicenseUrl: data.drivingLicenseUrl,
+    motorbikeDocUrl: data.motorbikeDocUrl,
     dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null,
   });
 

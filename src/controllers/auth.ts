@@ -17,8 +17,11 @@ export const register = async (req: Request, res: Response) => {
       cnic, city, address, patientType, dateOfBirth,
       // Responder credentials
       organization, licenseNumber, responderType, vehicleType, specialization,
+      // Responder vehicle info
+      motorbikeNumber,
       // Responder document URLs (uploaded separately via /upload-document)
       cnicImageUrl, cnicBackImageUrl, employeeCardImageUrl, employeeCardBackImageUrl,
+      drivingLicenseUrl, motorbikeDocUrl,
       // FCM token — sent at registration so push works before first login
       fcmToken,
     } = req.body as RegisterRequest;
@@ -41,7 +44,9 @@ export const register = async (req: Request, res: Response) => {
       fullName, email, phoneNumber, password, role,
       cnic, city, address, patientType, dateOfBirth,
       organization, licenseNumber, responderType, vehicleType, specialization,
+      motorbikeNumber,
       cnicImageUrl, cnicBackImageUrl, employeeCardImageUrl, employeeCardBackImageUrl,
+      drivingLicenseUrl, motorbikeDocUrl,
       fcmToken,
     });
 

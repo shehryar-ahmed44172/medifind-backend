@@ -1,6 +1,4 @@
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma';
 
 export const userRepository = {
   findByEmail: async (email: string) => {
@@ -44,11 +42,14 @@ export const userRepository = {
     licenseNumber?: string;
     responderType?: 'PARAMEDIC' | 'RESCUE_OFFICER' | 'EMT' | 'FIRST_RESPONDER' | 'VOLUNTEER';
     vehicleType?: string;
+    motorbikeNumber?: string;
     specialization?: string[];
     cnicImageUrl?: string;
     cnicBackImageUrl?: string;
     employeeCardImageUrl?: string;
     employeeCardBackImageUrl?: string;
+    drivingLicenseUrl?: string;
+    motorbikeDocUrl?: string;
     city?: string;
     address?: string;
     dateOfBirth?: Date | null;
@@ -93,12 +94,15 @@ export const userRepository = {
             licenseNumber: data.licenseNumber ?? 'PENDING',
             organization: data.organization,
             responderType: data.responderType ?? 'FIRST_RESPONDER',
-            vehicleType: data.vehicleType,
+            vehicleType: data.vehicleType ?? 'MOTORBIKE_AMBULANCE',
+            motorbikeNumber: data.motorbikeNumber,
             specialization: data.specialization ?? [],
             cnicImageUrl: data.cnicImageUrl,
             cnicBackImageUrl: data.cnicBackImageUrl,
             employeeCardImageUrl: data.employeeCardImageUrl,
             employeeCardBackImageUrl: data.employeeCardBackImageUrl,
+            drivingLicenseUrl: data.drivingLicenseUrl,
+            motorbikeDocUrl: data.motorbikeDocUrl,
           } as any,
         });
       }
@@ -182,21 +186,42 @@ export const userRepository = {
   updateFcmToken: async (userId: string, token: string) => {
     const user = await prisma.user.findUnique({ where: { id: userId } }) as any;
     if (!user) return null;
-    
-    // Manage array of tokens (deduplicate and add new)
+
+    // Manage array of tokens: deduplicate, add new, keep last 5 max
     let tokens: string[] = [];
     if (user.fcmTokens) {
       tokens = Array.isArray(user.fcmTokens) ? (user.fcmTokens as string[]) : [];
     }
-    
+
     if (!tokens.includes(token)) {
       tokens.push(token);
     }
-    
+
+    // Cap to 5 most-recent tokens to prevent unbounded growth
+    if (tokens.length > 5) {
+      tokens = tokens.slice(-5);
+    }
+
     return await prisma.user.update({
       where: { id: userId },
       data: { fcmTokens: tokens } as any,
     });
+  },
+
+  removeFcmTokens: async (userId: string, staleTokens: string[]) => {
+    if (staleTokens.length === 0) return;
+    const user = await prisma.user.findUnique({ where: { id: userId } }) as any;
+    if (!user || !user.fcmTokens) return;
+
+    const current: string[] = Array.isArray(user.fcmTokens) ? user.fcmTokens : [];
+    const cleaned = current.filter((t: string) => !staleTokens.includes(t));
+
+    if (cleaned.length < current.length) {
+      await prisma.user.update({
+        where: { id: userId },
+        data: { fcmTokens: cleaned } as any,
+      });
+    }
   },
 
   updateSubscription: async (userId: string, plan: 'FREE' | 'PROFESSIONAL' | 'EXECUTIVE') => {

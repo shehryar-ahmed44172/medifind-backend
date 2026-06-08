@@ -128,7 +128,10 @@ model Responder {
   isVerified            Boolean             @default(false)
   organization          String?
   responderType         ResponderType       @default(FIRST_RESPONDER)
-  vehicleType           String?
+  vehicleType           String?               @default("MOTORBIKE_AMBULANCE")
+  motorbikeNumber       String?
+  drivingLicenseUrl     String?
+  motorbikeDocUrl       String?
   cnicImageUrl          String?
   cnicBackImageUrl      String?
   employeeCardImageUrl  String?
