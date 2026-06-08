@@ -1,8 +1,7 @@
 import { responderRepository } from '../repositories/responderRepository';
 import { emergencyRepository } from '../repositories/emergencyRepository';
 import { getIo } from '../server';
-import { PrismaClient } from '@prisma/client';
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma';
 
 /**
  * Responder accepts an emergency request.
@@ -72,20 +71,38 @@ export const acceptEmergencyRequest = async (emergencyId: string, responderId: s
     });
 
     // Notify the patient and caregivers that help is on the way (FR7.4)
-    // Plan v6: Include responder profile details so they can be displayed on the map
+    // Include full responder profile so the patient's tracking screen can show
+    // an InDrive-style card (photo, rating, vehicle, number plate).
     const responderDetails = await tx.responder.findUnique({
       where: { userId: responderId },
-      include: { user: { select: { fullName: true, phoneNumber: true } } }
+      include: {
+        user: {
+          select: {
+            fullName: true,
+            phoneNumber: true,
+            profileImageUrl: true,
+          }
+        }
+      }
     });
 
     getIo().to(`emergency:${emergencyId}`).emit('EMERGENCY_STATUS_CHANGE', {
       type: 'EMERGENCY_STATUS_CHANGE',
-      data: { 
-        emergencyId, 
+      data: {
+        emergencyId,
         newStatus: 'ASSIGNED',
         responderId,
-        responderName: responderDetails?.user.fullName,
-        responderPhone: responderDetails?.user.phoneNumber
+        // Basic contact
+        responderName:         responderDetails?.user.fullName,
+        responderPhone:        responderDetails?.user.phoneNumber,
+        // Profile card extras
+        responderProfileImage: responderDetails?.user.profileImageUrl ?? null,
+        responderRating:       responderDetails?.rating ?? 5.0,
+        responderType:         responderDetails?.responderType ?? null,
+        organization:          responderDetails?.organization ?? null,
+        // Vehicle / motorbike details
+        vehicleType:           (responderDetails as any)?.vehicleType ?? 'MOTORBIKE_AMBULANCE',
+        motorbikeNumber:       (responderDetails as any)?.motorbikeNumber ?? null,
       }
     });
 
@@ -282,6 +299,74 @@ export const setResponderAvailability = async (userId: string, isAvailable: bool
 export const getResponderHistory = async (responderId: string) => {
   return await responderRepository.getHistory(responderId);
 };
+/**
+ * Submit a rating for a responder after an emergency is resolved.
+ * Only the patient involved in the emergency may rate the responder.
+ * Uses a running-average formula to update the stored rating.
+ *
+ * @param emergencyId  The resolved emergency the rating applies to
+ * @param patientId    The authenticated patient submitting the rating
+ * @param responderId  The responder being rated
+ * @param stars        Rating value 1–5
+ */
+export const rateResponder = async (
+  emergencyId: string,
+  patientId: string,
+  responderId: string,
+  stars: number,
+) => {
+  if (stars < 1 || stars > 5 || !Number.isInteger(stars)) {
+    throw new Error('Rating must be a whole number between 1 and 5');
+  }
+
+  // Verify the emergency exists, belongs to this patient, and is resolved
+  const emergency = await prisma.emergency.findUnique({
+    where: { id: emergencyId },
+    include: { emergencyRequests: { where: { responderId, status: 'COMPLETED' } } },
+  });
+
+  if (!emergency) throw new Error('Emergency not found');
+  if (emergency.patientId !== patientId) {
+    throw new Error('You can only rate responders from your own emergencies');
+  }
+  if (!['RESOLVED', 'COMPLETED'].includes(emergency.status)) {
+    throw new Error('You can only rate a responder after the emergency is resolved');
+  }
+  if (emergency.emergencyRequests.length === 0) {
+    throw new Error('This responder did not complete a request for this emergency');
+  }
+
+  // Check for duplicate rating (stored on the EmergencyRequest as patientRating)
+  const completedRequest = emergency.emergencyRequests[0];
+  if ((completedRequest as any).patientRating != null) {
+    throw new Error('You have already rated this responder for this emergency');
+  }
+
+  // Save rating on the request record (prevents double-rating)
+  await prisma.emergencyRequest.update({
+    where: { id: completedRequest.id },
+    data: { patientRating: stars } as any,
+  });
+
+  // Update running average on the Responder table
+  const responder = await prisma.responder.findUnique({ where: { userId: responderId } });
+  if (!responder) throw new Error('Responder profile not found');
+
+  const currentTotal = responder.totalRatings ?? 0;
+  const currentRating = responder.rating ?? 5.0;
+  const newTotal = currentTotal + 1;
+  const newRating = parseFloat(
+    ((currentRating * currentTotal + stars) / newTotal).toFixed(2),
+  );
+
+  await prisma.responder.update({
+    where: { userId: responderId },
+    data: { rating: newRating, totalRatings: newTotal },
+  });
+
+  return { newRating, totalRatings: newTotal };
+};
+
 /**
  * Get active emergency requests for a responder.
  */
