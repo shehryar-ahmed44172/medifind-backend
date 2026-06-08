@@ -25,11 +25,14 @@ export interface RegisterRequest {
   licenseNumber?: string;
   responderType?: 'PARAMEDIC' | 'RESCUE_OFFICER' | 'EMT' | 'FIRST_RESPONDER' | 'VOLUNTEER';
   vehicleType?: string;
+  motorbikeNumber?: string;
   specialization?: string[];
   cnicImageUrl?: string;
   cnicBackImageUrl?: string;
   employeeCardImageUrl?: string;
   employeeCardBackImageUrl?: string;
+  drivingLicenseUrl?: string;
+  motorbikeDocUrl?: string;
   // FCM token sent at registration time so push works before first login
   fcmToken?: string;
 }
