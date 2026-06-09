@@ -845,3 +845,51 @@ export const testSmtpConfig = async (req: Request, res: Response) => {
     sendError(res, `SMTP test failed: ${error.message}`, 400);
   }
 };
+
+/**
+ * Admin: Get all online (available + GPS-located) responders for the live map.
+ * GET /api/admin/responders/online
+ * Returns responders who are available, verified, active, and have shared their GPS.
+ * In development mode the isVerified / isEmailVerified checks are relaxed so the
+ * map works without going through the full approval flow during testing.
+ */
+export const getOnlineResponders = async (_req: Request, res: Response) => {
+  try {
+    const isDev = process.env.NODE_ENV === 'development';
+
+    const responders = await prisma.responder.findMany({
+      where: {
+        isAvailable: true,
+        ...(isDev ? {} : { isVerified: true }),
+        currentLatitude:  { not: null },
+        currentLongitude: { not: null },
+        user: {
+          isActive: true,
+          ...(isDev ? {} : { isEmailVerified: true }),
+        },
+      },
+      select: {
+        userId:           true,
+        responderType:    true,
+        organization:     true,
+        rating:           true,
+        currentLatitude:  true,
+        currentLongitude: true,
+        motorbikeNumber:  true,
+        vehicleType:      true,
+        user: {
+          select: {
+            fullName:        true,
+            phoneNumber:     true,
+            profileImageUrl: true,
+          },
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    sendSuccess(res, responders, 'Online responders retrieved');
+  } catch (error: any) {
+    sendError(res, error.message, 500);
+  }
+};
