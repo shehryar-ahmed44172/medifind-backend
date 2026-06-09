@@ -708,6 +708,7 @@ const DEFAULT_SETTINGS = {
   twoFactorRequired: false,
   sessionTimeoutMinutes: 30,
   ipWhitelisting: false,
+  allowedIps: [] as string[],
   // Email gateway (overrides .env when emailGateway !== 'env')
   emailGateway:   'env',   // 'env' | 'gmail' | 'mailtrap' | 'outlook' | 'custom'
   smtpHost:       '',
@@ -718,7 +719,7 @@ const DEFAULT_SETTINGS = {
   smtpFromName:   'MediFind Emergency Network',
 };
 
-function readSettings() {
+export function readSettings() {
   try {
     if (fs.existsSync(SETTINGS_FILE)) {
       return { ...DEFAULT_SETTINGS, ...JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf-8')) };
@@ -726,6 +727,28 @@ function readSettings() {
   } catch {}
   return { ...DEFAULT_SETTINGS };
 }
+
+/* ── Return the admin's real IP so they can whitelist it in the UI ─────────── */
+export const getMyIp = async (req: Request, res: Response) => {
+  const ip =
+    (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
+    req.socket.remoteAddress ||
+    'unknown';
+  sendSuccess(res, { ip }, 'Your IP address');
+};
+
+/* ── Public endpoint: session timeout + 2FA flag for client-side use ─────── */
+export const getClientSettings = async (_req: Request, res: Response) => {
+  try {
+    const s = readSettings();
+    sendSuccess(res, {
+      sessionTimeoutMinutes: s.sessionTimeoutMinutes,
+      twoFactorRequired:     s.twoFactorRequired,
+    }, 'Client settings');
+  } catch (error: any) {
+    sendError(res, error.message, 500);
+  }
+};
 
 export const getPlatformSettings = async (req: Request, res: Response) => {
   try {
@@ -754,7 +777,7 @@ export const savePlatformSettings = async (req: Request, res: Response) => {
     const allowed = [
       'orgName', 'supportEmail', 'maintenanceMode', 'debugLogging',
       'alertEmail', 'alertWebhook', 'twoFactorRequired',
-      'sessionTimeoutMinutes', 'ipWhitelisting',
+      'sessionTimeoutMinutes', 'ipWhitelisting', 'allowedIps',
       // Email gateway fields
       'emailGateway', 'smtpHost', 'smtpPort', 'smtpEncryption',
       'smtpUser', 'smtpPass', 'smtpFromName',

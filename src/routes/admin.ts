@@ -1,12 +1,16 @@
 import { Router } from 'express';
 import * as adminController from '../controllers/adminController';
-import { authMiddleware, roleMiddleware } from '../middleware/authMiddleware';
+import { authMiddleware, roleMiddleware, ipWhitelistMiddleware } from '../middleware/authMiddleware';
 
 const router = Router();
+
+// Public: client needs session timeout before login completes
+router.get('/client-settings', adminController.getClientSettings);
 
 // Protected admin routes
 router.use(authMiddleware);
 router.use(roleMiddleware('ADMIN'));
+router.use(ipWhitelistMiddleware);   // enforces IP whitelist when enabled
 
 router.get('/users',                   adminController.getAllUsers);
 router.get('/users/:id',               adminController.getUserProfile);
@@ -26,4 +30,5 @@ router.post('/generate-draft',         adminController.generateDraft);
 router.get('/platform-settings',       adminController.getPlatformSettings);
 router.put('/platform-settings',       adminController.savePlatformSettings);
 router.post('/test-smtp',              adminController.testSmtpConfig);
+router.get('/my-ip',                   adminController.getMyIp);
 export default router;
