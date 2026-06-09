@@ -708,6 +708,14 @@ const DEFAULT_SETTINGS = {
   twoFactorRequired: false,
   sessionTimeoutMinutes: 30,
   ipWhitelisting: false,
+  // Email gateway (overrides .env when emailGateway !== 'env')
+  emailGateway:   'env',   // 'env' | 'gmail' | 'mailtrap' | 'outlook' | 'custom'
+  smtpHost:       '',
+  smtpPort:       '587',
+  smtpEncryption: 'tls',   // 'tls' | 'ssl' | 'none'
+  smtpUser:       '',
+  smtpPass:       '',
+  smtpFromName:   'MediFind Emergency Network',
 };
 
 function readSettings() {
@@ -722,7 +730,7 @@ function readSettings() {
 export const getPlatformSettings = async (req: Request, res: Response) => {
   try {
     const settings = readSettings();
-    // Also expose read-only env-based settings so frontend can display them
+    // Env-based read-only info (for display when gateway = 'env')
     const envInfo = {
       smtpHost:    process.env.SMTP_HOST    || 'smtp.gmail.com',
       smtpPort:    process.env.SMTP_PORT    || '465',
@@ -730,7 +738,12 @@ export const getPlatformSettings = async (req: Request, res: Response) => {
       stripeMode:  process.env.STRIPE_SECRET_KEY ? (process.env.STRIPE_SECRET_KEY.startsWith('sk_live') ? 'LIVE' : 'TEST') : 'NOT CONFIGURED',
       nodeEnv:     process.env.NODE_ENV     || 'development',
     };
-    sendSuccess(res, { ...settings, envInfo }, 'Platform settings retrieved');
+    // Never send the raw SMTP password to the frontend — mask it
+    const safeSettings = {
+      ...settings,
+      smtpPass: settings.smtpPass ? '••••••••' : '',
+    };
+    sendSuccess(res, { ...safeSettings, envInfo }, 'Platform settings retrieved');
   } catch (error: any) {
     sendError(res, error.message, 500);
   }
@@ -742,6 +755,9 @@ export const savePlatformSettings = async (req: Request, res: Response) => {
       'orgName', 'supportEmail', 'maintenanceMode', 'debugLogging',
       'alertEmail', 'alertWebhook', 'twoFactorRequired',
       'sessionTimeoutMinutes', 'ipWhitelisting',
+      // Email gateway fields
+      'emailGateway', 'smtpHost', 'smtpPort', 'smtpEncryption',
+      'smtpUser', 'smtpPass', 'smtpFromName',
     ];
     const current = readSettings();
     const update: any = {};
@@ -750,8 +766,59 @@ export const savePlatformSettings = async (req: Request, res: Response) => {
     }
     const merged = { ...current, ...update };
     fs.writeFileSync(SETTINGS_FILE, JSON.stringify(merged, null, 2), 'utf-8');
+    // Invalidate cached nodemailer transporter so next email uses the new config
+    const { invalidateTransporter } = await import('../utils/email');
+    invalidateTransporter();
     sendSuccess(res, merged, 'Platform settings saved successfully');
   } catch (error: any) {
     sendError(res, error.message, 500);
+  }
+};
+
+/* ── Test SMTP config directly from the admin UI ──────────────────────────── */
+export const testSmtpConfig = async (req: Request, res: Response) => {
+  try {
+    const { host, port, encryption, user, pass, fromName } = req.body;
+    if (!host || !user || !pass) {
+      return sendError(res, 'host, user, and pass are required to test the connection', 400);
+    }
+
+    const { buildTransporter } = await import('../utils/email');
+    const transporter = buildTransporter({
+      host,
+      port:   Number(port) || 587,
+      secure: encryption === 'ssl',
+      user,
+      pass,
+    });
+
+    // 1. Verify the connection
+    await transporter.verify();
+
+    // 2. Send a test email to the admin who triggered it
+    const adminUser = await prisma.user.findUnique({ where: { id: (req as any).user.userId } });
+    if (adminUser?.email) {
+      await transporter.sendMail({
+        from:    `"${fromName || 'MediFind'}" <${user}>`,
+        to:      adminUser.email,
+        subject: '✅ MediFind SMTP Test — Connection Successful',
+        html: `
+          <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:24px;border:1px solid #e2e8f0;border-radius:12px">
+            <h2 style="color:#0C637E;margin-top:0">✅ SMTP Connection Verified</h2>
+            <p>Your email gateway is correctly configured and active.</p>
+            <table style="width:100%;border-collapse:collapse;font-size:14px">
+              <tr><td style="padding:6px 0;color:#64748b;font-weight:600">Host</td><td>${host}</td></tr>
+              <tr><td style="padding:6px 0;color:#64748b;font-weight:600">Port</td><td>${port}</td></tr>
+              <tr><td style="padding:6px 0;color:#64748b;font-weight:600">Encryption</td><td>${encryption?.toUpperCase() || 'TLS'}</td></tr>
+              <tr><td style="padding:6px 0;color:#64748b;font-weight:600">User</td><td>${user}</td></tr>
+            </table>
+            <p style="margin-top:20px;color:#64748b;font-size:12px">Sent from MediFind Admin Portal</p>
+          </div>`,
+      });
+    }
+
+    sendSuccess(res, { verified: true }, `Connection verified — test email sent to ${adminUser?.email}`);
+  } catch (error: any) {
+    sendError(res, `SMTP test failed: ${error.message}`, 400);
   }
 };

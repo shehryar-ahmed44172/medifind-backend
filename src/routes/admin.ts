@@ -25,4 +25,5 @@ router.post('/test-email',             adminController.sendTestEmail);
 router.post('/generate-draft',         adminController.generateDraft);
 router.get('/platform-settings',       adminController.getPlatformSettings);
 router.put('/platform-settings',       adminController.savePlatformSettings);
+router.post('/test-smtp',              adminController.testSmtpConfig);
 export default router;
