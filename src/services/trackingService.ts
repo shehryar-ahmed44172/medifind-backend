@@ -6,6 +6,7 @@ import { sendNotification } from './notification';
 import { NotificationType, NotificationChannel } from '../types/notification';
 import { getIo } from '../server';
 import logger from '../utils/logger';
+import { haversineDistanceKm, estimateEtaMinutes } from '../utils/geoValidation';
 
 /**
  * Submit a live location update for a responder during an active emergency.
@@ -31,6 +32,21 @@ export const submitLocationUpdate = async (data: {
 
   logger.info(`Tracking update for emergency ${data.emergencyId}: responder at [${data.latitude}, ${data.longitude}] (Status: ${data.status})`);
 
+  // Calculate live ETA from responder's current position to patient's position
+  let estimatedArrivalMinutes = 5; // fallback if we can't fetch emergency coords
+  try {
+    const emergency = await emergencyRepository.findById(data.emergencyId);
+    if (emergency && emergency.latitude != null && emergency.longitude != null) {
+      const distKm = haversineDistanceKm(
+        data.latitude, data.longitude,
+        emergency.latitude, emergency.longitude,
+      );
+      estimatedArrivalMinutes = data.status === 'ARRIVED' ? 0 : estimateEtaMinutes(distKm);
+    }
+  } catch (etaErr: any) {
+    logger.warn(`ETA calculation failed for emergency ${data.emergencyId}: ${etaErr.message}`);
+  }
+
   // Broadcast location update (FR7.4)
   const locationPayload = {
     type: "LOCATION_UPDATE",
@@ -40,12 +56,14 @@ export const submitLocationUpdate = async (data: {
       latitude: data.latitude,
       longitude: data.longitude,
       status: data.status,
-      estimatedArrivalMinutes: Math.max(0, Math.ceil((1.0 / 40) * 60))
+      estimatedArrivalMinutes,
     }
   };
 
   getIo().to(`location:${data.emergencyId}`).emit('LOCATION_UPDATE', locationPayload);
   getIo().to(`emergency:${data.emergencyId}`).emit('LOCATION_UPDATE', locationPayload);
+  // Mirror to admin room so the live ambulance map marker moves in real-time on the SOS Monitor
+  getIo().to('admin_notifications').emit('LOCATION_UPDATE', locationPayload);
 
   // Status-specific event emits for clearer UI hooks (FR7.4)
   // Only emit these when the status actually changes to avoid noise
