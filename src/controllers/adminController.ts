@@ -875,8 +875,6 @@ export const getOnlineResponders = async (_req: Request, res: Response) => {
         rating:           true,
         currentLatitude:  true,
         currentLongitude: true,
-        motorbikeNumber:  true,
-        vehicleType:      true,
         user: {
           select: {
             fullName:        true,
@@ -885,7 +883,7 @@ export const getOnlineResponders = async (_req: Request, res: Response) => {
           },
         },
       },
-      orderBy: { updatedAt: 'desc' },
+      orderBy: { createdAt: 'desc' },
     });
 
     sendSuccess(res, responders, 'Online responders retrieved');
