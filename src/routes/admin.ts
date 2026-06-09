@@ -32,4 +32,5 @@ router.put('/platform-settings',       adminController.savePlatformSettings);
 router.post('/test-smtp',              adminController.testSmtpConfig);
 router.get('/my-ip',                   adminController.getMyIp);
 router.get('/responders/online',       adminController.getOnlineResponders);
+router.get('/responders/verified',     adminController.getVerifiedResponders);
 export default router;

@@ -891,3 +891,35 @@ export const getOnlineResponders = async (_req: Request, res: Response) => {
     sendError(res, error.message, 500);
   }
 };
+
+/**
+ * Admin: Get all VERIFIED responders for the Responder Records page.
+ * GET /api/admin/responders/verified
+ * Returns the full profile so the admin can view / download the application form.
+ */
+export const getVerifiedResponders = async (_req: Request, res: Response) => {
+  try {
+    const responders = await prisma.responder.findMany({
+      where: { isVerified: true },
+      include: {
+        user: {
+          select: {
+            id:             true,
+            fullName:       true,
+            email:          true,
+            phoneNumber:    true,
+            profileImageUrl:true,
+            city:           true,
+            address:        true,
+            dateOfBirth:    true,
+            createdAt:      true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    sendSuccess(res, responders, 'Verified responders retrieved');
+  } catch (error: any) {
+    sendError(res, error.message, 500);
+  }
+};
