@@ -1,9 +1,7 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 import * as userService from '../services/userService';
 import { sendSuccess, sendError } from '../utils/response';
-
-const prisma = new PrismaClient();
 
 /**
  * GET /api/users/profile
@@ -100,11 +98,8 @@ export const uploadProfileImage = async (req: Request, res: Response) => {
       return sendError(res, 'No image file provided', 400);
     }
 
-    // Create the static URL for the image
-    // The server serves 'uploads' folder as static /uploads
-    // So if filename is image-123.jpg, url is /uploads/reports/image-123.jpg 
-    // (since path.join(process.cwd(), 'uploads', 'reports') was used in middleware)
-    const profileImageUrl = `/uploads/profile/${req.file.filename}`;
+    // Build absolute URL so any client (admin panel, mobile) can load it directly
+    const profileImageUrl = `${req.protocol}://${req.get('host')}/uploads/profile/${req.file.filename}`;
 
     const updated = await userService.updateUserProfile(req.user.userId, {
       profileImageUrl: profileImageUrl
@@ -169,6 +164,7 @@ export const getUserById = async (req: Request, res: Response) => {
       role: profile.role,
       profileImageUrl: profile.profileImageUrl,
       lastUpdated: (profile as any).updatedAt,
+      subscriptionPlan: profile.subscriptionPlan,
       // Include role-specific fields if available
       cnic: (profile as any).cnic,
       patientType: (profile as any).medicalProfile?.patientType,
@@ -176,8 +172,13 @@ export const getUserById = async (req: Request, res: Response) => {
       licenseNumber: (profile as any).responder?.licenseNumber,
       responderType: (profile as any).responder?.responderType,
       vehicleType: (profile as any).responder?.vehicleType,
+      verificationStatus: (profile as any).responder?.verificationStatus,
       isActive: profile.role === 'RESPONDER' ? (profile as any).responder?.isAvailable : profile.isActive,
-      isEmailVerified: profile.isEmailVerified
+      isEmailVerified: profile.isEmailVerified,
+      // Responder performance stats (live from DB)
+      rating: (profile as any).responder?.rating ?? null,
+      totalRatings: (profile as any).responder?.totalRatings ?? null,
+      totalResponsesHandled: (profile as any).responder?.totalResponsesHandled ?? null,
     };
 
     sendSuccess(res, userProfile, 'User profile retrieved successfully');
