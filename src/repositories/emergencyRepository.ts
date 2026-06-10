@@ -73,6 +73,13 @@ export const emergencyRepository = {
   },
 
   cancel: async (id: string) => {
+    // Cancel the emergency itself, then flip all still-pending dispatch
+    // requests to REJECTED so the responder history screen shows the correct
+    // status instead of displaying them as PENDING forever.
+    await prisma.emergencyRequest.updateMany({
+      where: { emergencyId: id, status: 'PENDING' },
+      data: { status: 'REJECTED' },
+    });
     return await prisma.emergency.update({
       where: { id },
       data: { status: 'CANCELLED', resolvedAt: new Date() },
