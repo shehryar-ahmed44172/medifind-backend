@@ -307,7 +307,8 @@ const notifyCaregivers = async (patientId: string, emergencyData: any) => {
 };
 
 /**
- * Periodically check for active emergencies that haven't been accepted (FR5.8 Escalation)
+ * Periodically check for active emergencies that haven't been accepted (FR5.8 Escalation).
+ * Emergencies older than 2 minutes with no responder are force-cancelled by the system.
  */
 export const checkAndEscalate = async () => {
   const activeEmergencies = await emergencyRepository.findAllActive();
@@ -316,19 +317,48 @@ export const checkAndEscalate = async () => {
   for (const emergency of activeEmergencies) {
     const ageSeconds = (now.getTime() - new Date(emergency.createdAt).getTime()) / 1000;
 
-    // If not accepted within 2 minutes (120s), escalate
+    // Auto-cancel emergencies with no accepted responder after 2 minutes
     if (ageSeconds > 120) {
-      logger.warn(`Escalating emergency ${emergency.id} - no responder accepted within 2 minutes`);
+      logger.warn(`[Escalation] Auto-cancelling emergency ${emergency.id} — no responder within ${Math.round(ageSeconds)}s`);
 
-      // Notify admins and re-broadcast to a wider radius or specific escalation channel
-      getIo().emit('SYSTEM_ESCALATION', {
-        type: 'SYSTEM_ESCALATION',
-        data: {
-          emergencyId: emergency.id,
-          patientName: (emergency.patient as any)?.fullName || 'Patient',
-          ageSeconds
+      try {
+        // Force-cancel directly via repository (bypasses patient cancellation window —
+        // this is a system-initiated cleanup, not a patient-initiated cancel).
+        await emergencyRepository.cancel(emergency.id);
+
+        const cancelPayload = {
+          type: 'EMERGENCY_STATUS_CHANGE',
+          data: {
+            emergencyId: emergency.id,
+            newStatus: 'CANCELLED',
+            reason: 'NO_RESPONDER_AVAILABLE',
+            timestamp: new Date().toISOString(),
+          },
+        };
+
+        // Wake up the patient's SOS screen and admin dashboard
+        getIo().to(`emergency:${emergency.id}`).emit('EMERGENCY_STATUS_CHANGE', cancelPayload);
+        getIo().to('admin_notifications').emit('EMERGENCY_STATUS_CHANGE', cancelPayload);
+
+        // Push notification to patient so they know even if the socket missed them
+        const patientId = (emergency as any).patientId;
+        if (patientId) {
+          sendNotification(patientId, {
+            type: NotificationType.EMERGENCY_RESOLVED,
+            title: 'No Responders Available',
+            body: 'Your SOS request was automatically cancelled — no responders were nearby. Please call 1122.',
+            channels: [NotificationChannel.IN_APP, NotificationChannel.PUSH],
+            priority: 'high',
+            data: { emergencyId: emergency.id, status: 'CANCELLED' },
+          }).catch(err =>
+            logger.error(`[Escalation] Failed to push-notify patient ${patientId}: ${err.message}`)
+          );
         }
-      });
+
+        logger.info(`[Escalation] Emergency ${emergency.id} auto-cancelled and patient notified.`);
+      } catch (err: any) {
+        logger.error(`[Escalation] Failed to auto-cancel emergency ${emergency.id}: ${err.message}`);
+      }
     }
   }
 };
