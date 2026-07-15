@@ -1,0 +1,18 @@
+================================================================================
+MediFind – Emergency Assistance System
+Testing Documentation & Quality Assurance Log
+Author: afnanamin123 <afnanamin31@gmail.com>
+================================================================================
+
+[Date: 2026-07-15]
+6.2.1 Unit Testing Data
+Unit Testing validates individual components and controller functions in isolation. Each test in Table 6.1 targets a specific function with known inputs and verifies the expected output. (Test IDs: UT-001 to UT-020)
+
+Table 6.1: Unit testing results (Part 1 - Auth & User Registration)
+| Test ID | Component / Module | Test Description | Input / Steps | Expected Output | Actual Output | Status |
+| UT-001 | src/controllers/auth.ts | Register new user with valid email/phone | Email: patient1@medifind.com, Phone: 03001234567, Password: Valid123! | User created, OTP sent, status 201 | User created, OTP sent, status 201 | PASS |
+| UT-002 | src/controllers/auth.ts | OTP verification with correct code | Valid 6-digit OTP entered within 15 minutes | Account verified, status 200 | Account verified successfully | PASS |
+| UT-003 | src/controllers/auth.ts | OTP verification with expired code | OTP entered after the 15-minute expiry window | Return 400, "OTP expired" | Expired OTP rejected, status 400 | PASS |
+| UT-004 | src/controllers/auth.ts | Login with valid credentials | Phone + correct password | JWT token generated, status 200 | JWT token generated, status 200 | PASS |
+| UT-005 | src/controllers/auth.ts | Login with incorrect password | Phone + wrong password | 401 Unauthorized | 401 Unauthorized returned | PASS |
+| UT-006 | src/controllers/auth.ts | Password reset via OTP | Registered phone submitted | Reset OTP sent, new password set | Reset completed successfully | PASS |
