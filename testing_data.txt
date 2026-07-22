@@ -16,3 +16,15 @@ Table 6.1: Unit testing results (Part 1 - Auth & User Registration)
 | UT-004 | src/controllers/auth.ts | Login with valid credentials | Phone + correct password | JWT token generated, status 200 | JWT token generated, status 200 | PASS |
 | UT-005 | src/controllers/auth.ts | Login with incorrect password | Phone + wrong password | 401 Unauthorized | 401 Unauthorized returned | PASS |
 | UT-006 | src/controllers/auth.ts | Password reset via OTP | Registered phone submitted | Reset OTP sent, new password set | Reset completed successfully | PASS |
+
+[Date: 2026-07-22]
+Table 6.1: Unit testing results (Part 2 - Medical Profiles & SOS Trigger)
+| Test ID | Component / Module | Test Description | Input / Steps | Expected Output | Actual Output | Status |
+| UT-007 | medicalProfileController.ts | Create/update medical profile | Blood group, allergies, disability type | Profile saved, status 200 | Profile saved successfully | PASS |
+| UT-008 | medicalProfileController.ts | Upload medical report exceeding size limit | PDF file: 14MB | Reject, "File must not exceed 10MB" | File rejected correctly | PASS |
+| UT-009 | medicalProfileController.ts | Delete medical report | Valid reportId | Report removed from DB and storage | Removed from DB, file left in storage folder | PARTIAL PASS |
+| UT-010 | src/controllers/emergencyController.ts | Trigger SOS and capture GPS | One-tap SOS, GPS enabled | Emergency record created with coordinates | Record created with coordinates | PASS |
+| UT-011 | src/controllers/emergencyController.ts | Haversine nearby responder search | Patient coordinates, default 5 km radius | List of responders within 5 km returned | Correct responders within the configured radius returned | PASS |
+| UT-012 | src/controllers/emergencyController.ts | No automatic radius expansion when no responder is found | 0 responders within the default 5 km radius | Search remains at the configured 5 km radius; no automatic 15 km retry occurs | No automatic radius expansion performed | PASS |
+| UT-013 | src/controllers/emergencyController.ts | First-accept assignment logic | 2 responders accept within 1 second of each other | Only first accept wins, other rejected | First responder assigned; second accept rejected with HTTP 400 | PASS |
+| UT-014 | src/controllers/emergencyController.ts | Cancel SOS within cancellation window | Cancel tapped within the 60-second cancellation window | Request cancelled, no alert sent | Request cancelled, no alert sent | PASS |
