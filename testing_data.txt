@@ -28,3 +28,13 @@ Table 6.1: Unit testing results (Part 2 - Medical Profiles & SOS Trigger)
 | UT-012 | src/controllers/emergencyController.ts | No automatic radius expansion when no responder is found | 0 responders within the default 5 km radius | Search remains at the configured 5 km radius; no automatic 15 km retry occurs | No automatic radius expansion performed | PASS |
 | UT-013 | src/controllers/emergencyController.ts | First-accept assignment logic | 2 responders accept within 1 second of each other | Only first accept wins, other rejected | First responder assigned; second accept rejected with HTTP 400 | PASS |
 | UT-014 | src/controllers/emergencyController.ts | Cancel SOS within cancellation window | Cancel tapped within the 60-second cancellation window | Request cancelled, no alert sent | Request cancelled, no alert sent | PASS |
+
+[Date: 2026-07-29]
+Table 6.1: Unit testing results (Part 3 - Responders, Caregivers, Tracking & Chat)
+| Test ID | Component / Module | Test Description | Input / Steps | Expected Output | Actual Output | Status |
+| UT-015 | responderController.ts | Register responder with CNIC/employee card | Valid documents uploaded | Account created, status: PENDING | Account created as PENDING | PASS |
+| UT-016 | responderController.ts | Toggle availability status | Status: Unavailable | DB updated, status 200 | DB updated, status 200 | PASS |
+| UT-017 | caregiverController.ts | Add caregiver to patient account | Caregiver phone number | Caregiver linked, invite sent | Caregiver linked, invite sent | PASS |
+| UT-018 | adminController.ts | Approve responder verification | Valid responderId | Status updated to APPROVED, notified | Status updated, notification sent | PASS |
+| UT-019 | trackingController.ts | Calculate ETA from responder distance | Distance: 3.2 km, average speed 40 km/h | ETA ~5 minutes returned | ETA returned as approximately 5 minutes | PASS |
+| UT-020 | chatController.ts | Send real-time message via Socket.IO | Text message in active emergency session | Message delivered, saved to DB | Message delivered and saved | PASS |
