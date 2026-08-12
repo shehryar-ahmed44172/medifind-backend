@@ -53,3 +53,14 @@ Table 6.2: Integration testing results (Part 1 - Auth, SOS & Responders)
 | IT-006 | Responder <-> Tracking | GPS streaming starts after emergency accepted | Responder accepts emergency | Live tracking session begins with approximately 5-second foreground updates | Tracking started; foreground updates averaged approximately 5 seconds | PASS |
 | IT-007 | Chat <-> Socket.IO | Real-time message delivery across 3 roles | Patient, Responder, Caregiver in same chat | Message received by all instantly | Message delivered instantly to all | PASS |
 | IT-008 | SOS <-> Escalation | Emergency escalated when no responder accepts | No accept within defined time window | Escalation alert sent, admin notified | Escalation sent, but after a longer delay than the set window | PARTIAL PASS |
+
+[Date: 2026-08-12]
+Table 6.2: Integration testing results (Part 2 - File Storage, Tracking & Cancellation)
+| Test ID | Components | Test Description | Input / Steps | Expected Output | Actual Output | Status |
+| IT-009 | Medical Profile <-> File Storage | Medical report upload stored and path saved | Upload .pdf report | File in /uploads/reports/, DB path accurate | File stored, DB path accurate | PASS |
+| IT-010 | Admin <-> Audit Logs | Admin approve/reject action logged | Admin approves a responder | Log entry created with timestamp | Log entry created | PASS |
+| IT-011 | Responder <-> Voice Alert | Voice alert triggered on new assignment | New emergency assigned to responder | Voice alert plays automatically | Voice alert played correctly | PASS |
+| IT-012 | Caregiver <-> Live Tracking | Caregiver views live tracking of responder | Caregiver opens tracking screen | Responder location updates on map | Location updates correctly | PASS |
+| IT-013 | Auth <-> Middleware | Protected route validation with valid JWT | Access /api/patient/* with valid token | Middleware allows request | Request proceeds correctly | PASS |
+| IT-014 | Admin <-> Responder Monitoring | Admin dashboard reflects responder performance | Admin opens monitoring panel | Metrics (response time, accept rate) shown | Metrics shown, accept rate miscalculated for new responders | FAIL |
+| IT-015 | SOS <-> Cancellation | Cancelling SOS stops alert dispatch | Patient cancels within countdown | No alert sent to responders | No alert sent, cancellation confirmed | PASS |
