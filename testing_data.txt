@@ -64,3 +64,18 @@ Table 6.2: Integration testing results (Part 2 - File Storage, Tracking & Cancel
 | IT-013 | Auth <-> Middleware | Protected route validation with valid JWT | Access /api/patient/* with valid token | Middleware allows request | Request proceeds correctly | PASS |
 | IT-014 | Admin <-> Responder Monitoring | Admin dashboard reflects responder performance | Admin opens monitoring panel | Metrics (response time, accept rate) shown | Metrics shown, accept rate miscalculated for new responders | FAIL |
 | IT-015 | SOS <-> Cancellation | Cancelling SOS stops alert dispatch | Patient cancels within countdown | No alert sent to responders | No alert sent, cancellation confirmed | PASS |
+
+[Date: 2026-08-19]
+6.2.3 Security Testing Data
+Security Testing evaluates the internal security mechanisms, authentication flows, authorization controls, and vulnerability defenses of the system, including protection of sensitive medical data. Tests in Table 6.3 validate the overall security posture of MediFind. (Test IDs: ST-001 to ST-015)
+
+Table 6.3: Security testing results (Part 1 - Authentication, Injection & CSRF)
+| Test ID | Module | Test Description | Input / Steps | Expected Output | Actual Output | Status |
+| ST-001 | Authentication (SQLi) | SQL Injection on login phone field | ' OR '1'='1 in phone field | Input sanitized, 401 Unauthorized | Input sanitized, 401 returned | PASS |
+| ST-002 | Chat (XSS) | Cross-Site Scripting in chat message | <script>alert('XSS')</script> as message | Script stripped/escaped before render | Rendered as plain text | PASS |
+| ST-003 | Authentication | Access protected route without token | GET /api/patient/profile without Authorization | 401 Unauthorized returned | 401 returned correctly | PASS |
+| ST-004 | Authorization | Privilege escalation Patient to Admin | Patient token on /api/admin/users | Return 403 Forbidden | 403 Forbidden returned | PASS |
+| ST-005 | Profile (CSRF) | Cross-Site Request Forgery on profile update | POST from external domain | Request blocked by CSRF/SameSite | Request blocked correctly | PASS |
+| ST-006 | Document Upload | Malicious file upload validation (CNIC/report) | malware.exe as CNIC document | Rejected, 400 returned | File rejected by mimetype check | PASS |
+| ST-007 | OTP Service | OTP brute-force prevention | 20 OTP attempts in 1 minute | Rate limiter blocks after 5 attempts, 429 | Blocked after 5 attempts, 429 returned | PASS |
+| ST-008 | Authentication | JWT Tampering | Modified JWT payload sent | Token verification fails, 401 | Token fails verification | PASS |
