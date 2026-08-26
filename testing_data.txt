@@ -79,3 +79,14 @@ Table 6.3: Security testing results (Part 1 - Authentication, Injection & CSRF)
 | ST-006 | Document Upload | Malicious file upload validation (CNIC/report) | malware.exe as CNIC document | Rejected, 400 returned | File rejected by mimetype check | PASS |
 | ST-007 | OTP Service | OTP brute-force prevention | 20 OTP attempts in 1 minute | Rate limiter blocks after 5 attempts, 429 | Blocked after 5 attempts, 429 returned | PASS |
 | ST-008 | Authentication | JWT Tampering | Modified JWT payload sent | Token verification fails, 401 | Token fails verification | PASS |
+
+[Date: 2026-08-26]
+Table 6.3: Security testing results (Part 2 - RBAC, Audit & Encryption)
+| Test ID | Module | Test Description | Input / Steps | Expected Output | Actual Output | Status |
+| ST-009 | Responder <-> Medical Data | Medical data access outside active emergency | Responder requests patient data with no active assignment | Return 403 Forbidden | Data returned without active-assignment check | FAIL |
+| ST-010 | Caregiver <-> Assignment | Caregiver attempts to modify responder assignment | Caregiver sends reassign request | Return 403 Forbidden | 403 Forbidden returned | PASS |
+| ST-011 | RBAC | Responder role access isolation | Responder token on /api/admin/* | Return 403 Forbidden | 403 Forbidden returned | PASS |
+| ST-012 | Audit Logs | Audit log for sensitive actions | Perform responder approval and rejection | Actions logged with timestamp | Actions logged correctly | PASS |
+| ST-013 | HTTPS Enforcement | Ensure all traffic is over HTTPS | Send HTTP request to API | Redirect to HTTPS or reject | Redirected to HTTPS | PASS |
+| ST-014 | Session Expiry | JWT expiry enforcement | Use expired JWT token | Return 401 Unauthorized | 401 returned on expired token | PASS |
+| ST-015 | Data Encryption | Medical profile and password stored encrypted | Check DB after profile creation | Password bcrypt hash, medical fields encrypted | bcrypt hash + encrypted medical fields confirmed | PASS |
