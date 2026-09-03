@@ -90,3 +90,15 @@ Table 6.3: Security testing results (Part 2 - RBAC, Audit & Encryption)
 | ST-013 | HTTPS Enforcement | Ensure all traffic is over HTTPS | Send HTTP request to API | Redirect to HTTPS or reject | Redirected to HTTPS | PASS |
 | ST-014 | Session Expiry | JWT expiry enforcement | Use expired JWT token | Return 401 Unauthorized | 401 returned on expired token | PASS |
 | ST-015 | Data Encryption | Medical profile and password stored encrypted | Check DB after profile creation | Password bcrypt hash, medical fields encrypted | bcrypt hash + encrypted medical fields confirmed | PASS |
+
+[Date: 2026-09-03]
+6.2.4 Performance Testing Data
+Performance Testing measures system responsiveness, stability under load, database query execution times, and memory usage, with particular focus on real-time emergency response features such as SOS dispatch and live tracking. Tests in Table 6.4 validate the performance of MediFind under expected and peak conditions. (Test IDs: PT-001 to PT-015)
+
+Table 6.4: Performance testing results (Part 1 - Latency & Dispatch)
+| Test ID | Module | Test Description | Input / Steps | Expected Output | Actual Output | Status |
+| PT-001 | Page Load | Patient Dashboard rendering | Navigate to home screen after login | Render within 2.0 seconds | Loaded in 1.3 seconds | PASS |
+| PT-002 | Page Load | Admin Dashboard with large emergency history | Navigate with >1000 emergency records | Render within 3.0 seconds | Loaded in 4.8s (pagination missing) | FAIL |
+| PT-003 | API Response | SOS trigger end-to-end (tap to responders notified) | POST /api/sos/trigger | Response < 1500ms | Response in 1120ms | PASS |
+| PT-004 | API Response | Nearby responder search (Haversine, 5 km) | GET /api/responders/nearby | Response < 500ms | Response in 340ms | PASS |
+| PT-005 | Load Testing | 100 concurrent SOS triggers | Simulate 100 simultaneous SOS requests | 100% processed, no timeouts | 100% processed, avg 680ms | PASS |
