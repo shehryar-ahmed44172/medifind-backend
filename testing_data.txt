@@ -111,3 +111,12 @@ Table 6.4: Performance testing results (Part 2 - Load Testing & Query Performanc
 | PT-008 | DB Query | Responder workload analytics JOIN query | Complex JOIN across 3 tables | Query < 500ms | Query in 430ms | PASS |
 | PT-009 | Memory Usage | Bulk medical report upload (50 files) | Upload 50 PDF reports sequentially | Peak memory < 100MB | Memory peaked at 72MB | PASS |
 | PT-010 | Memory Usage | 24hr server stability with active GPS streaming | Simulated 24hr continuous tracking sessions | No memory leaks | Minor memory leak in Socket.IO GPS stream | PARTIAL PASS |
+
+[Date: 2026-09-08]
+Table 6.4: Performance testing results (Part 3 - Network, GPS Streaming & Concurrency)
+| Test ID | Module | Test Description | Input / Steps | Expected Output | Actual Output | Status |
+| PT-011 | Network Latency | SOS trigger on 3G connection | Trigger SOS under 3G throttle | Confirmation received < 3.0s | Received in 2.6s | PASS |
+| PT-012 | Peak Load | 100 simultaneous medical report uploads | 100 x 5MB PDFs simultaneously | All processed, no crash | Processed with disk I/O bottleneck (slow) | PARTIAL PASS |
+| PT-013 | GPS Streaming | Location update interval accuracy | Continuous tracking during active emergency | Foreground updates ~5s; background ~8-10s | Foreground updates ~5s; background ~8-10s | PASS |
+| PT-014 | API Response | Responder accept emergency request | POST /api/emergency/accept | Response < 500ms | Response in 290ms | PASS |
+| PT-015 | Load Testing | 200 simultaneous | 200 caregivers viewing live map | All sessions stable, no crash | All sessions stable | PASS |
