@@ -102,3 +102,12 @@ Table 6.4: Performance testing results (Part 1 - Latency & Dispatch)
 | PT-003 | API Response | SOS trigger end-to-end (tap to responders notified) | POST /api/sos/trigger | Response < 1500ms | Response in 1120ms | PASS |
 | PT-004 | API Response | Nearby responder search (Haversine, 5 km) | GET /api/responders/nearby | Response < 500ms | Response in 340ms | PASS |
 | PT-005 | Load Testing | 100 concurrent SOS triggers | Simulate 100 simultaneous SOS requests | 100% processed, no timeouts | 100% processed, avg 680ms | PASS |
+
+[Date: 2026-09-08]
+Table 6.4: Performance testing results (Part 2 - Load Testing & Query Performance)
+| Test ID | Module | Test Description | Input / Steps | Expected Output | Actual Output | Status |
+| PT-006 | Load Testing | 500 concurrent chat users | Simulate 500 users in active chats | 100% delivery, latency < 2000ms | 96% delivered, 4% delayed beyond 3s | PARTIAL PASS |
+| PT-007 | DB Query | Fetch emergency/audit logs with sort | SELECT on EmergencyLogs with sort | Query < 300ms | Query took 780ms (indexing needed) | FAIL |
+| PT-008 | DB Query | Responder workload analytics JOIN query | Complex JOIN across 3 tables | Query < 500ms | Query in 430ms | PASS |
+| PT-009 | Memory Usage | Bulk medical report upload (50 files) | Upload 50 PDF reports sequentially | Peak memory < 100MB | Memory peaked at 72MB | PASS |
+| PT-010 | Memory Usage | 24hr server stability with active GPS streaming | Simulated 24hr continuous tracking sessions | No memory leaks | Minor memory leak in Socket.IO GPS stream | PARTIAL PASS |
