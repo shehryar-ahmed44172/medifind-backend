@@ -120,3 +120,17 @@ Table 6.4: Performance testing results (Part 3 - Network, GPS Streaming & Concur
 | PT-013 | GPS Streaming | Location update interval accuracy | Continuous tracking during active emergency | Foreground updates ~5s; background ~8-10s | Foreground updates ~5s; background ~8-10s | PASS |
 | PT-014 | API Response | Responder accept emergency request | POST /api/emergency/accept | Response < 500ms | Response in 290ms | PASS |
 | PT-015 | Load Testing | 200 simultaneous | 200 caregivers viewing live map | All sessions stable, no crash | All sessions stable | PASS |
+
+[Date: 2026-09-08]
+6.2.5 Regression Testing Data
+Regression Testing in Table 6.5 verifies that recent code changes, schema migrations, and configuration updates have not broken any previously working functionality. (Test IDs: RT-001 to RT-015)
+
+Table 6.5: Regression testing results (Part 1 - Auth, Haversine, RBAC & Storage)
+| Test ID | Module | Test Description | Input / Steps | Expected Output | Actual Output | Status |
+| RT-001 | Auth Middleware | JWT persistence after refactor | Login, refresh, access protected route | Session maintained | Session maintained properly | PASS |
+| RT-002 | src/controllers/emergencyController.ts | SOS trigger after Haversine algorithm update | Trigger SOS, verify responder match | Correct responders matched within radius | Correct responders matched | PASS |
+| RT-003 | AuditService | Audit log after DB schema migration | Trigger admin approve/reject action | Action recorded in new schema | Recorded accurately | PASS |
+| RT-004 | Multer Config | File uploads after storage path update | Upload medical report | File in /uploads/reports/ | Saved in correct directory | PASS |
+| RT-005 | RBAC | Access control after adding Caregiver restrictions | Caregiver token on reassignment route | 403 Blocked, only responder allowed | Route correctly blocked | PASS |
+| RT-006 | ResponderSearch.ts | Nearby search after Haversine query optimization | Search responders within the default 5 km radius | Fast, accurate results | Accurate results returned | PASS |
+| RT-007 | ForgotPassword | Reset flow after OTP service refactor | Initiate reset, verify OTP | Reset only if OTP correct | Reset allowed on correct OTP | PASS |
