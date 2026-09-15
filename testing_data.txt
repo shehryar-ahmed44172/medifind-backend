@@ -134,3 +134,15 @@ Table 6.5: Regression testing results (Part 1 - Auth, Haversine, RBAC & Storage)
 | RT-005 | RBAC | Access control after adding Caregiver restrictions | Caregiver token on reassignment route | 403 Blocked, only responder allowed | Route correctly blocked | PASS |
 | RT-006 | ResponderSearch.ts | Nearby search after Haversine query optimization | Search responders within the default 5 km radius | Fast, accurate results | Accurate results returned | PASS |
 | RT-007 | ForgotPassword | Reset flow after OTP service refactor | Initiate reset, verify OTP | Reset only if OTP correct | Reset allowed on correct OTP | PASS |
+
+[Date: 2026-09-15]
+Table 6.5: Regression testing results (Part 2 - Responder Verification, Tracking & Escalation)
+| Test ID | Module | Test Description | Input / Steps | Expected Output | Actual Output | Status |
+| RT-008 | ProfileUpload | Medical report rendering after UI update | View medical profile screen | Reports render without broken links | Reports render properly | PASS |
+| RT-009 | ResponderVerification | Document validation after new fields added | Submit responder registration | Validation passes, status PENDING | Failed to save employee card field | FAIL |
+| RT-010 | TrackingModule | GPS timestamps after timezone fix | Track responder across local times | Saved UTC, displayed in local time | Times sync perfectly | PASS |
+| RT-011 | SOSController | Emergency status update after API refactor | Responder marks emergency resolved | Status reflects immediately in DB | Status updated correctly | PASS |
+| RT-012 | NotificationService | Voice/push alerts after service refactor | Trigger emergency assignment | Correct voice alert dispatched | Alert dispatched correctly | PASS |
+| RT-013 | ChatModule | Chat history search after adding filters | Search chat by date range | Results filtered correctly | Results filtered accurately | PASS |
+| RT-014 | EscalationTimer | Escalation timer after countdown refactor | No responder accepts within window | Timer escalates at correct threshold | Timer escalates correctly | PASS |
+| RT-015 | CaregiverLinking | Caregiver linking after schema update | Patient adds new caregiver | Caregiver linked with updated schema | Caregiver linked correctly | PASS |
