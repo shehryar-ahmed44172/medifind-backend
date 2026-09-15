@@ -146,3 +146,18 @@ Table 6.5: Regression testing results (Part 2 - Responder Verification, Tracking
 | RT-013 | ChatModule | Chat history search after adding filters | Search chat by date range | Results filtered correctly | Results filtered accurately | PASS |
 | RT-014 | EscalationTimer | Escalation timer after countdown refactor | No responder accepts within window | Timer escalates at correct threshold | Timer escalates correctly | PASS |
 | RT-015 | CaregiverLinking | Caregiver linking after schema update | Patient adds new caregiver | Caregiver linked with updated schema | Caregiver linked correctly | PASS |
+
+[Date: 2026-09-15]
+6.3.1 Functional Testing Data
+Functional Testing validates every functional requirement (FR.01–FR.70) against its specified expected behavior. Table 6.6 documents a total of 74 test cases, covering all functional requirements along with additional edge-case scenarios identified from the requirement and design analysis. (Test IDs: FT-001 to FT-074)
+
+Table 6.6: Functional testing results (Part 1 - Auth, Roles & RBAC)
+| Test ID | Requirement | Test Description | Test Data / Steps | Expected Result | Actual Result | Status |
+| FT-001 | FR.01 – User Registration | Register with valid email/phone | Email: ali@medifind.com, Phone: 03001112222 | Account created, OTP sent | Account created, OTP sent | PASS |
+| FT-002 | FR.02 – OTP Verification | Verify registration using correct OTP | OTP: 482193 (valid) | Account verified, status 200 | Account verified | PASS |
+| FT-003 | FR.03 – User Login | Login with valid credentials | Phone: 03001112222, Pass: ValidPass123! | Redirected to role dashboard | Redirected to Patient Dashboard | PASS |
+| FT-004 | FR.04 – Role Support | Register as each of 3 roles | Select role during signup (Patient/Responder/Caregiver) | Correct role assigned and dashboard shown | Each role registered and redirected correctly | PASS |
+| FT-005 | FR.05 – Admin Web Dashboard | Admin logs in via secure web dashboard | admin@medifind.com on web portal | Redirected to Admin Dashboard | Redirected correctly | PASS |
+| FT-006 | FR.06 – Password Reset | Reset password using OTP verification | Phone: registered number | OTP sent, password reset successfully | OTP sent, reset completed | PASS |
+| FT-007 | FR.07 – RBAC | Enforce role-based access control | Patient accesses /api/admin route | Return 403 Forbidden | 403 Forbidden returned | PASS |
+| FT-008 | FR.08 – Credential Validation | Validate credentials before granting access | Incorrect password entered | Access denied, error shown | Access denied correctly | PASS |
