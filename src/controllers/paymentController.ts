@@ -1,9 +1,9 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
+import logger from '../utils/logger';
 import { stripe, planAmount } from '../services/stripeService';
 import { sendSuccess, sendError } from '../utils/response';
 
-const prisma = new PrismaClient();
 
 /**
  * POST /api/payments/create-intent
@@ -30,7 +30,7 @@ export const createPaymentIntent = async (req: Request, res: Response) => {
       automatic_payment_methods: { enabled: true },
     });
 
-    sendSuccess(res, { clientSecret: paymentIntent.client_secret }, 'Payment intent created');
+    sendSuccess(res, { clientSecret: paymentIntent.client_secret, paymentIntentId: paymentIntent.id }, 'Payment intent created');
   } catch (error: any) {
     sendError(res, error.message, 500);
   }
@@ -51,9 +51,11 @@ export const handleWebhook = async (req: Request, res: Response) => {
     try {
       event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
     } catch (err: any) {
-      console.error('[Stripe Webhook] Signature verification failed:', err.message);
+      logger.error(`[Stripe Webhook] Signature verification failed: ${err.message}`);
       return res.status(400).send(`Webhook Error: ${err.message}`);
     }
+  } else if (process.env.NODE_ENV === 'production') {
+    return res.status(400).send('Webhook signature required');
   } else {
     // No secret configured — parse body directly (dev/testing only)
     try {
@@ -67,15 +69,15 @@ export const handleWebhook = async (req: Request, res: Response) => {
     const intent = event.data.object;
     const { userId, plan } = intent.metadata ?? {};
 
-    if (userId && plan) {
+    if (userId && ['PROFESSIONAL', 'EXECUTIVE'].includes(plan) && intent.amount_received >= planAmount(plan)) {
       try {
         await prisma.user.update({
           where: { id: userId },
           data: { subscriptionPlan: plan as any },
         });
-        console.log(`[Stripe] Upgraded user ${userId} to ${plan}`);
+        logger.info(`[Stripe] Upgraded user ${userId} to ${plan}`);
       } catch (err: any) {
-        console.error('[Stripe Webhook] DB update failed:', err.message);
+        logger.error(`[Stripe Webhook] DB update failed: ${err.message}`);
       }
     }
   }

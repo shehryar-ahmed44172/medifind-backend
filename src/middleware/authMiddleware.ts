@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import { verifyToken } from '../utils/jwt';
+import { verifyAccessToken } from '../utils/jwt';
+import prisma from '../lib/prisma';
 import { sendError } from '../utils/response';
 import { TokenPayload } from '../types/auth';
 import logger from '../utils/logger';
@@ -13,21 +14,50 @@ declare global {
   }
 }
 
-export const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
+/*
+ * Short-lived cache of account status so every request doesn't hit the DB,
+ * while deactivated/deleted accounts still lose access within seconds.
+ */
+const ACCOUNT_STATUS_TTL_MS = 15_000;
+const accountStatusCache = new Map<string, { isActive: boolean; expires: number }>();
+
+export const invalidateAccountStatus = (userId: string) => {
+  accountStatusCache.delete(userId);
+};
+
+const isAccountActive = async (userId: string): Promise<boolean> => {
+  const cached = accountStatusCache.get(userId);
+  if (cached && cached.expires > Date.now()) return cached.isActive;
+
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { isActive: true } });
+  const isActive = !!user?.isActive;
+  accountStatusCache.set(userId, { isActive, expires: Date.now() + ACCOUNT_STATUS_TTL_MS });
+  return isActive;
+};
+
+export const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const authHeader = req.headers.authorization;
-    logger.info(`[AuthMiddleware] URL: ${req.originalUrl}, Header: ${authHeader ? (authHeader.startsWith('Bearer ') ? 'Bearer [PRESENT]' : 'Malformed') : 'MISSING'}`);
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return sendError(res, 'Missing or invalid authorization header', 401);
     }
 
     const token = authHeader.substring(7);
-    const payload = verifyToken(token);
+    const payload = verifyAccessToken(token);
 
     if (!payload) {
       logger.warn(`[AuthMiddleware] Invalid or expired token for ${req.originalUrl}`);
       return sendError(res, 'Invalid or expired token', 401);
+    }
+
+    if (!(await isAccountActive(payload.userId))) {
+      return sendError(res, 'Your account has been deactivated. Please contact support.', 401);
+    }
+
+    // Maintenance mode: only administrators may use the API
+    if (payload.role !== 'ADMIN' && readSettings().maintenanceMode) {
+      return sendError(res, 'MediFind is under maintenance. Please try again shortly. For emergencies call 1122.', 503);
     }
 
     req.user = payload;
@@ -40,10 +70,9 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
 export const roleMiddleware = (...allowedRoles: string[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user || !allowedRoles.includes(req.user.role)) {
-      console.log(`[Role Check] FAILED: User ${req.user?.userId} (Role: ${req.user?.role}) tried to access ${req.originalUrl}. Allowed roles: ${allowedRoles}`);
+      logger.warn(`[Role Check] User ${req.user?.userId} (${req.user?.role}) denied ${req.originalUrl}; allowed: ${allowedRoles}`);
       return sendError(res, 'Unauthorized', 403);
     }
-    console.log(`[Role Check] PASSED: User ${req.user?.userId} (Role: ${req.user?.role}) for ${req.originalUrl}`);
     next();
   };
 };

@@ -22,7 +22,7 @@ function encryptSensitiveFields(data: Record<string, any>): Record<string, any> 
   return out;
 }
 
-function decryptSensitiveFields(profile: Record<string, any>): Record<string, any> {
+export function decryptSensitiveFields(profile: Record<string, any>): Record<string, any> {
   if (!profile) return profile;
   const out = { ...profile };
   for (const field of SENSITIVE_FIELDS) {
@@ -65,14 +65,22 @@ export const updateMedicalProfile = async (userId: string, profileData: any) => 
   const user = await userRepository.findById(userId);
   if (!user) throw new Error('User not found');
 
+  // Row metadata must never be written back through the upsert
+  const { id: _id, userId: _userId, createdAt: _c, updatedAt: _u, user: _user, ...fields } = profileData || {};
+
+  // Fields the client didn't send keep their current value (e.g. saving the
+  // profile form must not wipe emergency contacts or quick phrases)
+  const existing = await medicalProfileRepository.findByUserId(userId);
+  const current: Record<string, any> = existing ? decryptSensitiveFields(existing as any) : {};
+
   const raw = {
-    ...profileData,
-    chronicDiseases:   profileData.chronicDiseases   ?? [],
-    allergies:         profileData.allergies          ?? [],
-    medications:       profileData.medications        ?? [],
-    emergencyContacts: profileData.emergencyContacts  ?? [],
-    disabilities:      profileData.disabilities       ?? [],
-    predefinedMessages: profileData.predefinedMessages ?? [],
+    ...fields,
+    chronicDiseases:    fields.chronicDiseases    ?? current.chronicDiseases    ?? [],
+    allergies:          fields.allergies          ?? current.allergies          ?? [],
+    medications:        fields.medications        ?? current.medications        ?? [],
+    emergencyContacts:  fields.emergencyContacts  ?? current.emergencyContacts  ?? [],
+    disabilities:       fields.disabilities       ?? current.disabilities       ?? [],
+    predefinedMessages: fields.predefinedMessages ?? current.predefinedMessages ?? [],
   };
 
   const dataToUpsert = encryptSensitiveFields(raw);

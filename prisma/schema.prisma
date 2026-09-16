@@ -159,6 +159,8 @@ model EmergencyRequest {
   acceptedAt              DateTime?
   rejectedAt              DateTime?
   rejectionReason         String?
+  patientRating           Int?
+  ratedAt                 DateTime?
   createdAt               DateTime               @default(now())
   updatedAt               DateTime               @updatedAt
   emergency               Emergency              @relation(fields: [emergencyId], references: [id], onDelete: Cascade)

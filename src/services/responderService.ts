@@ -2,223 +2,245 @@ import { responderRepository } from '../repositories/responderRepository';
 import { emergencyRepository } from '../repositories/emergencyRepository';
 import { getIo } from '../server';
 import prisma from '../lib/prisma';
-import { decryptJson } from '../utils/encryption';
+import { encrypt } from '../utils/encryption';
+import { decryptSensitiveFields } from './medicalProfileService';
+import { sendNotification } from './notification';
+import { NotificationType, NotificationChannel, NotificationPayload } from '../types/notification';
+import * as caregiverRepository from '../repositories/caregiverRepository';
+import { redispatchEmergency } from './emergencyService';
+import logger from '../utils/logger';
 
 /**
  * Responder accepts an emergency request.
- * Uses a transaction to handle race conditions (FR5.5 - FR5.7)
+ * First-accept-wins: the request and the emergency are claimed with conditional
+ * updates inside a transaction, so two simultaneous accepts can never both succeed (FR5.5 - FR5.7).
  */
 export const acceptEmergencyRequest = async (emergencyId: string, responderId: string) => {
   const result = await prisma.$transaction(async (tx) => {
-    // 1. Check if the emergency is still ACTIVE and unassigned
     const emergency = await tx.emergency.findUnique({
       where: { id: emergencyId },
-      include: { 
-        emergencyRequests: true,
-        medicalReports: true
-      }
+      include: {
+        patient: { select: { id: true, fullName: true, phoneNumber: true, medicalProfile: true } },
+      },
     });
 
     if (!emergency) throw new Error('Emergency not found');
-    if (emergency.status !== 'ACTIVE') {
-      throw new Error('This emergency has already been assigned or cancelled.');
-    }
 
-    // 2. Check if this specific responder's request is still PENDING
-    const request = await tx.emergencyRequest.findUnique({
-      where: { emergencyId_responderId: { emergencyId, responderId } }
+    // A row count of 0 means another responder (or a cancellation) got there first —
+    // throwing rolls the whole transaction back.
+    const claimedRequest = await tx.emergencyRequest.updateMany({
+      where: { emergencyId, responderId, status: 'PENDING' },
+      data: { status: 'ACCEPTED', acceptedAt: new Date() },
     });
-
-    if (!request || request.status !== 'PENDING') {
+    if (claimedRequest.count === 0) {
       throw new Error('This request is no longer valid or has been responded to.');
     }
 
-    // 3. Update This responder's request to ACCEPTED
-    const acceptedRequest = await tx.emergencyRequest.update({
-      where: { emergencyId_responderId: { emergencyId, responderId } },
-      data: { 
-        status: 'ACCEPTED',
-        acceptedAt: new Date()
-      }
+    const claimedEmergency = await tx.emergency.updateMany({
+      where: { id: emergencyId, status: 'ACTIVE' },
+      data: { status: 'ASSIGNED' },
     });
+    if (claimedEmergency.count === 0) {
+      throw new Error('This emergency has already been assigned or cancelled.');
+    }
 
-    // 4. Update the Emergency status to ASSIGNED and assign this responder
-    await tx.emergency.update({
-      where: { id: emergencyId },
-      data: { status: 'ASSIGNED' }
-    });
-
-    // 5. Systematically CLOSE (mark as COMPLETED/EXPIRED) all other pending requests for this SOS
+    // Close every other pending request for this SOS
     await tx.emergencyRequest.updateMany({
-      where: {
-        emergencyId,
-        responderId: { not: responderId },
-        status: 'PENDING'
-      },
-      data: { status: 'COMPLETED' }
+      where: { emergencyId, responderId: { not: responderId }, status: 'PENDING' },
+      data: { status: 'COMPLETED' },
     });
 
-    // 6. Set this responder's availability to false
     await tx.responder.update({
       where: { userId: responderId },
-      data: { isAvailable: false }
+      data: { isAvailable: false },
     });
 
-    // 7. REAL-TIME: Notify all other responders to clear the notification from their screens
-    // We broadcast to the generic 'emergencies' room or specific responder IDs
-    getIo().emit('EMERGENCY_ASSIGNED', {
-      type: 'EMERGENCY_ASSIGNED',
-      data: { emergencyId, assignedTo: responderId }
+    const acceptedRequest = await tx.emergencyRequest.findUnique({
+      where: { emergencyId_responderId: { emergencyId, responderId } },
     });
 
-    // Notify the patient and caregivers that help is on the way (FR7.4)
-    // Include full responder profile so the patient's tracking screen can show
-    // an InDrive-style card (photo, rating, vehicle, number plate).
-    const responderDetails = await tx.responder.findUnique({
-      where: { userId: responderId },
-      include: {
-        user: {
-          select: {
-            fullName: true,
-            phoneNumber: true,
-            profileImageUrl: true,
-          }
-        }
-      }
-    });
+    return { acceptedRequest: acceptedRequest!, emergency };
+  });
 
-    getIo().to(`emergency:${emergencyId}`).emit('EMERGENCY_STATUS_CHANGE', {
-      type: 'EMERGENCY_STATUS_CHANGE',
-      data: {
-        emergencyId,
-        newStatus: 'ASSIGNED',
-        responderId,
-        // Basic contact
-        responderName:         responderDetails?.user.fullName,
-        responderPhone:        responderDetails?.user.phoneNumber,
-        // Profile card extras
-        responderProfileImage: responderDetails?.user.profileImageUrl ?? null,
-        responderRating:       responderDetails?.rating ?? 5.0,
-        responderType:         responderDetails?.responderType ?? null,
-        organization:          responderDetails?.organization ?? null,
-        // Vehicle / motorbike details
-        vehicleType:           (responderDetails as any)?.vehicleType ?? 'MOTORBIKE_AMBULANCE',
-        motorbikeNumber:       (responderDetails as any)?.motorbikeNumber ?? null,
-      }
-    });
+  const { emergency } = result;
+  const patient = emergency.patient;
+  const medicalProfile: any = patient?.medicalProfile ? decryptSensitiveFields(patient.medicalProfile as any) : null;
 
-    // Also join responder to the location room for this emergency automatically
-    // Note: We'll do this via the socket listener in server.ts if they join room explicitly,
-    // but here we ensure the room exists.
+  // Real-time events are emitted only after the transaction has committed
+  const responderDetails = await prisma.responder.findUnique({
+    where: { userId: responderId },
+    include: { user: { select: { fullName: true, phoneNumber: true, profileImageUrl: true } } },
+  });
 
-    return {
-      ...acceptedRequest,
-      emergency: {
-        id: emergency.id,
-        latitude: emergency.latitude,
-        longitude: emergency.longitude,
-        emergencyType: emergency.emergencyType,
-        additionalInfo: emergency.additionalInfo,
-        voiceSummary: (emergency as any).voiceSummary,
-        medicalProfile: emergency.medicalReports,
-        patientId: emergency.patientId,
-      }
-    };
+  // Clear the alert from every other responder's screen
+  getIo().to('responders').emit('EMERGENCY_ASSIGNED', {
+    type: 'EMERGENCY_ASSIGNED',
+    data: { emergencyId, assignedTo: responderId },
+  });
+
+  const assignedPayload = {
+    type: 'EMERGENCY_STATUS_CHANGE',
+    data: {
+      emergencyId,
+      newStatus: 'ASSIGNED',
+      responderId,
+      responderName:         responderDetails?.user.fullName,
+      responderPhone:        responderDetails?.user.phoneNumber,
+      responderProfileImage: responderDetails?.user.profileImageUrl ?? null,
+      responderRating:       responderDetails?.rating ?? 5.0,
+      responderType:         responderDetails?.responderType ?? null,
+      organization:          responderDetails?.organization ?? null,
+      vehicleType:           responderDetails?.vehicleType ?? 'MOTORBIKE_AMBULANCE',
+      motorbikeNumber:       responderDetails?.motorbikeNumber ?? null,
+      timestamp:             new Date().toISOString(),
+    },
+  };
+  getIo().to(`emergency:${emergencyId}`).emit('EMERGENCY_STATUS_CHANGE', assignedPayload);
+  getIo().to('admin_notifications').emit('EMERGENCY_STATUS_CHANGE', assignedPayload);
+
+  // Push to patient and linked caregivers so they know even if the app is in the background
+  const responderName = responderDetails?.user.fullName || 'A responder';
+  const assignedNotice: NotificationPayload = {
+    type: NotificationType.RESPONDER_ASSIGNED,
+    title: 'Help is on the way',
+    body: `${responderName} accepted your SOS and is heading to you.`,
+    channels: [NotificationChannel.IN_APP, NotificationChannel.PUSH],
+    priority: 'high',
+    data: { emergencyId, status: 'ASSIGNED', responderId },
+  };
+  sendNotification(emergency.patientId, assignedNotice).catch(err =>
+    logger.error(`[Accept] Failed to notify patient ${emergency.patientId}: ${err.message}`));
+  notifyLinkedCaregivers(emergency.patientId, {
+    ...assignedNotice,
+    body: `${responderName} is responding to ${patient?.fullName || 'your patient'}'s emergency.`,
   });
 
   // Generate AI medical brief outside the transaction so it doesn't hold the DB connection
   let aiBrief: { brief: string; criticalFlags: string[]; recommendedActions: string[] } | null = null;
-  let patient: any = null;
   try {
     const { generateMedicalBrief } = await import('./aiService');
-    patient = await prisma.user.findUnique({
-      where: { id: result.emergency.patientId },
-      include: { medicalProfile: true },
-    });
     aiBrief = await generateMedicalBrief({
       patientName: patient?.fullName || 'Unknown',
-      emergencyType: result.emergency.emergencyType,
-      bloodType: patient?.medicalProfile?.bloodType || 'Unknown',
-      allergies: (decryptJson(patient?.medicalProfile?.allergies) as string[]) || [],
-      chronicDiseases: (decryptJson(patient?.medicalProfile?.chronicDiseases) as string[]) || [],
-      medications: (decryptJson(patient?.medicalProfile?.medications) as string[]) || [],
-      patientType: patient?.medicalProfile?.patientType || 'NORMAL',
-      additionalInfo: result.emergency.additionalInfo || '',
+      emergencyType: emergency.emergencyType,
+      bloodType: medicalProfile?.bloodType || 'Unknown',
+      allergies: (medicalProfile?.allergies as string[]) || [],
+      chronicDiseases: (medicalProfile?.chronicDiseases as string[]) || [],
+      medications: (medicalProfile?.medications as string[]) || [],
+      patientType: medicalProfile?.patientType || 'NORMAL',
+      additionalInfo: emergency.additionalInfo || '',
     });
   } catch { /* brief is optional — never block the accept flow */ }
 
-  // Auto-message responder when patient is deaf — creates or reuses the emergency chat room
-  if (patient?.medicalProfile?.patientType === 'DEAF') {
+  // Deaf patient: open the emergency chat with a system briefing for the responder
+  if (medicalProfile?.patientType === 'DEAF') {
     try {
-      const patientId = result.emergency.patientId;
-      const emergencyId = result.emergency.id || result.emergencyId;
-
       let chatRoom = await prisma.chatRoom.findFirst({
-        where: { roomType: 'EMERGENCY_RESPONDER', patientId, responderId, emergencyId },
+        where: { roomType: 'EMERGENCY_RESPONDER', patientId: emergency.patientId, responderId, emergencyId },
       });
       if (!chatRoom) {
         chatRoom = await prisma.chatRoom.create({
-          data: { roomType: 'EMERGENCY_RESPONDER', patientId, responderId, emergencyId } as any,
+          data: { roomType: 'EMERGENCY_RESPONDER', patientId: emergency.patientId, responderId, emergencyId },
         });
       }
 
+      const content = '⚠️ SYSTEM: This patient is DEAF and cannot speak or hear. Please communicate exclusively via this text chat. Do NOT ring the doorbell — knock loudly and wave. The patient may also use quick-tap message cards.';
       const autoMsg = await prisma.chatMessage.create({
-        data: {
-          roomId: chatRoom.id,
-          senderId: patientId,
-          content: '⚠️ SYSTEM: This patient is DEAF and cannot speak or hear. Please communicate exclusively via this text chat. Do NOT ring the doorbell — knock loudly and wave. The patient may also use quick-tap message cards.',
-          messageType: 'TEXT',
-        } as any,
+        data: { roomId: chatRoom.id, senderId: emergency.patientId, content: encrypt(content), messageType: 'TEXT' },
       });
 
-      getIo().to(`chat:${chatRoom.id}`).emit('NEW_MESSAGE', autoMsg);
+      getIo().to(`chat:${chatRoom.id}`).emit('message:new', { ...autoMsg, content });
     } catch (err: any) {
-      // Auto-message is non-critical — log and continue
-      const logger = (await import('../utils/logger')).default;
-      logger.error(`[DeafAutoMsg] Failed for emergency ${result.emergency.id}: ${err.message}`);
+      logger.error(`[DeafAutoMsg] Failed for emergency ${emergencyId}: ${err.message}`);
     }
   }
 
-  return { ...result, aiBrief };
+  return {
+    ...result.acceptedRequest,
+    emergency: {
+      id: emergency.id,
+      latitude: emergency.latitude,
+      longitude: emergency.longitude,
+      emergencyType: emergency.emergencyType,
+      additionalInfo: emergency.additionalInfo,
+      voiceSummary: emergency.voiceSummary,
+      patientId: emergency.patientId,
+      patientName: patient?.fullName,
+      patientPhone: patient?.phoneNumber,
+      medicalProfile,
+    },
+    aiBrief,
+  };
+};
+
+/** Fire-and-forget notification to every caregiver linked to a patient. */
+const notifyLinkedCaregivers = (patientId: string, payload: NotificationPayload) => {
+  const emergencyId = payload.data?.emergencyId;
+  caregiverRepository.getCaregiversForPatient(patientId)
+    .then(links => {
+      for (const link of links) {
+        if (emergencyId) {
+          getIo().in(`notifications:${link.caregiverId}`).socketsJoin([`emergency:${emergencyId}`, `location:${emergencyId}`]);
+        }
+        sendNotification(link.caregiverId, payload).catch(err =>
+          logger.error(`Failed to notify caregiver ${link.caregiverId}: ${err.message}`));
+      }
+    })
+    .catch(err => logger.error(`Failed to load caregivers for ${patientId}: ${err.message}`));
 };
 
 /**
- * Mark an emergency as RESOLVED (Completed).
+ * Mark an emergency as RESOLVED. Only the assigned responder may resolve it.
  */
 export const resolveEmergency = async (emergencyId: string, responderId: string) => {
-  return await prisma.$transaction(async (tx) => {
+  const updatedEmergency = await prisma.$transaction(async (tx) => {
     const emergency = await tx.emergency.findUnique({ where: { id: emergencyId } });
     if (!emergency) throw new Error('Emergency not found');
-    
-    // Update emergency status
-    const updatedEmergency = await tx.emergency.update({
-      where: { id: emergencyId },
-      data: {
-        status: 'RESOLVED',
-        resolvedAt: new Date()
-      }
-    });
 
-    // Update the request status (the one for this responder)
-    await tx.emergencyRequest.updateMany({
+    const completed = await tx.emergencyRequest.updateMany({
       where: { emergencyId, responderId, status: 'ACCEPTED' },
-      data: { status: 'COMPLETED' }
+      data: { status: 'COMPLETED' },
+    });
+    if (completed.count === 0) {
+      throw new Error('Only the assigned responder can resolve this emergency.');
+    }
+
+    const updated = await tx.emergency.update({
+      where: { id: emergencyId },
+      data: { status: 'RESOLVED', resolvedAt: new Date() },
     });
 
-    // Set responder back to available
     await tx.responder.update({
       where: { userId: responderId },
-      data: { isAvailable: true }
+      data: { isAvailable: true },
     });
 
-    // Broadcast resolution
-    getIo().to(`emergency:${emergencyId}`).emit('EMERGENCY_STATUS_CHANGE', {
-      type: 'EMERGENCY_STATUS_CHANGE',
-      data: { emergencyId, newStatus: 'RESOLVED' }
-    });
-
-    return updatedEmergency;
+    return updated;
   });
+
+  const resolvedPayload = {
+    type: 'EMERGENCY_STATUS_CHANGE',
+    data: { emergencyId, newStatus: 'RESOLVED', responderId, timestamp: new Date().toISOString() },
+  };
+  getIo().to(`emergency:${emergencyId}`).emit('EMERGENCY_STATUS_CHANGE', resolvedPayload);
+  getIo().to('admin_notifications').emit('EMERGENCY_STATUS_CHANGE', resolvedPayload);
+
+  const resolvedNotice: NotificationPayload = {
+    type: NotificationType.EMERGENCY_RESOLVED,
+    title: 'Emergency resolved',
+    body: 'The responder has marked your emergency as resolved. Please rate your experience.',
+    channels: [NotificationChannel.IN_APP, NotificationChannel.PUSH],
+    priority: 'normal',
+    data: { emergencyId, status: 'RESOLVED', responderId },
+  };
+  sendNotification(updatedEmergency.patientId, resolvedNotice).catch(err =>
+    logger.error(`[Resolve] Failed to notify patient: ${err.message}`));
+  notifyLinkedCaregivers(updatedEmergency.patientId, {
+    ...resolvedNotice,
+    type: NotificationType.PATIENT_SAFE,
+    body: "Your patient's emergency has been resolved by the responder.",
+  });
+
+  return updatedEmergency;
 };
 
 /**
@@ -249,54 +271,49 @@ export const rejectEmergencyRequest = async (
 
 /**
  * Responder cancels an already accepted assignment.
+ * The emergency goes back to ACTIVE and is re-dispatched to other nearby responders.
  */
 export const cancelAcceptedEmergency = async (emergencyId: string, responderId: string) => {
-  return await prisma.$transaction(async (tx) => {
-    // 1. Verify the request is currently ACCEPTED by this responder
-    const request = await tx.emergencyRequest.findUnique({
-      where: { emergencyId_responderId: { emergencyId, responderId } }
+  const emergency = await prisma.$transaction(async (tx) => {
+    const dropped = await tx.emergencyRequest.updateMany({
+      where: { emergencyId, responderId, status: 'ACCEPTED' },
+      data: { status: 'REJECTED', rejectedAt: new Date(), rejectionReason: 'Cancelled by responder after accepting' },
     });
-
-    if (!request || request.status !== 'ACCEPTED') {
+    if (dropped.count === 0) {
       throw new Error('You do not have an active accepted request for this emergency.');
     }
 
-    // 2. Mark request as REJECTED (or CANCELLED if we had that status)
-    await tx.emergencyRequest.update({
-      where: { emergencyId_responderId: { emergencyId, responderId } },
-      data: { status: 'REJECTED' }
-    });
-
-    // 3. Set responder back to available
     await tx.responder.update({
       where: { userId: responderId },
-      data: { isAvailable: true }
+      data: { isAvailable: true },
     });
 
-    // 4. Check if we should revert the emergency to ACTIVE
-    // We only do this if NO other responder has accepted it (which should be true if this one was ACCEPTED)
-    // AND if there are no other responders currently responding.
-    const emergency = await tx.emergency.findUnique({ where: { id: emergencyId } });
-    
-    if (emergency && emergency.status === 'ASSIGNED') {
-      await tx.emergency.update({
-        where: { id: emergencyId },
-        data: { status: 'ACTIVE' }
-      });
-    }
-
-    // 5. Notify the patient that the responder has cancelled
-    getIo().to(`emergency:${emergencyId}`).emit('EMERGENCY_STATUS_CHANGE', {
-      type: 'EMERGENCY_STATUS_CHANGE',
-      data: { 
-        emergencyId, 
-        newStatus: 'ACTIVE',
-        message: 'The assigned responder is no longer available. Re-broadcasting your request.'
-      }
+    await tx.emergency.updateMany({
+      where: { id: emergencyId, status: 'ASSIGNED' },
+      data: { status: 'ACTIVE' },
     });
 
-    return { success: true };
+    return tx.emergency.findUnique({ where: { id: emergencyId } });
   });
+
+  const payload = {
+    type: 'EMERGENCY_STATUS_CHANGE',
+    data: {
+      emergencyId,
+      newStatus: 'ACTIVE',
+      message: 'The assigned responder is no longer available. Finding another responder for you.',
+      timestamp: new Date().toISOString(),
+    },
+  };
+  getIo().to(`emergency:${emergencyId}`).emit('EMERGENCY_STATUS_CHANGE', payload);
+  getIo().to('admin_notifications').emit('EMERGENCY_STATUS_CHANGE', payload);
+
+  if (emergency && emergency.status === 'ACTIVE') {
+    redispatchEmergency(emergencyId).catch(err =>
+      logger.error(`[Redispatch] Failed for ${emergencyId}: ${err.message}`));
+  }
+
+  return { success: true };
 };
 
 /**
@@ -395,14 +412,14 @@ export const rateResponder = async (
 
   // Check for duplicate rating (stored on the EmergencyRequest as patientRating)
   const completedRequest = emergency.emergencyRequests[0];
-  if ((completedRequest as any).patientRating != null) {
+  if (completedRequest.patientRating != null) {
     throw new Error('You have already rated this responder for this emergency');
   }
 
   // Save rating on the request record (prevents double-rating)
   await prisma.emergencyRequest.update({
     where: { id: completedRequest.id },
-    data: { patientRating: stars } as any,
+    data: { patientRating: stars, ratedAt: new Date() },
   });
 
   // Update running average on the Responder table
@@ -451,10 +468,21 @@ export const getActiveEmergencyRequests = async (responderId: string) => {
     orderBy: { createdAt: 'desc' }
   });
 
-  // Map to a format that the mobile app expects (Emergency objects with requests array)
-  return requests.map(req => ({
-    ...req.emergency,
-    status: req.status === 'ACCEPTED' ? 'ASSIGNED' : 'ACTIVE',
-    requests: [req] // Include the specific request
-  }));
+  // Map to a format that the mobile app expects (Emergency objects with requests array).
+  // Pending requests whose emergency is no longer open are stale and hidden.
+  return requests
+    .filter(req => req.status === 'ACCEPTED' || req.emergency.status === 'ACTIVE')
+    .map(({ emergency, ...request }) => ({
+      ...emergency,
+      patient: emergency.patient && {
+        ...emergency.patient,
+        medicalProfile: emergency.patient.medicalProfile
+          ? decryptSensitiveFields(emergency.patient.medicalProfile as any)
+          : null,
+      },
+      status: request.status === 'ACCEPTED' ? 'ASSIGNED' : 'ACTIVE',
+      distanceKm: request.distanceKm,
+      estimatedArrivalMinutes: request.estimatedArrivalMinutes,
+      requests: [request],
+    }));
 };

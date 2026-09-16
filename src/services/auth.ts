@@ -1,5 +1,5 @@
 import { hashPassword, verifyPassword } from '../utils/password';
-import { generateAccessToken, generateRefreshToken, decodeToken } from '../utils/jwt';
+import { generateAccessToken, generateRefreshToken, verifyToken } from '../utils/jwt';
 import { userRepository } from '../repositories/userRepository';
 import { passwordResetRepository } from '../repositories/passwordResetRepository';
 import { RegisterRequest, AuthResponse } from '../types/auth';
@@ -9,6 +9,19 @@ import crypto from 'crypto';
 import prisma from '../lib/prisma';
 import { getIo } from '../server';
 import logger from '../utils/logger';
+
+/*
+ * Brute-force guard for 6-digit codes: after MAX_OTP_ATTEMPTS wrong guesses the
+ * current code is burned and the user must request a new one.
+ */
+const MAX_OTP_ATTEMPTS = 5;
+const otpAttempts = new Map<string, number>();
+
+const registerOtpFailure = (key: string): boolean => {
+  const attempts = (otpAttempts.get(key) || 0) + 1;
+  otpAttempts.set(key, attempts);
+  return attempts >= MAX_OTP_ATTEMPTS;
+};
 
 /**
  * Register a new user
@@ -100,7 +113,7 @@ export const register = async (data: RegisterRequest) => {
 
   // For Responders: Notify Admin of new application
   try {
-    getIo().emit('admin_notification', {
+    getIo().to('admin_notifications').emit('admin_notification', {
       id: `reg-${user.id}`,
       type: 'RESPONDER_REGISTRATION',
       title: 'New Responder Application',
@@ -129,7 +142,7 @@ export const register = async (data: RegisterRequest) => {
  * Send verification OTP code to user email
  */
 export const sendVerificationCode = async (userId: string, email: string, fullName: string) => {
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  const otp = crypto.randomInt(100000, 1000000).toString();
   const otpExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
 
   await (prisma as any).emailVerification.upsert({
@@ -174,9 +187,19 @@ export const verifyEmail = async (email: string, otp: string) => {
     where: { userId: user.id }
   });
 
-  if (!verification || verification.otp !== otp) {
+  if (!verification) {
     throw new Error('Invalid verification code');
   }
+
+  if (verification.otp !== String(otp)) {
+    if (registerOtpFailure(`verify:${user.id}`)) {
+      otpAttempts.delete(`verify:${user.id}`);
+      await (prisma as any).emailVerification.delete({ where: { userId: user.id } });
+      throw new Error('Too many incorrect attempts. Please request a new verification code.');
+    }
+    throw new Error('Invalid verification code');
+  }
+  otpAttempts.delete(`verify:${user.id}`);
 
   if (new Date() > verification.expiresAt) {
     throw new Error('Verification code has expired');
@@ -232,7 +255,7 @@ export const resendVerificationCode = async (email: string) => {
     throw new Error('Email is already verified');
   }
 
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  const otp = crypto.randomInt(100000, 1000000).toString();
   const otpExpires = new Date(Date.now() + 15 * 60 * 1000);
 
   await (prisma as any).emailVerification.upsert({
@@ -311,6 +334,10 @@ export const login = async (email: string, password: string, ipAddress?: string)
     throw new Error('Invalid credentials');
   }
 
+  if (!user.isActive) {
+    throw new Error('Your account has been deactivated. Please contact support.');
+  }
+
   // Check if email is verified
   if (!user.isEmailVerified) {
     throw new Error('Please verify your email before logging in');
@@ -349,7 +376,7 @@ export const login = async (email: string, password: string, ipAddress?: string)
  * Refresh access token
  */
 export const refreshAccessToken = async (refreshToken: string): Promise<AuthResponse> => {
-  const decoded = decodeToken(refreshToken);
+  const decoded = verifyToken(refreshToken);
   if (!decoded) {
     throw new Error('Invalid refresh token');
   }
@@ -365,20 +392,29 @@ export const refreshAccessToken = async (refreshToken: string): Promise<AuthResp
     throw new Error('Refresh token expired');
   }
 
+  // Always rebuild claims from the database so role changes / deactivation take effect
+  const user = await userRepository.findById(decoded.userId);
+  if (!user || !user.isActive) {
+    await userRepository.revokeRefreshToken(refreshTokenHash);
+    throw new Error('Account is no longer active');
+  }
+
   const payload = {
-    userId: decoded.userId,
-    email: decoded.email,
-    role: decoded.role,
+    userId: user.id,
+    email: user.email,
+    role: user.role,
   };
+  const token = generateAccessToken(payload);
 
   return {
-    userId: decoded.userId,
-    token: generateAccessToken(payload),
-    refreshToken: refreshToken, // Return the same refresh token or empty string if not rotated
+    userId: user.id,
+    token,
+    accessToken: token,
+    refreshToken,
     expiresIn: 86400,
-    email: decoded.email,
-    fullName: '', // Full name might not be in JWT, could be empty or fetched from DB
-    role: decoded.role,
+    email: user.email,
+    fullName: user.fullName,
+    role: user.role,
   };
 };
 
@@ -410,7 +446,7 @@ export const requestPasswordReset = async (email: string) => {
   }
 
   // Generate a 6-digit numeric OTP (easy to type on mobile)
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  const otp = crypto.randomInt(100000, 1000000).toString();
   const otpHash = await hashPassword(otp);
 
   // OTP expires in 15 minutes
@@ -474,8 +510,16 @@ export const resetUserPassword = async (email: string, otp: string, newPassword:
   }
 
   if (!validToken) {
+    if (registerOtpFailure(`reset:${user.id}`)) {
+      otpAttempts.delete(`reset:${user.id}`);
+      for (const t of tokens) {
+        if (!t.usedAt) await passwordResetRepository.markTokenAsUsed(t.id);
+      }
+      throw new Error('Too many incorrect attempts. Please request a new reset code.');
+    }
     throw new Error('Invalid or expired reset code. Please request a new one.');
   }
+  otpAttempts.delete(`reset:${user.id}`);
 
   // Prevent reusing the same password
   const isSameAsCurrent = await verifyPassword(newPassword, user.passwordHash);
@@ -487,8 +531,12 @@ export const resetUserPassword = async (email: string, otp: string, newPassword:
   const newPasswordHash = await hashPassword(newPassword);
   await userRepository.updatePassword(user.id, newPasswordHash);
 
-  // Invalidate the used token
+  // Invalidate the used token and sign out every existing session
   await passwordResetRepository.markTokenAsUsed(validToken.id);
+  await prisma.refreshToken.updateMany({
+    where: { userId: user.id, revokedAt: null },
+    data: { revokedAt: new Date() },
+  });
 
   logger.info(`Password reset successfully for user: ${user.id}`);
   return { success: true, message: 'Password has been reset successfully. Please log in.' };

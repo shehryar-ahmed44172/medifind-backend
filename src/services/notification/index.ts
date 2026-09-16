@@ -174,7 +174,7 @@ function sendInApp(userId: string, payload: NotificationPayload) {
       payload.type === NotificationType.SYSTEM_ESCALATION ||
       payload.type === NotificationType.PATIENT_EMERGENCY) {
     logger.info(`📢 Mirroring critical event ${payload.type} to admin room`);
-    io.to('admin').emit('admin_notification', eventData);
+    io.to('admin_notifications').emit('admin_notification', eventData);
   }
 }
 
@@ -218,8 +218,8 @@ async function sendPush(userId: string, payload: NotificationPayload) {
       // Explicit mapping for Flutter UI stability
       id: payload.data?.emergencyId || '',
       emergencyId: payload.data?.emergencyId || '',
-      distance: payload.data?.distance || '0',
-      distanceKm: payload.data?.distance || '0',
+      distance: payload.data?.distance || payload.data?.distanceKm || '0',
+      distanceKm: payload.data?.distanceKm || payload.data?.distance || '0',
       priority: payload.data?.priority || 'HIGH',
       emergencyType: payload.data?.emergencyType || 'OTHER',
     },

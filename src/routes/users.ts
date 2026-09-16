@@ -48,7 +48,7 @@ router.patch('/:id/verify', roleMiddleware('ADMIN'), verifyResponder);
  * GET /api/users/debug/:userId
  * Diagnostic endpoint
  */
-router.get('/debug/:userId', getDebugInfo);
+router.get('/debug/:userId', roleMiddleware('ADMIN'), getDebugInfo);
 
 /**
  * DELETE /api/users/me

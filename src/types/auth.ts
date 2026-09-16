@@ -2,6 +2,7 @@ export interface TokenPayload {
   userId: string;
   email: string;
   role: string;
+  type?: 'refresh';
 }
 
 export interface RegisterRequest {
@@ -9,7 +10,7 @@ export interface RegisterRequest {
   email: string;
   phoneNumber: string;
   password: string;
-  role: 'PATIENT' | 'RESPONDER' | 'CAREGIVER' | 'ADMIN';
+  role: 'PATIENT' | 'RESPONDER' | 'CAREGIVER';
 
   // Common optional fields (all roles)
   cnic?: string;
@@ -49,6 +50,7 @@ export interface RefreshTokenRequest {
 export interface AuthResponse {
   userId: string;
   token?: string;
+  accessToken?: string;
   refreshToken?: string;
   expiresIn?: number;
   email: string;

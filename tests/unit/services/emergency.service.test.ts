@@ -17,11 +17,11 @@ jest.mock('../../../src/lib/prisma', () => ({
       findMany: jest.fn(),
       create: jest.fn(),
     },
-    emergencyRequest: { updateMany: jest.fn() },
+    emergencyRequest: { updateMany: jest.fn(), findMany: jest.fn(), findFirst: jest.fn() },
     medicalProfile: { findUnique: jest.fn() },
     user: { findUnique: jest.fn() },
     auditLog: { create: jest.fn() },
-    responder: { findMany: jest.fn() },
+    responder: { findMany: jest.fn(), updateMany: jest.fn(), findUnique: jest.fn() },
   },
   __esModule: true,
 }));
@@ -155,20 +155,42 @@ describe('getActiveEmergencies', () => {
 
 describe('updateEmergencyStatus', () => {
   const emergencyId = 'emergency-1';
-  beforeEach(() => jest.clearAllMocks());
+  const admin = { userId: 'admin-1', role: 'ADMIN' };
+  const responder = { userId: 'responder-1', role: 'RESPONDER' };
+  const mockedPrisma = (jest.requireMock('../../../src/lib/prisma') as any).default;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockedPrisma.emergencyRequest.findMany.mockResolvedValue([]);
+    mockedPrisma.emergencyRequest.updateMany.mockResolvedValue({ count: 0 });
+  });
 
   it('throws if emergency is not found', async () => {
     mockFindById.mockResolvedValue(null);
-    await expect(emergencyService.updateEmergencyStatus(emergencyId, 'RESOLVED' as any))
+    await expect(emergencyService.updateEmergencyStatus(emergencyId, 'RESOLVED', admin))
       .rejects.toThrow(/not found/i);
   });
 
-  it('calls updateStatus with the provided status', async () => {
+  it('admin: calls updateStatus with the provided status', async () => {
     mockFindById.mockResolvedValue({ id: emergencyId, status: 'ACTIVE' });
     mockUpdateStatus.mockResolvedValue({ id: emergencyId, status: 'RESOLVED' });
 
-    const result = await emergencyService.updateEmergencyStatus(emergencyId, 'RESOLVED' as any);
+    const result: any = await emergencyService.updateEmergencyStatus(emergencyId, 'RESOLVED', admin);
     expect(result.status).toBe('RESOLVED');
     expect(mockUpdateStatus).toHaveBeenCalledWith(emergencyId, 'RESOLVED');
+  });
+
+  it('admin: rejects unknown status values', async () => {
+    mockFindById.mockResolvedValue({ id: emergencyId, status: 'ACTIVE' });
+    await expect(emergencyService.updateEmergencyStatus(emergencyId, 'FLYING', admin))
+      .rejects.toThrow(/Invalid status/);
+    expect(mockUpdateStatus).not.toHaveBeenCalled();
+  });
+
+  it('responder: rejected when not the assigned responder', async () => {
+    mockFindById.mockResolvedValue({ id: emergencyId, status: 'ASSIGNED' });
+    mockedPrisma.emergencyRequest.findFirst.mockResolvedValue(null);
+    await expect(emergencyService.updateEmergencyStatus(emergencyId, 'ARRIVED', responder))
+      .rejects.toThrow(/assigned responder/);
   });
 });

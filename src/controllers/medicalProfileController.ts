@@ -79,7 +79,6 @@ export const addEmergencyContact = async (req: Request, res: Response) => {
     ];
 
     const updated = await medicalProfileService.updateMedicalProfile(req.user.userId, {
-      ...(profile as any),
       emergencyContacts: updatedContacts,
     });
 
@@ -108,7 +107,6 @@ export const removeEmergencyContact = async (req: Request, res: Response) => {
     }
 
     const updated = await medicalProfileService.updateMedicalProfile(req.user.userId, {
-      ...(profile as any),
       emergencyContacts: updatedContacts,
     });
 

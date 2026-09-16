@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import * as notificationController from '../controllers/notification';
-import { authMiddleware } from '../middleware/authMiddleware';
+import { authMiddleware, roleMiddleware } from '../middleware/authMiddleware';
 
 const router = Router();
 
@@ -8,10 +8,10 @@ const router = Router();
 router.use(authMiddleware);
 
 // Send emergency alerts to responders
-router.post('/emergency', notificationController.sendEmergencyAlert);
+router.post('/emergency', roleMiddleware('ADMIN'), notificationController.sendEmergencyAlert);
 
 // Silence other responders when one accepts
-router.post('/silence', notificationController.silenceOtherResponders);
+router.post('/silence', roleMiddleware('ADMIN'), notificationController.silenceOtherResponders);
 
 // Get notification history for current user (inbox)
 router.get('/history', notificationController.getNotificationHistory);

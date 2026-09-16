@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createEmergency, getEmergency, cancelEmergency, getActiveEmergencies, updateEmergencyStatus, classifyEmergency, getQuickReplies } from '../controllers/emergencyController';
+import { createEmergency, getEmergency, cancelEmergency, getActiveEmergencies, updateEmergencyStatus, classifyEmergency, getQuickReplies, getEmergencyHistory } from '../controllers/emergencyController';
 import { authMiddleware, roleMiddleware } from '../middleware/authMiddleware';
 
 const router = Router();
@@ -12,6 +12,8 @@ router.post('/', roleMiddleware('PATIENT'), createEmergency);
 router.get('/', roleMiddleware('RESPONDER', 'ADMIN'), getActiveEmergencies);
 
 // GET /api/emergencies/:id — Get emergency details
+router.get('/history', roleMiddleware('PATIENT', 'CAREGIVER'), getEmergencyHistory);
+
 router.get('/:id', getEmergency);
 
 // PATCH /api/emergencies/:id/status — Update status (Arrived, Resolved, etc.) — Responder or Admin only

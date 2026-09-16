@@ -92,8 +92,9 @@ export const getNotificationHistory = async (req: Request, res: Response) => {
  */
 export const markAsRead = async (req: Request, res: Response) => {
   try {
+    if (!req.user) return sendError(res, 'Not authenticated', 401);
     const { id } = req.params;
-    await notificationRepository.markAsRead(id);
+    await notificationRepository.markAsRead(id, req.user.userId);
     sendSuccess(res, null, 'Notification marked as read');
   } catch (error: any) {
     sendError(res, error.message, 500);

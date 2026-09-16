@@ -14,7 +14,10 @@ export const getProfile = async (req: Request, res: Response) => {
     // Include availability status for responders and flatten patientType
     const responseData = {
       ...profile,
+      // Kept for older app builds: for responders this reflects availability
       isActive: profile.role === 'RESPONDER' ? (profile as any).responder?.isAvailable : profile.isActive,
+      isAvailable: (profile as any).responder?.isAvailable ?? null,
+      accountActive: profile.isActive,
       patientType: (profile as any).medicalProfile?.patientType,
       organization: (profile as any).responder?.organization,
       licenseNumber: (profile as any).responder?.licenseNumber,
@@ -56,7 +59,30 @@ export const updateProfile = async (req: Request, res: Response) => {
       return sendError(res, 'No valid fields to update', 400);
     }
 
-    const updated = await userService.updateUserProfile(req.user.userId, updateData);
+    const responderFields = [
+      'cnicImageUrl', 'cnicBackImageUrl', 'employeeCardImageUrl', 'employeeCardBackImageUrl',
+      'organization', 'responderType', 'vehicleType',
+    ];
+    const userData: any = {};
+    const responderData: any = {};
+    for (const [key, value] of Object.entries(updateData)) {
+      (responderFields.includes(key) ? responderData : userData)[key] = value;
+    }
+
+    if (Object.keys(responderData).length > 0) {
+      if (req.user.role !== 'RESPONDER') {
+        return sendError(res, 'Only responders can update responder details', 403);
+      }
+      await prisma.responder.update({
+        where: { userId: req.user.userId },
+        // Updated documents send the application back for admin review
+        data: isDocUpdate ? { ...responderData, verificationStatus: 'PENDING' } : responderData,
+      });
+    }
+
+    const updated = Object.keys(userData).length > 0
+      ? await userService.updateUserProfile(req.user.userId, userData)
+      : await userService.getUserProfile(req.user.userId);
 
     // If documents were updated, notify admin (Plan v4)
     if (isDocUpdate && req.user.role === 'RESPONDER') {
@@ -69,15 +95,7 @@ export const updateProfile = async (req: Request, res: Response) => {
         timestamp: new Date().toISOString(),
         data: { userId: req.user.userId }
       });
-      // Also emit to general channel if that's what's used
-      getIo().emit('admin_notification', {
-        id: `doc-upd-${req.user.userId}-${Date.now()}`,
-        type: 'RESPONDER_DOCUMENT_UPDATE',
-        title: 'Responder Documents Updated',
-        body: `${updated.fullName} has updated their verification documents. Review required.`,
-        timestamp: new Date().toISOString(),
-        data: { userId: req.user.userId }
-      });
+
     }
 
     sendSuccess(res, updated, 'Profile updated successfully');
@@ -133,10 +151,23 @@ export const verifyResponder = async (req: Request, res: Response) => {
 export const upgradePlan = async (req: Request, res: Response) => {
   try {
     if (!req.user) return sendError(res, 'Unauthorized', 401);
-    const { plan } = req.body;
+    const { plan, paymentIntentId } = req.body;
 
     if (!['FREE', 'PROFESSIONAL', 'EXECUTIVE'].includes(plan)) {
       return sendError(res, 'Invalid plan name. Use FREE, PROFESSIONAL, or EXECUTIVE', 400);
+    }
+
+    // Paid plans require a Stripe payment that actually succeeded for this user and plan.
+    // Downgrading to FREE needs no payment.
+    if (plan !== 'FREE') {
+      if (!paymentIntentId || typeof paymentIntentId !== 'string') {
+        return sendError(res, 'paymentIntentId is required to upgrade to a paid plan', 402);
+      }
+      const { verifyPlanPayment } = await import('../services/stripeService');
+      const verification = await verifyPlanPayment(paymentIntentId, req.user.userId, plan);
+      if (!verification.ok) {
+        return sendError(res, verification.reason, 402);
+      }
     }
 
     const result = await userService.upgradeSubscription(req.user.userId, plan as any);
@@ -154,6 +185,7 @@ export const getUserById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const profile = await userService.getUserProfile(id);
+    const canSeePrivate = req.user?.userId === id || req.user?.role === 'ADMIN';
     
     // Map backend User object to the UserProfile structure frontend expects
     const userProfile = {
@@ -166,14 +198,17 @@ export const getUserById = async (req: Request, res: Response) => {
       lastUpdated: (profile as any).updatedAt,
       subscriptionPlan: profile.subscriptionPlan,
       // Include role-specific fields if available
-      cnic: (profile as any).cnic,
+      cnic: canSeePrivate ? (profile as any).cnic : undefined,
       patientType: (profile as any).medicalProfile?.patientType,
       organization: (profile as any).responder?.organization,
-      licenseNumber: (profile as any).responder?.licenseNumber,
+      licenseNumber: canSeePrivate ? (profile as any).responder?.licenseNumber : undefined,
       responderType: (profile as any).responder?.responderType,
       vehicleType: (profile as any).responder?.vehicleType,
       verificationStatus: (profile as any).responder?.verificationStatus,
+      // Kept for older app builds: for responders this reflects availability
       isActive: profile.role === 'RESPONDER' ? (profile as any).responder?.isAvailable : profile.isActive,
+      isAvailable: (profile as any).responder?.isAvailable ?? null,
+      accountActive: profile.isActive,
       isEmailVerified: profile.isEmailVerified,
       // Responder performance stats (live from DB)
       rating: (profile as any).responder?.rating ?? null,

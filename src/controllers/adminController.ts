@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { invalidateAccountStatus } from '../middleware/authMiddleware';
 import prisma from '../lib/prisma';
 import { sendSuccess, sendError } from '../utils/response';
 import { sendNotification } from '../services/notification/index';
@@ -46,10 +47,17 @@ export const getAllUsers = async (req: Request, res: Response) => {
 export const deactivateUser = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    if (id === req.user?.userId) {
+      return sendError(res, 'You cannot deactivate your own account', 400);
+    }
     await prisma.user.update({
       where: { id },
       data: { isActive: false }
     });
+    // Sign the user out everywhere and take them off the dispatch pool
+    await prisma.refreshToken.updateMany({ where: { userId: id, revokedAt: null }, data: { revokedAt: new Date() } });
+    await prisma.responder.updateMany({ where: { userId: id }, data: { isAvailable: false } });
+    invalidateAccountStatus(id);
     sendSuccess(res, null, 'User deactivated');
   } catch (error: any) {
     sendError(res, error.message, 400);
@@ -67,6 +75,7 @@ export const reactivateUser = async (req: Request, res: Response) => {
       where: { id },
       data: { isActive: true }
     });
+    invalidateAccountStatus(id);
     sendSuccess(res, null, 'User reactivated');
   } catch (error: any) {
     sendError(res, error.message, 400);
@@ -81,9 +90,14 @@ export const deleteUser = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
+    if (id === req.user?.userId) {
+      return sendError(res, 'You cannot delete your own account', 400);
+    }
     const user = await prisma.user.findUnique({ where: { id } });
     if (!user) return sendError(res, 'User not found', 404);
 
+    await prisma.responder.updateMany({ where: { userId: id }, data: { isAvailable: false } });
+    invalidateAccountStatus(id);
     await prisma.user.update({
       where: { id },
       data: {
@@ -177,6 +191,10 @@ export const getUserProfile = async (req: Request, res: Response) => {
 
     // Strip sensitive fields
     const { passwordHash, refreshTokenHash, fcmTokens, ...safeUser } = user as any;
+    if (safeUser.medicalProfile) {
+      const { decryptSensitiveFields } = await import('../services/medicalProfileService');
+      safeUser.medicalProfile = decryptSensitiveFields(safeUser.medicalProfile);
+    }
 
     sendSuccess(
       res,
@@ -506,9 +524,9 @@ export const getCommAudit = async (req: Request, res: Response) => {
       notifications: shaped,
       total,
       summary: {
-        delivered: summaryMap['DELIVERED'] ?? 0,
-        failed:    summaryMap['FAILED']    ?? 0,
-        pending:   summaryMap['PENDING']   ?? 0,
+        delivered: (summaryMap['delivered'] ?? 0) + (summaryMap['DELIVERED'] ?? 0),
+        failed:    (summaryMap['failed']    ?? 0) + (summaryMap['FAILED']    ?? 0),
+        pending:   (summaryMap['pending']   ?? 0) + (summaryMap['PENDING']   ?? 0),
       },
     }, 'Communication audit retrieved');
   } catch (error: any) {
@@ -629,18 +647,24 @@ export const getEmergencyTrend = async (req: Request, res: Response) => {
  */
 export const getDashboardStats = async (req: Request, res: Response) => {
   try {
-    const [userCount, emergencyCount, activeEmergencies, verifiedResponders] = await Promise.all([
-      prisma.user.count(),
+    const [userCount, emergencyCount, activeEmergencies, verifiedResponders, availableResponders, pendingResponders] = await Promise.all([
+      prisma.user.count({ where: { isActive: true } }),
       prisma.emergency.count(),
-      prisma.emergency.count({ where: { status: 'ACTIVE' } }),
-      prisma.responder.count({ where: { isVerified: true } })
+      prisma.emergency.count({ where: { status: { in: ['ACTIVE', 'ASSIGNED', 'ARRIVED'] } } }),
+      prisma.responder.count({ where: { isVerified: true } }),
+      prisma.responder.count({ where: { isVerified: true, isAvailable: true, user: { isActive: true } } }),
+      prisma.responder.count({ where: { verificationStatus: 'PENDING' } }),
     ]);
 
     sendSuccess(res, {
       totalUsers: userCount,
       totalEmergencies: emergencyCount,
       activeEmergencies,
-      onlineResponders: verifiedResponders
+      // `onlineResponders` kept for older portal builds (it has always meant verified responders)
+      onlineResponders: verifiedResponders,
+      verifiedResponders,
+      availableResponders,
+      pendingResponders,
     }, 'Stats retrieved');
   } catch (error: any) {
     sendError(res, error.message, 500);
@@ -653,7 +677,11 @@ export const getDashboardStats = async (req: Request, res: Response) => {
 export const sendTestEmail = async (req: Request, res: Response) => {
   try {
     const { sendEmail } = await import('../utils/email');
-    const user = (req as any).user;
+    const user = await prisma.user.findUnique({
+      where: { id: req.user!.userId },
+      select: { email: true, fullName: true },
+    });
+    if (!user) return sendError(res, 'User not found', 404);
 
     const success = await sendEmail({
       to: user.email,
@@ -799,12 +827,18 @@ export const savePlatformSettings = async (req: Request, res: Response) => {
     for (const key of allowed) {
       if (req.body[key] !== undefined) update[key] = req.body[key];
     }
+    // The UI shows a masked password; an empty or masked value means "keep the current one"
+    if (!update.smtpPass || /^•+$/.test(update.smtpPass)) delete update.smtpPass;
+    if (update.sessionTimeoutMinutes !== undefined) {
+      const minutes = parseInt(update.sessionTimeoutMinutes, 10);
+      update.sessionTimeoutMinutes = Math.min(120, Math.max(5, Number.isFinite(minutes) ? minutes : 30));
+    }
     const merged = { ...current, ...update };
     fs.writeFileSync(SETTINGS_FILE, JSON.stringify(merged, null, 2), 'utf-8');
     // Invalidate cached nodemailer transporter so next email uses the new config
     const { invalidateTransporter } = await import('../utils/email');
     invalidateTransporter();
-    sendSuccess(res, merged, 'Platform settings saved successfully');
+    sendSuccess(res, { ...merged, smtpPass: merged.smtpPass ? '••••••••' : '' }, 'Platform settings saved successfully');
   } catch (error: any) {
     sendError(res, error.message, 500);
   }
@@ -967,5 +1001,46 @@ export const getAllSubscriptions = async (_req: Request, res: Response) => {
     sendSuccess(res, { subscribers: users, stats }, 'All subscriptions retrieved');
   } catch (error: any) {
     sendError(res, error.message, 500);
+  }
+};
+
+/**
+ * Admin: Change a user's subscription plan (manual override, e.g. refunds or support cases)
+ * PATCH /api/admin/users/:id/subscription  { plan }
+ */
+export const updateUserSubscription = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { plan } = req.body;
+    if (!['FREE', 'PROFESSIONAL', 'EXECUTIVE'].includes(plan)) {
+      return sendError(res, 'plan must be FREE, PROFESSIONAL or EXECUTIVE', 400);
+    }
+
+    const user = await prisma.user.findUnique({ where: { id }, select: { id: true, role: true, subscriptionPlan: true } });
+    if (!user) return sendError(res, 'User not found', 404);
+    if (user.role === 'ADMIN') return sendError(res, 'Admin accounts do not have subscriptions', 400);
+
+    const updated = await prisma.user.update({
+      where: { id },
+      data: { subscriptionPlan: plan },
+      select: { id: true, subscriptionPlan: true },
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        userId: req.user!.userId,
+        action: 'ADMIN_UPDATE_SUBSCRIPTION',
+        entity: 'User',
+        entityId: id,
+        oldValues: { subscriptionPlan: user.subscriptionPlan },
+        newValues: { subscriptionPlan: plan },
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      },
+    });
+
+    sendSuccess(res, updated, `Subscription changed to ${plan}`);
+  } catch (error: any) {
+    sendError(res, error.message, 400);
   }
 };

@@ -26,6 +26,7 @@ router.post('/responders/:id/verify',  adminController.processVerification);
 router.patch('/users/:id/deactivate',  adminController.deactivateUser);
 router.patch('/users/:id/activate',    adminController.reactivateUser);
 router.delete('/users/:id',            adminController.deleteUser);
+router.patch('/users/:id/subscription', adminController.updateUserSubscription);
 router.post('/test-email',             adminController.sendTestEmail);
 router.post('/generate-draft',         adminController.generateDraft);
 router.get('/platform-settings',       adminController.getPlatformSettings);

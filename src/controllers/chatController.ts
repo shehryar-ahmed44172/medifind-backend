@@ -78,8 +78,13 @@ export const getMessages = async (req: Request, res: Response) => {
 
 export const sendMessage = async (req: Request, res: Response) => {
   try {
-    const { roomId, content, messageType = 'TEXT', mediaUrl } = req.body;
+    const { roomId, messageType = 'TEXT', mediaUrl } = req.body;
+    const content: string = typeof req.body.content === 'string' ? req.body.content : '';
     const senderId = (req as any).user.userId;
+
+    if (!content.trim() && !mediaUrl) {
+      return res.status(400).json({ error: 'Message content or media is required' });
+    }
 
     const room = await prisma.chatRoom.findUnique({ where: { id: roomId } });
 
@@ -118,7 +123,9 @@ export const sendMessage = async (req: Request, res: Response) => {
       sendNotification(recipientId, {
         type: NotificationType.CHAT_MESSAGE,
         title: `New Message from ${sender?.fullName || 'User'}`,
-        body: content.length > 50 ? `${content.substring(0, 47)}...` : content,
+        body: content
+          ? (content.length > 50 ? `${content.substring(0, 47)}...` : content)
+          : ({ AUDIO: '🎤 Voice message', IMAGE: '📷 Photo', DOCUMENT: '📄 Document' } as Record<string, string>)[messageType] || 'New attachment',
         channels: [
           NotificationChannel.IN_APP,
           NotificationChannel.PUSH,
@@ -144,28 +151,35 @@ export const createOrGetRoom = async (req: Request, res: Response) => {
 
     // ── Emergency chat room (Patient ↔ Responder) ──────────────────────────
     if (emergencyId) {
-      let patientId: string, responderId: string;
-
-      if (role === 'PATIENT') {
-        patientId = currentUserId;
-
-        if (targetUserId) {
-          responderId = targetUserId;
-        } else {
-          // Auto-lookup the accepted responder for this emergency
-          const acceptedRequest = await prisma.emergencyRequest.findFirst({
-            where: { emergencyId, status: 'ACCEPTED' },
-          });
-          if (!acceptedRequest) {
-            return res.status(404).json({ error: 'No assigned responder found for this emergency' });
-          }
-          responderId = acceptedRequest.responderId; // This is the responder's userId
-        }
-      } else {
-        // RESPONDER initiating
-        responderId = currentUserId;
-        patientId   = targetUserId;
+      const emergency = await prisma.emergency.findUnique({
+        where: { id: emergencyId },
+        select: { patientId: true },
+      });
+      if (!emergency) {
+        return res.status(404).json({ error: 'Emergency not found' });
       }
+
+      // The responder in the room must be the one assigned to this emergency
+      const assignedRequest = await prisma.emergencyRequest.findFirst({
+        where: { emergencyId, status: { in: ['ACCEPTED', 'COMPLETED'] } },
+        orderBy: { acceptedAt: 'desc' },
+      });
+      if (!assignedRequest) {
+        return res.status(404).json({ error: 'No assigned responder found for this emergency' });
+      }
+
+      if (role === 'PATIENT' && emergency.patientId !== currentUserId) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+      if (role === 'RESPONDER' && assignedRequest.responderId !== currentUserId) {
+        return res.status(403).json({ error: 'Only the assigned responder can open this chat' });
+      }
+      if (role !== 'PATIENT' && role !== 'RESPONDER') {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+
+      const patientId = emergency.patientId;
+      const responderId = assignedRequest.responderId;
 
       // Find existing emergency room
       let room = await prisma.chatRoom.findFirst({
@@ -194,13 +208,18 @@ export const createOrGetRoom = async (req: Request, res: Response) => {
     }
 
     // ── Caregiver ↔ Patient room (original behaviour) ─────────────────────
-    let patientId: string, caregiverId: string;
-    if (role === 'PATIENT') {
-      patientId   = currentUserId;
-      caregiverId = targetUserId;
-    } else {
-      patientId   = targetUserId;
-      caregiverId = currentUserId;
+    if (!targetUserId || !['PATIENT', 'CAREGIVER'].includes(role)) {
+      return res.status(400).json({ error: 'targetUserId is required' });
+    }
+    const patientId   = role === 'PATIENT' ? currentUserId : targetUserId;
+    const caregiverId = role === 'PATIENT' ? targetUserId : currentUserId;
+
+    const link = await prisma.caregiverLink.findFirst({
+      where: { patientId, caregiverId, status: 'ACCEPTED' },
+      select: { id: true },
+    });
+    if (!link) {
+      return res.status(403).json({ error: 'You can only chat with linked caregivers or patients' });
     }
 
     let room = await prisma.chatRoom.findUnique({

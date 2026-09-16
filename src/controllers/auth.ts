@@ -31,11 +31,16 @@ export const register = async (req: Request, res: Response) => {
       return sendError(res, 'Missing required fields: fullName, email, phoneNumber, password, role', 400);
     }
 
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email))) {
+      return sendError(res, 'Please provide a valid email address', 400);
+    }
+
     if (password.length < 8) {
       return sendError(res, 'Password must be at least 8 characters', 400);
     }
 
-    const validRoles = ['PATIENT', 'RESPONDER', 'CAREGIVER', 'ADMIN'];
+    // ADMIN accounts are provisioned by the system owner, never via public sign-up
+    const validRoles = ['PATIENT', 'RESPONDER', 'CAREGIVER'];
     if (!validRoles.includes(role)) {
       return sendError(res, `Invalid role. Must be one of: ${validRoles.join(', ')}`, 400);
     }

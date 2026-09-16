@@ -2,6 +2,8 @@ import { emergencyRepository } from '../repositories/emergencyRepository';
 import { responderRepository } from '../repositories/responderRepository';
 import { medicalProfileRepository } from '../repositories/medicalProfileRepository';
 import { decryptJson } from '../utils/encryption';
+import { validatePakistanCoordinates } from '../utils/geoValidation';
+import { decryptSensitiveFields } from './medicalProfileService';
 import logger from '../utils/logger';
 
 import { getIo } from '../server';
@@ -12,9 +14,22 @@ import prisma from '../lib/prisma';
 
 const CANCELLATION_WINDOW_SECONDS = parseInt(process.env.EMERGENCY_CANCELLATION_WINDOW_SECONDS || '60', 10);
 
+/** Emergency statuses that mean the SOS is still open. */
+const OPEN_STATUSES = ['ACTIVE', 'ASSIGNED', 'ARRIVED'] as const;
+
+/** Decrypts the medical profile nested in an emergency before it is sent to a client. */
+const withDecryptedProfile = <T extends { patient?: any }>(emergency: T): T => {
+  if (!emergency?.patient?.medicalProfile) return emergency;
+  return {
+    ...emergency,
+    patient: { ...emergency.patient, medicalProfile: decryptSensitiveFields(emergency.patient.medicalProfile) },
+  };
+};
+
 /**
  * Create a new SOS emergency.
- * Sets a 10-second cancellation deadline as required.
+ * Sets a cancellation deadline (EMERGENCY_CANCELLATION_WINDOW_SECONDS, default 60s).
+ * If the patient already has an open SOS, that one is returned instead of creating a duplicate.
  */
 export const createEmergency = async (data: {
   patientId: string;
@@ -24,6 +39,28 @@ export const createEmergency = async (data: {
   accuracy?: number;
   additionalInfo?: string;
 }) => {
+  if (!Number.isFinite(data.latitude) || !Number.isFinite(data.longitude)) {
+    throw new Error('Valid latitude and longitude are required');
+  }
+  const coordError = validatePakistanCoordinates(data.latitude, data.longitude);
+  if (coordError) throw new Error(coordError);
+
+  // Idempotent SOS: a double tap or retry must not dispatch responders twice
+  const openEmergency = await prisma.emergency.findFirst({
+    where: { patientId: data.patientId, status: { in: [...OPEN_STATUSES] } },
+    orderBy: { createdAt: 'desc' },
+  });
+  if (openEmergency) {
+    logger.warn(`[SOS] Patient ${data.patientId} already has open emergency ${openEmergency.id} — returning it`);
+    return {
+      ...openEmergency,
+      alreadyActive: true,
+      cancellationWindowSeconds: Math.max(0, Math.floor((openEmergency.cancellationDeadline.getTime() - Date.now()) / 1000)),
+      medicalProfile: null,
+      voiceSummary: openEmergency.voiceSummary,
+    };
+  }
+
   const cancellationDeadline = new Date(Date.now() + CANCELLATION_WINDOW_SECONDS * 1000);
 
   // Fetch Patient Name for alerts
@@ -98,13 +135,13 @@ export const createEmergency = async (data: {
     ...emergency,
     cancellationDeadline,
     cancellationWindowSeconds: CANCELLATION_WINDOW_SECONDS,
-    medicalProfile,
+    medicalProfile: medicalProfile ? decryptSensitiveFields(medicalProfile as any) : null,
     voiceSummary
   };
 };
 
 /**
- * Cancel an emergency - only within the 10-second window.
+ * Cancel an emergency - only within the cancellation window.
  */
 export const cancelEmergency = async (emergencyId: string, patientId: string) => {
   const emergency = await emergencyRepository.findById(emergencyId);
@@ -113,13 +150,14 @@ export const cancelEmergency = async (emergencyId: string, patientId: string) =>
   if (emergency.patientId !== patientId) throw new Error('Unauthorized');
   if (emergency.status !== 'ACTIVE') throw new Error('Emergency is not active');
 
-  // CRITICAL: enforce 10-second cancellation window
+  // CRITICAL: enforce the cancellation window
   const now = new Date();
   if (now > emergency.cancellationDeadline) {
     throw new Error('Cancellation window has expired. Emergency cannot be cancelled.');
   }
 
   const cancelled = await emergencyRepository.cancel(emergencyId);
+  clearDispatchState(emergencyId);
 
   // Notify caregivers and responders about cancellation (The Perfect Solution)
   // Fetch all responders who were notified about this SOS
@@ -154,36 +192,171 @@ export const cancelEmergency = async (emergencyId: string, patientId: string) =>
 };
 
 /**
- * Get full emergency details.
+ * Get full emergency details (medical profile decrypted).
  */
 export const getEmergency = async (emergencyId: string) => {
   const emergency = await emergencyRepository.findById(emergencyId);
   if (!emergency) throw new Error('Emergency not found');
-  return emergency;
+
+  const assigned = emergency.emergencyRequests.find(r => r.status === 'ACCEPTED' || r.status === 'COMPLETED');
+  return {
+    ...withDecryptedProfile(emergency),
+    assignedResponderId: assigned?.responderId ?? null,
+    assignedResponderName: assigned?.responder?.user?.fullName ?? null,
+  };
 };
 
+const TRACKING_STATUSES = ['EN_ROUTE', 'ARRIVED', 'TREATING', 'TRANSPORTED'] as const;
+type TrackingStatusValue = typeof TRACKING_STATUSES[number];
+
 /**
- * Update emergency status (Generic endpoint for ARRIVED, COMPLETED, etc.)
+ * Update emergency status.
+ *  - Assigned responder: EN_ROUTE / ARRIVED / TREATING / TRANSPORTED are recorded as tracking
+ *    updates (patient + caregivers notified); RESOLVED completes the emergency.
+ *  - Admin: may set any EmergencyStatus (e.g. CANCELLED); the responder is released.
  */
-export const updateEmergencyStatus = async (emergencyId: string, status: string) => {
+export const updateEmergencyStatus = async (
+  emergencyId: string,
+  rawStatus: string,
+  actor: { userId: string; role: string },
+  location?: { latitude?: number; longitude?: number },
+) => {
+  const status = String(rawStatus || '').toUpperCase();
   const emergency = await emergencyRepository.findById(emergencyId);
   if (!emergency) throw new Error('Emergency not found');
 
-  const updated = await (emergencyRepository as any).updateStatus(emergencyId, status);
+  if (actor.role === 'RESPONDER') {
+    const { isAssignedResponder } = await import('../utils/accessControl');
+    if (!(await isAssignedResponder(actor.userId, emergencyId))) {
+      throw new Error('Only the assigned responder can update this emergency.');
+    }
+
+    if (status === 'RESOLVED' || status === 'COMPLETED') {
+      const { resolveEmergency } = await import('./responderService');
+      return resolveEmergency(emergencyId, actor.userId);
+    }
+
+    if (!(TRACKING_STATUSES as readonly string[]).includes(status)) {
+      throw new Error(`Invalid status. Allowed: ${TRACKING_STATUSES.join(', ')}, RESOLVED`);
+    }
+
+    const responder = await prisma.responder.findUnique({ where: { userId: actor.userId } });
+    const latitude = Number.isFinite(location?.latitude) ? location!.latitude! : responder?.currentLatitude;
+    const longitude = Number.isFinite(location?.longitude) ? location!.longitude! : responder?.currentLongitude;
+    if (latitude == null || longitude == null) {
+      throw new Error('Current location is required to update status. Please enable GPS.');
+    }
+
+    const { submitLocationUpdate } = await import('./trackingService');
+    await submitLocationUpdate({
+      emergencyId,
+      responderId: actor.userId,
+      latitude,
+      longitude,
+      status: status as TrackingStatusValue,
+    });
+
+    if (status === 'ARRIVED') {
+      await prisma.emergency.updateMany({ where: { id: emergencyId, status: 'ASSIGNED' }, data: { status: 'ARRIVED' } });
+    }
+
+    const payload = {
+      type: 'EMERGENCY_STATUS_CHANGE',
+      data: { emergencyId, newStatus: status, responderId: actor.userId, timestamp: new Date().toISOString() },
+    };
+    getIo().to(`emergency:${emergencyId}`).emit('EMERGENCY_STATUS_CHANGE', payload);
+    getIo().to('admin_notifications').emit('EMERGENCY_STATUS_CHANGE', payload);
+    return { ...emergency, trackingStatus: status };
+  }
+
+  // ADMIN override
+  const allowed = ['ACTIVE', 'ASSIGNED', 'ARRIVED', 'RESOLVED', 'COMPLETED', 'CANCELLED'];
+  if (!allowed.includes(status)) {
+    throw new Error(`Invalid status. Allowed: ${allowed.join(', ')}`);
+  }
+
+  const updated = status === 'CANCELLED'
+    ? await emergencyRepository.cancel(emergencyId)
+    : await emergencyRepository.updateStatus(emergencyId, status);
+
+  // Closing an emergency releases the assigned responder
+  if (['CANCELLED', 'RESOLVED', 'COMPLETED'].includes(status)) {
+    clearDispatchState(emergencyId);
+    const accepted = await prisma.emergencyRequest.findMany({
+      where: { emergencyId, status: 'ACCEPTED' },
+      select: { responderId: true },
+    });
+    await prisma.emergencyRequest.updateMany({
+      where: { emergencyId, status: 'ACCEPTED' },
+      data: { status: status === 'CANCELLED' ? 'REJECTED' : 'COMPLETED' },
+    });
+    if (accepted.length) {
+      await prisma.responder.updateMany({
+        where: { userId: { in: accepted.map(a => a.responderId) } },
+        data: { isAvailable: true },
+      });
+    }
+  }
 
   const statusPayload = {
-    type: "EMERGENCY_STATUS_CHANGE",
-    data: {
-      emergencyId,
-      newStatus: status,
-      timestamp: new Date().toISOString()
-    }
+    type: 'EMERGENCY_STATUS_CHANGE',
+    data: { emergencyId, newStatus: status, updatedBy: 'ADMIN', timestamp: new Date().toISOString() },
   };
   getIo().to(`emergency:${emergencyId}`).emit('EMERGENCY_STATUS_CHANGE', statusPayload);
-  // Also broadcast to admin dashboard for real-time updates
   getIo().to('admin_notifications').emit('EMERGENCY_STATUS_CHANGE', statusPayload);
 
   return updated;
+};
+
+/**
+ * Emergency history visible to a patient (own) or caregiver (linked patients).
+ */
+export const getEmergencyHistoryForUser = async (userId: string, role: string, limit = 50) => {
+  let patientIds: string[] = [];
+  if (role === 'PATIENT') {
+    patientIds = [userId];
+  } else if (role === 'CAREGIVER') {
+    const links = await caregiverRepository.getPatientsForCaregiver(userId);
+    patientIds = links.map((l: any) => l.patientId);
+  }
+  if (patientIds.length === 0) return [];
+
+  const emergencies = await prisma.emergency.findMany({
+    where: { patientId: { in: patientIds } },
+    include: {
+      patient: { select: { id: true, fullName: true, phoneNumber: true } },
+      emergencyRequests: {
+        where: { status: { in: ['ACCEPTED', 'COMPLETED'] } },
+        select: {
+          responderId: true,
+          status: true,
+          acceptedAt: true,
+          patientRating: true,
+          responder: { select: { rating: true, organization: true, user: { select: { fullName: true, phoneNumber: true } } } },
+        },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+    take: Math.min(Math.max(limit, 1), 200),
+  });
+
+  return emergencies.map(({ emergencyRequests, ...e }) => {
+    const assigned = emergencyRequests[0];
+    return {
+      ...e,
+      responder: assigned
+        ? {
+            id: assigned.responderId,
+            fullName: assigned.responder.user.fullName,
+            phoneNumber: assigned.responder.user.phoneNumber,
+            organization: assigned.responder.organization,
+            rating: assigned.responder.rating,
+            acceptedAt: assigned.acceptedAt,
+          }
+        : null,
+      patientRating: assigned?.patientRating ?? null,
+    };
+  });
 };
 
 /**
@@ -260,32 +433,18 @@ const notifyNearbyResponders = async (
     }
   }
 
-  if (nearbyResponders.length === 0) {
-    // Try expanding radius to 10km (legacy path kept for safety)
-    const expanded = await responderRepository.findNearbyAvailable(latitude, longitude, 10);
-    logger.warn(`No responders in 5km, found ${expanded.length} in 10km`);
+  if (nearbyResponders.length === 0 && process.env.NODE_ENV === 'development') {
+    // DEVELOPMENT FALLBACK: lets the full flow be demoed with a responder outside the radius
+    logger.warn('DEV MODE: No responders found in radius, searching for ANY available responder...');
+    const anyAvailable = await prisma.responder.findFirst({
+      where: { isAvailable: true, user: { isActive: true } },
+      include: { user: { select: { fullName: true, phoneNumber: true, email: true } } },
+    });
 
-    if (expanded.length > 0) {
-      // FIX: Actually add the expanded responders to the list so they get notified
-      nearbyResponders.push(...expanded);
-    } else if (process.env.NODE_ENV === 'development') {
-      // DEVELOPMENT FALLBACK: If no one found, try to find ANY available responder for testing
-      logger.warn('DEV MODE: No responders found in radius, searching for ANY available responder...');
-      const anyAvailable = await prisma.responder.findFirst({
-        where: {
-          isAvailable: true,
-          user: { isActive: true }
-        },
-        include: { user: { select: { fullName: true, phoneNumber: true, email: true } } }
-      });
-
-      if (anyAvailable) {
-        (anyAvailable as any).distanceKm = 99.9; // Artificial distance
-        nearbyResponders.push(anyAvailable as any);
-        logger.info(`DEV MODE: Force-added responder ${anyAvailable.user.email} for verification`);
-      } else {
-        logger.error('DEV MODE: No available responders found even in fallback!');
-      }
+    if (anyAvailable) {
+      (anyAvailable as any).distanceKm = 99.9; // Artificial distance
+      nearbyResponders.push(anyAvailable as any);
+      logger.info(`DEV MODE: Force-added responder ${anyAvailable.user.email} for verification`);
     }
   }
 
@@ -352,11 +511,10 @@ const notifyNearbyResponders = async (
 
         logger.info(`Notified responder ${responder.userId} of emergency ${emergencyId}`);
       } else {
-        console.log(`[Emergency Notification] Responder ${responder.userId} already has a request for this emergency.`);
+        logger.info(`[Emergency Notification] Responder ${responder.userId} already has a request for this emergency.`);
       }
     } catch (err: any) {
       logger.error(`Failed to create request for responder ${responder.userId}: ${err.message}`);
-      console.error(`[Emergency Notification ERROR] ${err.message}`);
     }
   }
 };
@@ -367,6 +525,12 @@ const notifyNearbyResponders = async (
 const notifyCaregivers = async (patientId: string, emergencyData: any) => {
   const caregivers = await caregiverRepository.getCaregiversForPatient(patientId);
   for (const link of caregivers) {
+    // Put the caregiver's live sockets into the emergency rooms so they receive
+    // status changes and the responder's live location without extra round-trips
+    getIo().in(`notifications:${link.caregiverId}`).socketsJoin([
+      `emergency:${emergencyData.emergencyId}`,
+      `location:${emergencyData.emergencyId}`,
+    ]);
     await sendNotification(link.caregiverId, {
       type: NotificationType.PATIENT_EMERGENCY,
       title: "Patient Emergency!",
@@ -386,6 +550,35 @@ const notifyCaregivers = async (patientId: string, emergencyData: any) => {
 
 // Track which emergencies have already received a 60-second escalation alert (prevents re-alert on repeat checks)
 const escalatedEmergencyIds = new Set<string>();
+// When an emergency was last (re-)dispatched; escalation timing is measured from here
+const dispatchStartedAt = new Map<string, number>();
+
+const clearDispatchState = (emergencyId: string) => {
+  escalatedEmergencyIds.delete(emergencyId);
+  dispatchStartedAt.delete(emergencyId);
+};
+
+/**
+ * Re-dispatch an emergency that is ACTIVE again (e.g. the assigned responder dropped it).
+ * Responders who already received a request are skipped; the escalation timer restarts.
+ */
+export const redispatchEmergency = async (emergencyId: string) => {
+  const emergency = await emergencyRepository.findById(emergencyId);
+  if (!emergency || emergency.status !== 'ACTIVE') return;
+
+  escalatedEmergencyIds.delete(emergencyId);
+  dispatchStartedAt.set(emergencyId, Date.now());
+
+  await notifyNearbyResponders(
+    emergency.id,
+    emergency.latitude,
+    emergency.longitude,
+    emergency.patientId,
+    emergency.patient?.fullName || 'Patient',
+    emergency.voiceSummary || '',
+    emergency.emergencyType || 'OTHER',
+  );
+};
 
 /**
  * Periodically check for active emergencies that haven't been accepted (FR5.8 Escalation).
@@ -397,7 +590,8 @@ export const checkAndEscalate = async () => {
   const now = new Date();
 
   for (const emergency of activeEmergencies) {
-    const ageSeconds = (now.getTime() - new Date(emergency.createdAt).getTime()) / 1000;
+    const startedAt = dispatchStartedAt.get(emergency.id) ?? new Date(emergency.createdAt).getTime();
+    const ageSeconds = (now.getTime() - startedAt) / 1000;
 
     // 60s bracket: AI escalation alert to admin + wider re-dispatch
     if (ageSeconds > 60 && ageSeconds <= 120 && !escalatedEmergencyIds.has(emergency.id)) {
@@ -444,6 +638,7 @@ export const checkAndEscalate = async () => {
         // Force-cancel directly via repository (bypasses patient cancellation window —
         // this is a system-initiated cleanup, not a patient-initiated cancel).
         await emergencyRepository.cancel(emergency.id);
+        clearDispatchState(emergency.id);
 
         const cancelPayload = {
           type: 'EMERGENCY_STATUS_CHANGE',

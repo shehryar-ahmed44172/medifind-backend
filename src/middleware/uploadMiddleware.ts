@@ -15,6 +15,7 @@ const storage = multer.diskStorage({
     
     // Determine subdirectory based on fieldname or route
     if (file.fieldname === 'report') subDir = 'reports';
+    else if (file.fieldname === 'file' && req.baseUrl?.startsWith('/api/chat')) subDir = 'chat';
     else if (file.fieldname === 'file') subDir = 'documents';   // registration docs (CNIC, employee card)
     else if (file.fieldname === 'image') subDir = 'profile';
     else subDir = 'others';
@@ -34,18 +35,31 @@ const storage = multer.diskStorage({
   },
 });
 
-// File filter for images/pdfs/audio/docs
+// File filter: images, PDFs, audio and Word documents only
+const ALLOWED_EXTENSIONS = [
+  '.jpg', '.jpeg', '.png', '.webp', '.heic', '.pdf',
+  '.m4a', '.aac', '.mp3', '.wav', '.ogg', '.webm', '.mp4',
+  '.doc', '.docx',
+];
+const ALLOWED_MIME_TYPES = [
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+];
+
 const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-  const allowedMimeTypes = [
-    'image/jpeg', 'image/png', 'image/jpg', 
-    'application/pdf', 
-    'audio/m4a', 'audio/mp4', 'audio/mpeg', 'audio/wav', 'audio/webm', 'audio/ogg',
-    'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-  ];
-  if (allowedMimeTypes.includes(file.mimetype) || file.mimetype.startsWith('audio/') || file.mimetype.startsWith('image/')) {
+  const ext = path.extname(file.originalname || '').toLowerCase();
+  const mimeOk =
+    file.mimetype.startsWith('image/') ||
+    file.mimetype.startsWith('audio/') ||
+    ALLOWED_MIME_TYPES.includes(file.mimetype) ||
+    // mobile clients often send application/octet-stream — fall back to the extension
+    file.mimetype === 'application/octet-stream';
+
+  if (mimeOk && ALLOWED_EXTENSIONS.includes(ext)) {
     cb(null, true);
   } else {
-    cb(null, true); // For now, let's allow all for flexibility, or you can keep it strict
+    cb(new Error('Unsupported file type. Allowed: images, PDF, audio and Word documents.'));
   }
 };
 

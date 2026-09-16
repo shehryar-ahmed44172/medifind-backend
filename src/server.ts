@@ -25,6 +25,10 @@ import { initializeNotifications } from './services/notification';
 import paymentRoutes from './routes/payments';
 import fileRoutes from './routes/files';
 import path from 'path';
+import { verifyAccessToken } from './utils/jwt';
+import prisma from './lib/prisma';
+import { TokenPayload } from './types/auth';
+import { canAccessEmergency, isAssignedResponder, isChatRoomMember } from './utils/accessControl';
 
 // Initialize Express app
 const app: Express = express();
@@ -34,14 +38,12 @@ const server = http.createServer(app);
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const HOST = process.env.HOST || '0.0.0.0';
-const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:3100').split(',');
 
 // Socket.io setup
 const io = new SocketIOServer(server, {
   cors: {
-    origin: '*', // Relaxed for development debugging
+    origin: '*',
     methods: ['GET', 'POST'],
-    credentials: true,
   },
   pingInterval: parseInt(process.env.SOCKET_IO_PING_INTERVAL || '25000'),
   pingTimeout: parseInt(process.env.SOCKET_IO_PING_TIMEOUT || '60000'),
@@ -55,10 +57,8 @@ io.engine.on("connection_error", (err) => {
 
 // Middleware
 app.use(helmet());
-app.use(cors({
-  origin: '*', // Relaxed for development debugging
-  credentials: true,
-}));
+// API auth uses Bearer tokens (no cookies), so credentials are not needed cross-origin
+app.use(cors({ origin: '*' }));
 // Payments — must be mounted BEFORE express.json() so the webhook receives the raw body
 app.use('/api/payments', paymentRoutes);
 
@@ -70,34 +70,31 @@ app.use(morgan('combined', {
   },
 }));
 
-// Rate limiting middleware (relaxed for development and media loading)
-const requestCounts = new Map<string, number>();
+// Rate limiting: fixed 15-minute window per IP (static uploads are exempt)
+const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
+const RATE_LIMIT_MAX = 1000;
+const requestCounts = new Map<string, { count: number; resetAt: number }>();
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, entry] of requestCounts) if (entry.resetAt <= now) requestCounts.delete(ip);
+}, RATE_LIMIT_WINDOW_MS).unref();
+
 app.use((req: Request, res: Response, next: any) => {
-  // Don't rate limit static files (images, reports, etc)
-  if (req.path.startsWith('/uploads')) {
-    return next();
-  }
+  if (req.path.startsWith('/uploads')) return next();
 
   const ip = req.ip || 'unknown';
-  const count = (requestCounts.get(ip) || 0) + 1;
-  requestCounts.set(ip, count);
+  const now = Date.now();
+  let entry = requestCounts.get(ip);
+  if (!entry || entry.resetAt <= now) {
+    entry = { count: 0, resetAt: now + RATE_LIMIT_WINDOW_MS };
+    requestCounts.set(ip, entry);
+  }
+  entry.count += 1;
 
-  // Increased limit for development/testing
-  if (count > 1000) {
+  if (entry.count > RATE_LIMIT_MAX) {
     res.status(429).json({ error: 'Too many requests. Please try again later.' });
     return;
   }
-
-  // Clear count after 15 minutes
-  setTimeout(() => {
-    const current = requestCounts.get(ip) || 0;
-    if (current > 1) {
-      requestCounts.set(ip, current - 1);
-    } else {
-      requestCounts.delete(ip);
-    }
-  }, 15 * 60 * 1000);
-
   next();
 });
 
@@ -110,18 +107,6 @@ app.get('/health', (_req: Request, res: Response) => {
     environment: NODE_ENV,
     firebase: process.env.MEDIFIND_FIREBASE_CREDENTIALS ? 'configured' : 'missing',
   });
-});
-
-// Test Socket Broadcast (Plan v2)
-app.get('/api/notifications/test-socket/:userId', (req: Request, res: Response) => {
-  const { userId } = req.params;
-  io.to(`notifications:${userId}`).emit('notification', {
-    type: 'TEST_ALERT',
-    title: 'In-App Test',
-    body: `Direct broadcast to user ${userId} successful.`,
-    timestamp: new Date().toISOString()
-  });
-  res.json({ message: `Broadcast sent to notifications:${userId}` });
 });
 
 // Root endpoint
@@ -144,83 +129,119 @@ app.get('/', (_req: Request, res: Response) => {
   });
 });
 
-// Socket.io connection handling
-io.on('connection', (socket) => {
-  const userId = socket.handshake.auth?.userId || socket.handshake.query?.userId;
-  const userAgent = socket.handshake.headers['user-agent'] || 'Unknown';
-  
-  logger.info(`🔌 Client Connected: ${socket.id}`);
-  logger.info(`   - UserID: ${userId || 'GUEST'}`);
-  logger.info(`   - Device: ${userAgent}`);
-  logger.info(`   - Auth Data: ${JSON.stringify(socket.handshake.auth || {})}`);
-  logger.info(`   - Query Data: ${JSON.stringify(socket.handshake.query || {})}`);
+/** Caregivers follow every open emergency of their linked patients live. */
+const joinCaregiverToOpenEmergencies = async (socket: any, caregiverId: string) => {
+  const links = await prisma.caregiverLink.findMany({
+    where: { caregiverId, status: 'ACCEPTED', isActive: true },
+    select: { patientId: true },
+  });
+  if (links.length === 0) return;
+  const open = await prisma.emergency.findMany({
+    where: { patientId: { in: links.map(l => l.patientId) }, status: { in: ['ACTIVE', 'ASSIGNED', 'ARRIVED'] } },
+    select: { id: true },
+  });
+  for (const e of open) {
+    socket.join(`emergency:${e.id}`);
+    socket.join(`location:${e.id}`);
+  }
+};
 
-  // Auto-join notification room
-  if (userId) {
-    socket.join(`notifications:${userId}`);
-    logger.info(`📢 Socket ${socket.id} auto-joined notifications:${userId}`);
+// Socket.io authentication — identity always comes from a verified JWT,
+// never from a client-supplied userId.
+io.use((socket, next) => {
+  const authHeader = socket.handshake.headers.authorization;
+  const token =
+    socket.handshake.auth?.token ||
+    (typeof authHeader === 'string' && authHeader.startsWith('Bearer ') ? authHeader.substring(7) : undefined);
+
+  const payload = token ? verifyAccessToken(String(token)) : null;
+  if (!payload) {
+    logger.warn(`🔒 Socket ${socket.id} rejected: missing or invalid token`);
+    return next(new Error('Unauthorized'));
+  }
+  socket.data.user = payload;
+  next();
+});
+
+io.on('connection', (socket) => {
+  const user = socket.data.user as TokenPayload;
+  const userId = user.userId;
+
+  logger.info(`🔌 Client connected: ${socket.id} (user ${userId}, ${user.role})`);
+
+  socket.join(`notifications:${userId}`);
+  if (user.role === 'ADMIN') {
+    socket.join('admin_notifications');
+    socket.join('system_logs');
+  }
+  if (user.role === 'RESPONDER') {
+    socket.join('responders');
+  }
+  if (user.role === 'CAREGIVER') {
+    joinCaregiverToOpenEmergencies(socket, userId).catch(err =>
+      logger.error(`Caregiver room auto-join failed for ${userId}: ${err.message}`));
   }
 
   // Diagnostic Ping
   socket.on('ping', (data: any) => {
-    logger.info(`📡 Ping received from ${socket.id}: ${JSON.stringify(data || {})}`);
-    socket.emit('pong', { 
-      received: data, 
+    socket.emit('pong', {
+      received: data,
       rooms: Array.from(socket.rooms),
-      timestamp: new Date().toISOString() 
+      timestamp: new Date().toISOString()
     });
   });
 
-  // Join room events
-  socket.on('join:emergency', (emergencyId: string) => {
-    socket.join(`emergency:${emergencyId}`);
-    logger.info(`🟢 Socket ${socket.id} joined emergency:${emergencyId}`);
-  });
-
-  socket.on('join:location', (emergencyId: string) => {
-    socket.join(`location:${emergencyId}`);
-    logger.info(`📍 Socket ${socket.id} tracking location:${emergencyId}`);
-  });
-
-  socket.on('join', (data: any) => {
-    const { userId: targetId, role, room } = data || {};
-    
-    // Join user-specific notification room
-    if (targetId || userId) {
-      socket.join(`notifications:${targetId || userId}`);
-      logger.info(`🔔 Socket ${socket.id} joined notifications:${targetId || userId}`);
+  // Join room events (authorised per emergency / chat room)
+  const joinEmergencyRoom = async (prefix: 'emergency' | 'location', emergencyId: string) => {
+    try {
+      if (await canAccessEmergency(user, emergencyId)) {
+        socket.join(`${prefix}:${emergencyId}`);
+      } else {
+        logger.warn(`🔒 Socket ${socket.id} denied ${prefix}:${emergencyId}`);
+      }
+    } catch (err: any) {
+      logger.error(`Failed to join ${prefix}:${emergencyId}: ${err.message}`);
     }
+  };
 
-    // Join role-based rooms
-    if (role === 'ADMIN') {
+  socket.on('join:emergency', (emergencyId: string) => joinEmergencyRoom('emergency', emergencyId));
+  socket.on('join:location', (emergencyId: string) => joinEmergencyRoom('location', emergencyId));
+
+  // Legacy generic join — rooms are derived from the verified token only
+  socket.on('join', () => {
+    socket.join(`notifications:${userId}`);
+    if (user.role === 'ADMIN') {
       socket.join('admin_notifications');
       socket.join('system_logs');
-      logger.info(`🛡️ Socket ${socket.id} joined admin channels`);
-    }
-
-    // Join specific arbitrary room
-    if (room) {
-      socket.join(room);
-      logger.info(`📦 Socket ${socket.id} joined room: ${room}`);
     }
   });
 
-  socket.on('join:chat', (roomId: string) => {
-    socket.join(`chat:${roomId}`);
-    logger.info(`💬 Socket ${socket.id} joined chat:${roomId}`);
+  socket.on('join:responders', () => {
+    if (user.role === 'RESPONDER') socket.join('responders');
   });
 
-  // Live location update from responder during active emergency (FR7.4)
+  socket.on('join:chat', async (roomId: string) => {
+    try {
+      if (await isChatRoomMember(userId, roomId)) {
+        socket.join(`chat:${roomId}`);
+      } else {
+        logger.warn(`🔒 Socket ${socket.id} denied chat:${roomId}`);
+      }
+    } catch (err: any) {
+      logger.error(`Failed to join chat:${roomId}: ${err.message}`);
+    }
+  });
+
+  socket.on('leave:chat', (roomId: string) => {
+    socket.leave(`chat:${roomId}`);
+  });
+
+  // Live location update from the assigned responder during an emergency
   socket.on('update_location', async (data: any) => {
-    const responderId = userId as string;
-    if (!responderId) {
-      logger.warn(`⚠️ update_location from unauthenticated socket ${socket.id} — ignored`);
-      return;
-    }
+    if (user.role !== 'RESPONDER') return;
 
     const { emergencyId, latitude, longitude, status } = data || {};
     if (!emergencyId || latitude === undefined || longitude === undefined) {
-      logger.warn(`⚠️ update_location missing fields from ${socket.id}: ${JSON.stringify(data)}`);
       return;
     }
 
@@ -233,7 +254,7 @@ io.on('connection', (socket) => {
       TRANSPORTED: 'TRANSPORTED',
       RESOLVED:    'ARRIVED',
     };
-    const trackingStatus = statusMap[(status || '').toUpperCase()] ?? 'EN_ROUTE';
+    const trackingStatus = statusMap[String(status || '').toUpperCase()] ?? 'EN_ROUTE';
 
     const parsedLat = parseFloat(latitude);
     const parsedLon = parseFloat(longitude);
@@ -244,34 +265,25 @@ io.on('connection', (socket) => {
     }
 
     try {
+      if (!(await isAssignedResponder(userId, emergencyId))) {
+        logger.warn(`🔒 update_location from ${userId} for unassigned emergency ${emergencyId}`);
+        return;
+      }
       await submitLocationUpdate({
         emergencyId,
-        responderId,
+        responderId: userId,
         latitude: parsedLat,
         longitude: parsedLon,
         status: trackingStatus,
       });
-      logger.info(`📍 Location update: responder ${responderId} → [${parsedLat}, ${parsedLon}] (${trackingStatus}) for emergency ${emergencyId}`);
     } catch (err: any) {
       logger.error(`❌ Failed to process location update: ${err.message}`);
     }
   });
 
-  // Test Broadcast Event (Internal use)
-  socket.on('test:broadcast', (data: any) => {
-    const targetRoom = `notifications:${data.userId || userId}`;
-    logger.info(`🧪 Test broadcast requested for room ${targetRoom}`);
-    io.to(targetRoom).emit('notification', {
-      type: 'TEST_ALERT',
-      title: 'Socket Test',
-      body: 'This is a test notification from the server.',
-      timestamp: new Date().toISOString()
-    });
-  });
-
   // Disconnect handling
   socket.on('disconnect', (reason) => {
-    logger.info(`🔌 Client Disconnected: ${socket.id} (${reason})`);
+    logger.info(`🔌 Client disconnected: ${socket.id} (${reason})`);
   });
 });
 
@@ -295,6 +307,8 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/uploads/profile',   express.static(path.join(process.cwd(), 'uploads', 'profile')));
 app.use('/uploads/documents', express.static(path.join(process.cwd(), 'uploads', 'documents')));
 app.use('/uploads/chat',      express.static(path.join(process.cwd(), 'uploads', 'chat')));
+// Chat files uploaded before the chat folder existed were stored under documents
+app.use('/uploads/chat',      express.static(path.join(process.cwd(), 'uploads', 'documents')));
 
 // Medical reports require authentication — served through access-controlled route
 app.use('/api/files', fileRoutes);
@@ -311,6 +325,10 @@ app.use((req: Request, res: Response) => {
 // Error handler
 app.use((err: any, _req: Request, res: Response, _next: any) => {
   logger.error(`Error: ${err.message}`);
+  // Multer upload errors (size / type) are client errors
+  if (err.name === 'MulterError' || /Unsupported file type/.test(err.message)) {
+    return res.status(400).json({ success: false, error: err.message, message: err.message });
+  }
   res.status(err.status || 500).json({
     error: 'Internal Server Error',
     message: NODE_ENV === 'development' ? err.message : 'An error occurred',

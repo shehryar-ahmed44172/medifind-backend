@@ -3,6 +3,7 @@ import * as emergencyService from '../services/emergencyService';
 import { sendSuccess, sendError } from '../utils/response';
 import prisma from '../lib/prisma';
 import { decryptJson } from '../utils/encryption';
+import { canAccessEmergency } from '../utils/accessControl';
 
 /**
  * POST /api/emergencies
@@ -14,7 +15,7 @@ export const createEmergency = async (req: Request, res: Response) => {
 
     const { emergencyType, latitude, longitude, accuracy, additionalInfo } = req.body;
 
-    if (!latitude || !longitude) {
+    if (latitude === undefined || latitude === null || longitude === undefined || longitude === null) {
       return sendError(res, 'latitude and longitude are required', 400);
     }
 
@@ -27,6 +28,9 @@ export const createEmergency = async (req: Request, res: Response) => {
       additionalInfo,
     });
 
+    if ('alreadyActive' in emergency && emergency.alreadyActive) {
+      return sendSuccess(res, emergency, 'You already have an active emergency — returning it', 200);
+    }
     sendSuccess(res, emergency, `Emergency created — you have ${emergency.cancellationWindowSeconds} seconds to cancel`, 201);
   } catch (error: any) {
     sendError(res, error.message, 400);
@@ -41,6 +45,9 @@ export const getEmergency = async (req: Request, res: Response) => {
   try {
     if (!req.user) return sendError(res, 'Unauthorized', 401);
     const { id } = req.params;
+    if (!(await canAccessEmergency(req.user, id))) {
+      return sendError(res, 'You do not have access to this emergency', 403);
+    }
     const emergency = await emergencyService.getEmergency(id);
 
     // HIPAA: Log access to PHI (Protected Health Information)
@@ -56,7 +63,6 @@ export const getEmergency = async (req: Request, res: Response) => {
           newValues: { detailLevel: 'FULL_MEDICAL_PROFILE', patientId: emergency.patientId } as any
         }
       });
-      console.log(`[HIPAA AUDIT] User ${req.user.userId} accessed PHI for emergency ${id}`);
     }
 
     sendSuccess(res, emergency, 'Emergency retrieved');
@@ -67,7 +73,7 @@ export const getEmergency = async (req: Request, res: Response) => {
 
 /**
  * POST /api/emergencies/:id/cancel
- * Cancel an emergency within the 10-second window
+ * Cancel an emergency within the cancellation window
  */
 export const cancelEmergency = async (req: Request, res: Response) => {
   try {
@@ -83,7 +89,7 @@ export const cancelEmergency = async (req: Request, res: Response) => {
 /**
  * GET /api/emergencies
  * - ADMIN: returns ALL emergencies across all statuses (for dashboard breakdown)
- * - RESPONDER: returns only ACTIVE emergencies (for dispatch list)
+ * - RESPONDER: returns open emergencies this responder was dispatched to
  */
 export const getActiveEmergencies = async (req: Request, res: Response) => {
   try {
@@ -95,8 +101,9 @@ export const getActiveEmergencies = async (req: Request, res: Response) => {
       return sendSuccess(res, emergencies, 'All emergencies retrieved');
     }
 
-    // Responders only need the active queue
-    const emergencies = await emergencyService.getActiveEmergencies();
+    // Responders only see emergencies they were dispatched to
+    const { getActiveEmergencyRequests } = await import('../services/responderService');
+    const emergencies = await getActiveEmergencyRequests(req.user.userId);
     sendSuccess(res, emergencies, 'Active emergencies retrieved');
   } catch (error: any) {
     sendError(res, error.message, 500);
@@ -165,11 +172,31 @@ export const updateEmergencyStatus = async (req: Request, res: Response) => {
   try {
     if (!req.user) return sendError(res, 'Unauthorized', 401);
     const { id } = req.params;
-    const { status } = req.body;
-    
-    const updated = await emergencyService.updateEmergencyStatus(id, status);
+    const { status, latitude, longitude } = req.body;
+    if (!status) return sendError(res, 'status is required', 400);
+
+    const updated = await emergencyService.updateEmergencyStatus(id, status, req.user, {
+      latitude: latitude !== undefined ? parseFloat(latitude) : undefined,
+      longitude: longitude !== undefined ? parseFloat(longitude) : undefined,
+    });
     sendSuccess(res, updated, 'Emergency status updated');
   } catch (error: any) {
-    sendError(res, error.message, 400);
+    const status = /assigned responder/i.test(error.message) ? 403 : 400;
+    sendError(res, error.message, status);
+  }
+};
+
+/**
+ * GET /api/emergencies/history
+ * PATIENT: own emergencies. CAREGIVER: emergencies of linked patients.
+ */
+export const getEmergencyHistory = async (req: Request, res: Response) => {
+  try {
+    if (!req.user) return sendError(res, 'Unauthorized', 401);
+    const limit = parseInt(String(req.query.limit || '50'), 10) || 50;
+    const history = await emergencyService.getEmergencyHistoryForUser(req.user.userId, req.user.role, limit);
+    sendSuccess(res, history, 'Emergency history retrieved');
+  } catch (error: any) {
+    sendError(res, error.message, 500);
   }
 };

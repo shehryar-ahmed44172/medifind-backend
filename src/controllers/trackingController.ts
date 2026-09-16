@@ -1,3 +1,4 @@
+import { canAccessEmergency } from '../utils/accessControl';
 import { Request, Response } from 'express';
 import * as trackingService from '../services/trackingService';
 import { sendSuccess, sendError } from '../utils/response';
@@ -43,6 +44,9 @@ export const getTrackingHistory = async (req: Request, res: Response) => {
   try {
     if (!req.user) return sendError(res, 'Unauthorized', 401);
     const { emergencyId } = req.params;
+    if (!(await canAccessEmergency(req.user, emergencyId))) {
+      return sendError(res, 'You do not have access to this emergency', 403);
+    }
     const history = await trackingService.getTrackingHistory(emergencyId);
     sendSuccess(res, history, 'Tracking history retrieved');
   } catch (error: any) {
@@ -58,6 +62,9 @@ export const getLatestTracking = async (req: Request, res: Response) => {
   try {
     if (!req.user) return sendError(res, 'Unauthorized', 401);
     const { emergencyId } = req.params;
+    if (!(await canAccessEmergency(req.user, emergencyId))) {
+      return sendError(res, 'You do not have access to this emergency', 403);
+    }
     const latest = await trackingService.getLatestTracking(emergencyId);
     sendSuccess(res, latest, 'Latest tracking retrieved');
   } catch (error: any) {

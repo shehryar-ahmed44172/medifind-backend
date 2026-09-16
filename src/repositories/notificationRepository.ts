@@ -99,10 +99,10 @@ export const notificationRepository = {
   /**
    * Mark a notification as read.
    */
-  markAsRead: async (notificationId: string) => {
-    return await prisma.notificationLog.update({
-      where: { id: notificationId } as any,
-      data: { isRead: true } as any,
+  markAsRead: async (notificationId: string, userId: string) => {
+    return await prisma.notificationLog.updateMany({
+      where: { id: notificationId, userId },
+      data: { isRead: true },
     });
   },
 
