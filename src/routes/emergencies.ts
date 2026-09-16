@@ -19,7 +19,7 @@ router.get('/:id', getEmergency);
 // PATCH /api/emergencies/:id/status — Update status (Arrived, Resolved, etc.) — Responder or Admin only
 router.patch('/:id/status', roleMiddleware('RESPONDER', 'ADMIN'), updateEmergencyStatus);
 
-// POST /api/emergencies/:id/cancel — Patient cancels within 10 seconds
+// POST /api/emergencies/:id/cancel — Patient cancels within the cancellation window (60 seconds)
 router.post('/:id/cancel', roleMiddleware('PATIENT'), cancelEmergency);
 
 // POST /api/emergencies/classify — AI symptom-to-emergency-type classification
