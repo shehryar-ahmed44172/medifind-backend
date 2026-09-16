@@ -477,7 +477,7 @@ const notifyNearbyResponders = async (
         const now = new Date();
         const remainingSeconds = Math.max(0, Math.floor((emergency.cancellationDeadline.getTime() - now.getTime()) / 1000));
 
-        // Use full notification system (IN_APP + PUSH via Firebase and logs to db)
+        // Use full notification system (IN_APP + self-hosted PUSH, logged to db)
         logger.info(`[Emergency Notification] Sending push/in-app notification to ${responder.userId}`);
         await sendNotification(responder.userId, {
           type: NotificationType.SOS_TRIGGERED,

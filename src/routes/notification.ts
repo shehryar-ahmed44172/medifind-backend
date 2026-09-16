@@ -16,6 +16,10 @@ router.post('/silence', roleMiddleware('ADMIN'), notificationController.silenceO
 // Get notification history for current user (inbox)
 router.get('/history', notificationController.getNotificationHistory);
 
+// Self-hosted push: fetch and acknowledge undelivered messages
+router.get('/pending', notificationController.getPendingPush);
+router.post('/ack', notificationController.acknowledgePush);
+
 // Get broadcast logs sent by the requesting admin
 router.get('/admin-history', notificationController.getAdminBroadcastHistory);
 

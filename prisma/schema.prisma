@@ -38,6 +38,7 @@ model User {
   medicalProfile      MedicalProfile?
   medicalReports      MedicalReport[]
   notificationLogs    NotificationLog[]
+  pushMessages        PushMessage[]
   passwordResets      PasswordReset[]
   refreshTokens       RefreshToken[]
   responder           Responder?
@@ -447,4 +448,28 @@ enum VerificationStatus {
   PENDING
   VERIFIED
   REJECTED
+}
+
+/// Self-hosted push delivery queue (store-and-forward, replaces Firebase FCM)
+model PushMessage {
+  id                String    @id @default(cuid())
+  userId            String
+  notificationLogId String?
+  type              String
+  title             String
+  body              String
+  data              Json      @default("{}")
+  priority          String    @default("normal")
+  /// QUEUED | SENT | DELIVERED | EXPIRED
+  status            String    @default("QUEUED")
+  attempts          Int       @default(0)
+  createdAt         DateTime  @default(now())
+  sentAt            DateTime?
+  deliveredAt       DateTime?
+  expiresAt         DateTime
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([status, sentAt])
+  @@index([expiresAt])
 }

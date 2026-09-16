@@ -241,7 +241,6 @@ export const getDebugInfo = async (req: Request, res: Response) => {
       role: user.role,
       isActive: user.isActive,
       isEmailVerified: user.isEmailVerified,
-      fcmTokens: (user as any).fcmTokens || [],
       responder: (user as any).responder ? {
         isAvailable: (user as any).responder.isAvailable,
         isVerified: (user as any).responder.isVerified,

@@ -240,3 +240,33 @@ export const markAllAsRead = async (req: Request, res: Response) => {
     sendError(res, error.message, 500);
   }
 };
+
+/**
+ * GET /api/notifications/pending
+ * Push messages not yet delivered to this user's device (fallback when the socket was down).
+ */
+export const getPendingPush = async (req: Request, res: Response) => {
+  try {
+    if (!req.user) return sendError(res, 'Not authenticated', 401);
+    const { getPending } = await import('../../services/push/pushService');
+    sendSuccess(res, await getPending(req.user.userId), 'Pending push messages');
+  } catch (error: any) {
+    sendError(res, error.message, 500);
+  }
+};
+
+/**
+ * POST /api/notifications/ack  { ids: string[] }
+ * Device confirms push messages were shown.
+ */
+export const acknowledgePush = async (req: Request, res: Response) => {
+  try {
+    if (!req.user) return sendError(res, 'Not authenticated', 401);
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids : [];
+    const { acknowledge } = await import('../../services/push/pushService');
+    const count = await acknowledge(req.user.userId, ids);
+    sendSuccess(res, { acknowledged: count }, 'Push messages acknowledged');
+  } catch (error: any) {
+    sendError(res, error.message, 500);
+  }
+};

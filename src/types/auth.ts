@@ -34,8 +34,6 @@ export interface RegisterRequest {
   employeeCardBackImageUrl?: string;
   drivingLicenseUrl?: string;
   motorbikeDocUrl?: string;
-  // FCM token sent at registration time so push works before first login
-  fcmToken?: string;
 }
 
 export interface LoginRequest {

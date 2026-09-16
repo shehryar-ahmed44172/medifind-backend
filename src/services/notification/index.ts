@@ -1,59 +1,9 @@
 import { Server as SocketIOServer } from 'socket.io';
-import * as admin from 'firebase-admin';
-import path from 'path';
-import fs from 'fs';
 import { NotificationPayload, NotificationChannel, NotificationType } from '../../types/notification';
 import { notificationRepository } from '../../repositories/notificationRepository';
 import { sendEmail } from '../../utils/email';
 import logger from '../../utils/logger';
-
-// ---- Firebase Admin SDK Setup ----
-// Initialize only once. Requires GOOGLE_APPLICATION_CREDENTIALS env var
-// pointing to your Firebase service account JSON file.
-let firebaseInitialized = false;
-
-function initFirebase() {
-  if (firebaseInitialized) return;
-  try {
-    let credPathRaw = process.env.MEDIFIND_FIREBASE_CREDENTIALS || process.env.GOOGLE_APPLICATION_CREDENTIALS;
-    let credPath: string | null = null;
-
-    // 1. Check local project root explicitly
-    const localPath = path.resolve(process.cwd(), 'firebase-adminsdk.json');
-    if (fs.existsSync(localPath)) {
-      credPath = localPath;
-      logger.info('Using firebase-adminsdk.json from project root');
-    } else if (credPathRaw) {
-      // 2. Fallback to ENV pointed path if it exists
-      const envPath = path.resolve(process.cwd(), credPathRaw.replace(/^"(.*)"$/, '$1'));
-      if (fs.existsSync(envPath)) {
-        credPath = envPath;
-      }
-    } 
-    
-    if (credPath) {
-      logger.info(`Attempting Firebase initialization with file: ${credPath}`);
-      
-      if (!fs.existsSync(credPath)) {
-        throw new Error(`Service account file not found at: ${credPath}`);
-      }
-
-      admin.initializeApp({
-        credential: admin.credential.cert(credPath),
-      });
-      logger.info('✅ Firebase Admin SDK initialized successfully');
-    } else {
-      admin.initializeApp({
-        credential: admin.credential.applicationDefault(),
-      });
-      logger.info('Firebase Admin SDK initialized using default credentials');
-    }
-    
-    firebaseInitialized = true;
-  } catch (error: any) {
-    logger.warn(`❌ Firebase Admin SDK not initialized: ${error.message}. Push notifications will be skipped.`);
-  }
-}
+import { queuePush, initializePushService } from '../push/pushService';
 
 // ---- Socket.io reference ----
 let io: SocketIOServer | null = null;
@@ -63,7 +13,7 @@ let io: SocketIOServer | null = null;
  */
 export function initializeNotifications(socketServer: SocketIOServer) {
   io = socketServer;
-  initFirebase();
+  initializePushService(socketServer);
   logger.info('Notification service initialized');
 }
 
@@ -83,6 +33,7 @@ export async function sendNotification(userId: string, payload: NotificationPayl
 
   let success = true;
   let failureReason = '';
+  let awaitingDeviceAck = false;
 
   // 2. Dispatch to each requested channel
   for (const channel of payload.channels) {
@@ -90,7 +41,8 @@ export async function sendNotification(userId: string, payload: NotificationPayl
       if (channel === NotificationChannel.IN_APP) {
         sendInApp(userId, payload);
       } else if (channel === NotificationChannel.PUSH) {
-        await sendPush(userId, payload);
+        await queuePush(userId, payload, record.id);
+        awaitingDeviceAck = true;
       } else if (channel === NotificationChannel.EMAIL) {
         await sendEmailNotification(userId, payload);
       }
@@ -101,13 +53,12 @@ export async function sendNotification(userId: string, payload: NotificationPayl
     }
   }
 
-  // 3. Update delivery status
-  await notificationRepository.updateStatus(
-    record.id,
-    success ? 'delivered' : 'failed',
-    success ? new Date() : undefined,
-    failureReason || undefined
-  );
+  // 3. Update delivery status — push stays 'pending' until the device acknowledges it
+  if (!success) {
+    await notificationRepository.updateStatus(record.id, 'failed', undefined, failureReason);
+  } else if (!awaitingDeviceAck) {
+    await notificationRepository.updateStatus(record.id, 'delivered', new Date());
+  }
 
   return { success, notificationId: record.id };
 }
@@ -175,102 +126,6 @@ function sendInApp(userId: string, payload: NotificationPayload) {
       payload.type === NotificationType.PATIENT_EMERGENCY) {
     logger.info(`📢 Mirroring critical event ${payload.type} to admin room`);
     io.to('admin_notifications').emit('admin_notification', eventData);
-  }
-}
-
-/**
- * Push: send via Firebase Cloud Messaging.
- * Requires the user's FCM device token stored somewhere accessible.
- * For now, tokens are passed inside payload.data.deviceTokens (comma-separated).
- */
-async function sendPush(userId: string, payload: NotificationPayload) {
-  if (!firebaseInitialized) {
-    logger.warn('Firebase not initialized, skipping push notification');
-    return;
-  }
-
-  let tokens = payload.data?.deviceTokens?.split(',').filter(Boolean) || [];
-  
-  if (tokens.length === 0) {
-    const { userRepository } = await import('../../repositories/userRepository');
-    const user = await userRepository.findById(userId) as any;
-    if (user && user.fcmTokens) {
-      const fcmList = Array.isArray(user.fcmTokens) ? (user.fcmTokens as string[]) : [];
-      tokens = fcmList.filter(Boolean);
-    }
-  }
-
-  if (tokens.length === 0) {
-    logger.warn(`⚠️ No device tokens for user ${userId}, skipping push notification`);
-    return;
-  }
-
-  logger.debug(`Sending FCM to user ${userId} on ${tokens.length} token(s)`);
-
-  const message: admin.messaging.MulticastMessage = {
-    tokens,
-    data: {
-      ...payload.data,
-      type: payload.type,
-      legacy_type: payload.type === 'SOS_TRIGGERED' ? 'EMERGENCY_REQUEST' : payload.type,
-      click_action: "FLUTTER_NOTIFICATION_CLICK",
-      channel_id: "medifind_emergency",
-      // Explicit mapping for Flutter UI stability
-      id: payload.data?.emergencyId || '',
-      emergencyId: payload.data?.emergencyId || '',
-      distance: payload.data?.distance || payload.data?.distanceKm || '0',
-      distanceKm: payload.data?.distanceKm || payload.data?.distance || '0',
-      priority: payload.data?.priority || 'HIGH',
-      emergencyType: payload.data?.emergencyType || 'OTHER',
-    },
-    notification: {
-      title: payload.title,
-      body: payload.body,
-    },
-    android: {
-      priority: 'high', // Use literal string 'high' for delivery speed
-      notification: {
-        channelId: "medifind_emergency",
-        priority: "max", // Max priority for system tray visibility
-        clickAction: "FLUTTER_NOTIFICATION_CLICK"
-      }
-    },
-  };
-
-  // Remove internal-only field before sending
-  delete message.data!.deviceTokens;
-
-  const response = await admin.messaging().sendEachForMulticast(message);
-  logger.info(`FCM sent: ${response.successCount} success, ${response.failureCount} failed`);
-
-  if (response.failureCount > 0) {
-    // Identify which tokens are permanently invalid so we can remove them from the DB
-    const INVALID_TOKEN_ERRORS = new Set([
-      'messaging/registration-token-not-registered',
-      'messaging/invalid-registration-token',
-      'messaging/invalid-argument',
-    ]);
-
-    const staleTokens: string[] = [];
-    response.responses.forEach((r, idx) => {
-      if (!r.success && r.error?.code && INVALID_TOKEN_ERRORS.has(r.error.code)) {
-        staleTokens.push(tokens[idx]);
-      }
-    });
-
-    const failedMessages = response.responses
-      .filter((r) => !r.success)
-      .map((r) => r.error?.message)
-      .join('; ');
-    logger.warn(`FCM failures: ${failedMessages}`);
-
-    if (staleTokens.length > 0) {
-      logger.info(`Removing ${staleTokens.length} stale FCM token(s) for user ${userId}`);
-      const { userRepository } = await import('../../repositories/userRepository');
-      (userRepository as any).removeFcmTokens(userId, staleTokens).catch((err: any) =>
-        logger.error(`Failed to remove stale FCM tokens: ${err.message}`)
-      );
-    }
   }
 }
 

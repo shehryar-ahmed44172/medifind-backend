@@ -183,46 +183,6 @@ export const userRepository = {
     });
   },
 
-  updateFcmToken: async (userId: string, token: string) => {
-    const user = await prisma.user.findUnique({ where: { id: userId } }) as any;
-    if (!user) return null;
-
-    // Manage array of tokens: deduplicate, add new, keep last 5 max
-    let tokens: string[] = [];
-    if (user.fcmTokens) {
-      tokens = Array.isArray(user.fcmTokens) ? (user.fcmTokens as string[]) : [];
-    }
-
-    if (!tokens.includes(token)) {
-      tokens.push(token);
-    }
-
-    // Cap to 5 most-recent tokens to prevent unbounded growth
-    if (tokens.length > 5) {
-      tokens = tokens.slice(-5);
-    }
-
-    return await prisma.user.update({
-      where: { id: userId },
-      data: { fcmTokens: tokens } as any,
-    });
-  },
-
-  removeFcmTokens: async (userId: string, staleTokens: string[]) => {
-    if (staleTokens.length === 0) return;
-    const user = await prisma.user.findUnique({ where: { id: userId } }) as any;
-    if (!user || !user.fcmTokens) return;
-
-    const current: string[] = Array.isArray(user.fcmTokens) ? user.fcmTokens : [];
-    const cleaned = current.filter((t: string) => !staleTokens.includes(t));
-
-    if (cleaned.length < current.length) {
-      await prisma.user.update({
-        where: { id: userId },
-        data: { fcmTokens: cleaned } as any,
-      });
-    }
-  },
 
   updateSubscription: async (userId: string, plan: 'FREE' | 'PROFESSIONAL' | 'EXECUTIVE') => {
     return await prisma.user.update({

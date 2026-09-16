@@ -537,7 +537,7 @@ export const getCommAudit = async (req: Request, res: Response) => {
 /**
  * Admin: System Health Check
  * GET /api/admin/health
- * Checks DB connectivity, Firebase, uptime, and memory usage.
+ * Checks DB connectivity, push delivery, uptime, and memory usage.
  */
 export const getSystemHealth = async (req: Request, res: Response) => {
   const start = Date.now();
@@ -554,13 +554,16 @@ export const getSystemHealth = async (req: Request, res: Response) => {
     dbStatus = 'down';
   }
 
-  // 2. Firebase / Push service
+  // 2. Self-hosted push service
   let pushStatus: 'healthy' | 'degraded' | 'down' = 'down';
+  let pushStats: Awaited<ReturnType<typeof import('../services/push/pushService').getPushStats>> | null = null;
   try {
-    const admin = await import('firebase-admin');
-    pushStatus = admin.apps && admin.apps.length > 0 ? 'healthy' : 'degraded';
+    const { getPushStats } = await import('../services/push/pushService');
+    pushStats = await getPushStats();
+    const failing = pushStats.expired24h > Math.max(5, pushStats.delivered24h);
+    pushStatus = failing ? 'degraded' : 'healthy';
   } catch {
-    pushStatus = 'degraded';
+    pushStatus = 'down';
   }
 
   // 3. Socket layer — if this request is being served, the HTTP/WS layer is up
@@ -582,7 +585,7 @@ export const getSystemHealth = async (req: Request, res: Response) => {
     services: {
       api:      { status: apiStatus,    latencyMs: apiLatencyMs },
       database: { status: dbStatus,     latencyMs: dbLatencyMs  },
-      push:     { status: pushStatus,   latencyMs: null         },
+      push:     { status: pushStatus,   latencyMs: null, provider: 'MediFind Push (self-hosted)', ...pushStats },
       socket:   { status: socketStatus, latencyMs: null         },
     },
     memory: { usedMB: memUsedMB, totalMB: memTotalMB, usedPct: memPct },

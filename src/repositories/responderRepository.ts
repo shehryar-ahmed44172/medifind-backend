@@ -28,7 +28,7 @@ export const responderRepository = {
     // so we convert the array to a SQL string and use Prisma.raw to splice it in.
     const { Prisma } = await import('@prisma/client');
     const typeClause = responderTypes && responderTypes.length > 0
-      ? Prisma.sql`AND r."responderType" IN (${Prisma.join(responderTypes)})`
+      ? Prisma.sql`AND r."responderType"::text IN (${Prisma.join(responderTypes)})`  // enum column vs text params
       : Prisma.empty;
 
     const results = await prisma.$queryRaw<any[]>`
@@ -70,14 +70,16 @@ export const responderRepository = {
 
     logger.info(`[Geospatial Search] Found ${results.length} eligible responders`);
 
-    // ── Diagnostic log (always runs so we can see why nobody was found) ──────
-    const allResponders = await prisma.responder.findMany({
-      include: { user: { select: { isActive: true, isEmailVerified: true } } }
-    });
-    logger.info(`[Geospatial Search] Diagnostic: Total Responders=${allResponders.length}`);
-    allResponders.forEach(r => {
-      logger.info(`  - Responder ${r.userId}: available=${r.isAvailable}, verified=${r.isVerified}, lat=${r.currentLatitude}, lon=${r.currentLongitude}, active=${r.user.isActive}, emailVerified=${r.user.isEmailVerified}`);
-    });
+    // ── Diagnostic log (dev only, when nobody matched) ────────────────────────
+    if (results.length === 0 && isDev) {
+      const allResponders = await prisma.responder.findMany({
+        include: { user: { select: { isActive: true, isEmailVerified: true } } }
+      });
+      logger.info(`[Geospatial Search] Diagnostic: Total Responders=${allResponders.length}`);
+      allResponders.forEach(r => {
+        logger.info(`  - Responder ${r.userId}: available=${r.isAvailable}, verified=${r.isVerified}, lat=${r.currentLatitude}, lon=${r.currentLongitude}, active=${r.user.isActive}, emailVerified=${r.user.isEmailVerified}`);
+      });
+    }
 
     // ── Dev-mode GPS fallback ─────────────────────────────────────────────────
     // The Haversine SQL query requires non-null GPS coords.  In development the

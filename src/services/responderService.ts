@@ -341,19 +341,12 @@ export const updateResponderLocation = async (
   });
 
   if (activeRequest) {
-    getIo().to(`location:${activeRequest.emergencyId}`).emit('RESPONDER_LOCATION_UPDATE', {
+    getIo().to([`location:${activeRequest.emergencyId}`, `emergency:${activeRequest.emergencyId}`]).emit('RESPONDER_LOCATION_UPDATE', {
       emergencyId: activeRequest.emergencyId,
       responderId: userId,
       latitude,
       longitude,
       timestamp: new Date().toISOString()
-    });
-    
-    // Also emit to the specific emergency room for general UI updates
-    getIo().to(`emergency:${activeRequest.emergencyId}`).emit('RESPONDER_LOCATION_UPDATE', {
-      emergencyId: activeRequest.emergencyId,
-      latitude,
-      longitude
     });
   }
 

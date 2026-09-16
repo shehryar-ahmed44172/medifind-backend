@@ -22,8 +22,6 @@ export const register = async (req: Request, res: Response) => {
       // Responder document URLs (uploaded separately via /upload-document)
       cnicImageUrl, cnicBackImageUrl, employeeCardImageUrl, employeeCardBackImageUrl,
       drivingLicenseUrl, motorbikeDocUrl,
-      // FCM token — sent at registration so push works before first login
-      fcmToken,
     } = req.body as RegisterRequest;
 
     // Basic validation
@@ -52,7 +50,6 @@ export const register = async (req: Request, res: Response) => {
       motorbikeNumber,
       cnicImageUrl, cnicBackImageUrl, employeeCardImageUrl, employeeCardBackImageUrl,
       drivingLicenseUrl, motorbikeDocUrl,
-      fcmToken,
     });
 
     sendSuccess(res, result, 'Registration successful', 201);
@@ -149,26 +146,13 @@ export const getProfile = async (req: Request, res: Response) => {
 
 /**
  * PUT /api/auth/fcm-token
- * Update FCM device token for push notifications
+ * Deprecated: device tokens are not needed by the self-hosted push service
  */
 export const updateFcmToken = async (req: Request, res: Response) => {
-  try {
-    if (!req.user) {
-      return sendError(res, 'User not authenticated', 401);
-    }
-
-    const { fcmToken } = req.body;
-    if (!fcmToken) {
-      return sendError(res, 'FCM token required', 400);
-    }
-
-    const { userRepository } = await import('../repositories/userRepository');
-    await userRepository.updateFcmToken(req.user.userId, fcmToken);
-    
-    sendSuccess(res, null, 'FCM token updated successfully', 200);
-  } catch (error: any) {
-    sendError(res, error.message, 400);
-  }
+  // Deprecated: push is delivered by the self-hosted MediFind Push service over the
+  // authenticated socket, so device tokens are no longer needed. Kept for old app builds.
+  if (!req.user) return sendError(res, 'Unauthorized', 401);
+  sendSuccess(res, null, 'Device tokens are no longer required');
 };
 
 /**

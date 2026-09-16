@@ -105,7 +105,7 @@ app.get('/health', (_req: Request, res: Response) => {
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     environment: NODE_ENV,
-    firebase: process.env.MEDIFIND_FIREBASE_CREDENTIALS ? 'configured' : 'missing',
+    push: 'self-hosted',
   });
 });
 

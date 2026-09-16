@@ -1,6 +1,6 @@
 /**
  * Notification system types for MediFind.
- * Supports multiple channels: In-App (Socket.io), Push (Firebase FCM), Email.
+ * Supports multiple channels: In-App (Socket.io), Push (self-hosted MediFind Push service), Email.
  */
 
 export enum NotificationType {
@@ -30,7 +30,7 @@ export enum NotificationType {
 
 export enum NotificationChannel {
   IN_APP = 'IN_APP',   // Socket.io real-time
-  PUSH = 'PUSH',       // Firebase FCM
+  PUSH = 'PUSH',       // MediFind Push (store-and-forward over Socket.io)
   EMAIL = 'EMAIL',     // Email (future)
 }
 

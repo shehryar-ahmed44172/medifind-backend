@@ -60,8 +60,8 @@ export const submitLocationUpdate = async (data: {
     }
   };
 
-  getIo().to(`location:${data.emergencyId}`).emit('LOCATION_UPDATE', locationPayload);
-  getIo().to(`emergency:${data.emergencyId}`).emit('LOCATION_UPDATE', locationPayload);
+  // One delivery per socket even when it is in several of these rooms
+  getIo().to([`location:${data.emergencyId}`, `emergency:${data.emergencyId}`]).emit('LOCATION_UPDATE', locationPayload);
   // Mirror to admin room so the live ambulance map marker moves in real-time on the SOS Monitor
   getIo().to('admin_notifications').emit('LOCATION_UPDATE', locationPayload);
 
