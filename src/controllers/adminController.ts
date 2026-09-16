@@ -6,15 +6,33 @@ import { sendNotification } from '../services/notification/index';
 import { NotificationChannel } from '../types/notification';
 import { sendEmail } from '../utils/email';
 
+/** Administrator accounts cannot be deactivated, deleted or re-planned from the portal. */
+const rejectAdminTarget = async (res: Response, id: string): Promise<boolean> => {
+  const target = await prisma.user.findUnique({ where: { id }, select: { role: true } });
+  if (!target) {
+    sendError(res, 'User not found', 404);
+    return true;
+  }
+  if (target.role === 'ADMIN') {
+    sendError(res, 'Administrator accounts cannot be modified from user management', 403);
+    return true;
+  }
+  return false;
+};
+
 /**
  * Admin: List all users
  * GET /api/admin/users
  */
 export const getAllUsers = async (req: Request, res: Response) => {
   try {
-    const { role } = req.query;
+    const role = typeof req.query.role === 'string' ? req.query.role.toUpperCase() : undefined;
+    if (role && !['PATIENT', 'RESPONDER', 'CAREGIVER'].includes(role)) {
+      return sendError(res, 'role must be PATIENT, RESPONDER or CAREGIVER', 400);
+    }
+    // Administrator accounts are not platform users and are never managed from this list
     const users = await prisma.user.findMany({
-      where: role ? { role: role as any } : {},
+      where: role ? { role: role as any } : { role: { not: 'ADMIN' } },
       select: {
         id: true,
         fullName: true,
@@ -47,6 +65,7 @@ export const getAllUsers = async (req: Request, res: Response) => {
 export const deactivateUser = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    if (await rejectAdminTarget(res, id)) return;
     if (id === req.user?.userId) {
       return sendError(res, 'You cannot deactivate your own account', 400);
     }
@@ -71,6 +90,7 @@ export const deactivateUser = async (req: Request, res: Response) => {
 export const reactivateUser = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    if (await rejectAdminTarget(res, id)) return;
     await prisma.user.update({
       where: { id },
       data: { isActive: true }
@@ -89,6 +109,7 @@ export const reactivateUser = async (req: Request, res: Response) => {
 export const deleteUser = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    if (await rejectAdminTarget(res, id)) return;
 
     if (id === req.user?.userId) {
       return sendError(res, 'You cannot delete your own account', 400);
@@ -653,7 +674,7 @@ export const getEmergencyTrend = async (req: Request, res: Response) => {
 export const getDashboardStats = async (req: Request, res: Response) => {
   try {
     const [userCount, emergencyCount, activeEmergencies, verifiedResponders, availableResponders, pendingResponders] = await Promise.all([
-      prisma.user.count({ where: { isActive: true } }),
+      prisma.user.count({ where: { isActive: true, role: { not: 'ADMIN' } } }),
       prisma.emergency.count(),
       prisma.emergency.count({ where: { status: { in: ['ACTIVE', 'ASSIGNED', 'ARRIVED'] } } }),
       prisma.responder.count({ where: { isVerified: true } }),
