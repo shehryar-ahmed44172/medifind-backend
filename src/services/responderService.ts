@@ -3,6 +3,7 @@ import { emergencyRepository } from '../repositories/emergencyRepository';
 import { getIo } from '../server';
 import prisma from '../lib/prisma';
 import { encrypt } from '../utils/encryption';
+import { toNameList } from '../utils/medical';
 import { decryptSensitiveFields } from './medicalProfileService';
 import { sendNotification } from './notification';
 import { NotificationType, NotificationChannel, NotificationPayload } from '../types/notification';
@@ -126,7 +127,7 @@ export const acceptEmergencyRequest = async (emergencyId: string, responderId: s
       bloodType: medicalProfile?.bloodType || 'Unknown',
       allergies: (medicalProfile?.allergies as string[]) || [],
       chronicDiseases: (medicalProfile?.chronicDiseases as string[]) || [],
-      medications: (medicalProfile?.medications as string[]) || [],
+      medications: toNameList(medicalProfile?.medications),
       patientType: medicalProfile?.patientType || 'NORMAL',
       additionalInfo: emergency.additionalInfo || '',
     });

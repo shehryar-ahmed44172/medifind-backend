@@ -3,6 +3,7 @@ import * as emergencyService from '../services/emergencyService';
 import { sendSuccess, sendError } from '../utils/response';
 import prisma from '../lib/prisma';
 import { decryptJson } from '../utils/encryption';
+import { toNameList } from '../utils/medical';
 import { canAccessEmergency } from '../utils/accessControl';
 
 /**
@@ -136,7 +137,7 @@ export const getQuickReplies = async (req: Request, res: Response) => {
       emergencyType: (emergency as any).emergencyType || 'OTHER',
       allergies: (decryptJson(mp?.allergies) as string[]) || [],
       chronicDiseases: (decryptJson(mp?.chronicDiseases) as string[]) || [],
-      medications: (decryptJson(mp?.medications) as string[]) || [],
+      medications: toNameList(decryptJson(mp?.medications)),
       additionalInfo: (emergency as any).additionalInfo || '',
     });
 

@@ -44,7 +44,11 @@ export const getRooms = async (req: Request, res: Response) => {
       orderBy: { updatedAt: 'desc' },
     });
 
-    res.json(rooms);
+    // Message content is encrypted at rest — decrypt the preview for the client
+    res.json(rooms.map(room => ({
+      ...room,
+      messages: room.messages.map(m => ({ ...m, content: decrypt(m.content) })),
+    })));
   } catch (error: any) {
     logger.error(`Error fetching chat rooms: ${error.message}`);
     res.status(500).json({ error: 'Failed to fetch chat rooms' });
@@ -125,7 +129,7 @@ export const sendMessage = async (req: Request, res: Response) => {
         title: `New Message from ${sender?.fullName || 'User'}`,
         body: content
           ? (content.length > 50 ? `${content.substring(0, 47)}...` : content)
-          : ({ AUDIO: '🎤 Voice message', IMAGE: '📷 Photo', DOCUMENT: '📄 Document' } as Record<string, string>)[messageType] || 'New attachment',
+          : ({ AUDIO: 'Voice message', IMAGE: 'Photo', DOCUMENT: 'Document' } as Record<string, string>)[messageType] || 'New attachment',
         channels: [
           NotificationChannel.IN_APP,
           NotificationChannel.PUSH,

@@ -2,6 +2,7 @@ import { emergencyRepository } from '../repositories/emergencyRepository';
 import { responderRepository } from '../repositories/responderRepository';
 import { medicalProfileRepository } from '../repositories/medicalProfileRepository';
 import { decryptJson } from '../utils/encryption';
+import { toNameList } from '../utils/medical';
 import { validatePakistanCoordinates } from '../utils/geoValidation';
 import { decryptSensitiveFields } from './medicalProfileService';
 import logger from '../utils/logger';
@@ -76,7 +77,7 @@ export const createEmergency = async (data: {
 
   const allergies   = (decryptJson(medicalProfile?.allergies)        as string[]) || [];
   const chronic     = (decryptJson(medicalProfile?.chronicDiseases)   as string[]) || [];
-  const medications = (decryptJson(medicalProfile?.medications)       as string[]) || [];
+  const medications = toNameList(decryptJson(medicalProfile?.medications));
   const isDeaf = medicalProfile?.patientType === 'DEAF';
 
   // Build the fallback template first — used immediately if AI is slow or unavailable.
