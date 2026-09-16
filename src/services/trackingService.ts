@@ -125,9 +125,18 @@ async function notifyStakeholdersOfStatusChange(emergencyId: string, responderId
   const body = statusMessages[status] || `Responder status updated: ${status}`;
 
   // 1. Notify Patient
+  const statusTitles: Record<string, string> = {
+    'ARRIVED': 'Help has arrived',
+    'TREATING': 'Treatment in progress',
+    'TRANSPORTED': 'On the way to hospital',
+  };
+  const title = statusTitles[status] || 'Emergency update';
+
+  // Status updates use RESPONDER_ARRIVING — never PATIENT_EMERGENCY, which clients
+  // treat as a brand-new SOS alert.
   await sendNotification(emergency.patientId, {
-    type: NotificationType.RESPONDER_LOCATION_UPDATE,
-    title: "Help has arrived!",
+    type: NotificationType.RESPONDER_ARRIVING,
+    title,
     body: body,
     channels: [NotificationChannel.IN_APP, NotificationChannel.PUSH],
     priority: 'high',
@@ -138,8 +147,8 @@ async function notifyStakeholdersOfStatusChange(emergencyId: string, responderId
   const caregivers = await caregiverRepository.getCaregiversForPatient(emergency.patientId);
   for (const link of caregivers) {
     await sendNotification(link.caregiverId, {
-      type: NotificationType.PATIENT_EMERGENCY,
-      title: "Emergency Update",
+      type: NotificationType.RESPONDER_ARRIVING,
+      title: `${title} — ${emergency.patient.fullName}`,
       body: `Update for ${emergency.patient.fullName}: ${body}`,
       channels: [NotificationChannel.IN_APP, NotificationChannel.PUSH],
       priority: 'high',

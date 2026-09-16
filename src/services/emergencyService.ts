@@ -38,6 +38,7 @@ export const createEmergency = async (data: {
   longitude: number;
   accuracy?: number;
   additionalInfo?: string;
+  locationMocked?: boolean;
 }) => {
   if (!Number.isFinite(data.latitude) || !Number.isFinite(data.longitude)) {
     throw new Error('Valid latitude and longitude are required');
@@ -60,6 +61,9 @@ export const createEmergency = async (data: {
       voiceSummary: openEmergency.voiceSummary,
     };
   }
+
+  const { assertSosAllowed } = await import('./sosSafeguards');
+  await assertSosAllowed(data.patientId, { locationMocked: !!data.locationMocked });
 
   const cancellationDeadline = new Date(Date.now() + CANCELLATION_WINDOW_SECONDS * 1000);
 
@@ -115,6 +119,7 @@ export const createEmergency = async (data: {
     additionalInfo: data.additionalInfo,
     cancellationDeadline,
     voiceSummary,
+    locationMocked: !!data.locationMocked,
   });
 
   // Notify caregivers immediately via socket

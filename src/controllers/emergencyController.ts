@@ -13,7 +13,7 @@ export const createEmergency = async (req: Request, res: Response) => {
   try {
     if (!req.user) return sendError(res, 'Unauthorized', 401);
 
-    const { emergencyType, latitude, longitude, accuracy, additionalInfo } = req.body;
+    const { emergencyType, latitude, longitude, accuracy, additionalInfo, isMocked } = req.body;
 
     if (latitude === undefined || latitude === null || longitude === undefined || longitude === null) {
       return sendError(res, 'latitude and longitude are required', 400);
@@ -26,6 +26,7 @@ export const createEmergency = async (req: Request, res: Response) => {
       longitude: parseFloat(longitude),
       accuracy: accuracy ? parseFloat(accuracy) : undefined,
       additionalInfo,
+      locationMocked: isMocked === true || isMocked === 'true',
     });
 
     if ('alreadyActive' in emergency && emergency.alreadyActive) {
@@ -33,7 +34,7 @@ export const createEmergency = async (req: Request, res: Response) => {
     }
     sendSuccess(res, emergency, `Emergency created — you have ${emergency.cancellationWindowSeconds} seconds to cancel`, 201);
   } catch (error: any) {
-    sendError(res, error.message, 400);
+    sendError(res, error.message, error.statusCode || 400, error.code ? { code: error.code } : null);
   }
 };
 

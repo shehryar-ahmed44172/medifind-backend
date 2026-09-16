@@ -100,6 +100,11 @@ model Emergency {
   updatedAt            DateTime            @updatedAt
   resolvedAt           DateTime?
   voiceSummary         String?
+  /// TREATED | TRANSPORTED | FALSE_ALARM | PATIENT_NOT_FOUND (set by the responder on resolve)
+  resolutionOutcome    String?
+  resolutionNote       String?
+  /// Device reported a mock/fake GPS provider when the SOS was raised
+  locationMocked       Boolean             @default(false)
   patient              User                @relation("PatientEmergencies", fields: [patientId], references: [id], onDelete: Cascade)
   emergencyRequests    EmergencyRequest[]
   emergencyTracking    EmergencyTracking[]
@@ -109,6 +114,7 @@ model Emergency {
   @@index([status])
   @@index([createdAt])
   @@index([cancellationDeadline])
+  @@index([patientId, resolutionOutcome])
 }
 
 model Responder {

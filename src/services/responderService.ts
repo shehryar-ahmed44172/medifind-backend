@@ -9,6 +9,7 @@ import { NotificationType, NotificationChannel, NotificationPayload } from '../t
 import * as caregiverRepository from '../repositories/caregiverRepository';
 import { redispatchEmergency } from './emergencyService';
 import logger from '../utils/logger';
+import { handleFalseAlarm, ResolutionOutcome } from './sosSafeguards';
 
 /**
  * Responder accepts an emergency request.
@@ -191,7 +192,11 @@ const notifyLinkedCaregivers = (patientId: string, payload: NotificationPayload)
 /**
  * Mark an emergency as RESOLVED. Only the assigned responder may resolve it.
  */
-export const resolveEmergency = async (emergencyId: string, responderId: string) => {
+export const resolveEmergency = async (
+  emergencyId: string,
+  responderId: string,
+  resolution: { outcome: ResolutionOutcome; note?: string } = { outcome: 'TREATED' },
+) => {
   const updatedEmergency = await prisma.$transaction(async (tx) => {
     const emergency = await tx.emergency.findUnique({ where: { id: emergencyId } });
     if (!emergency) throw new Error('Emergency not found');
@@ -206,7 +211,12 @@ export const resolveEmergency = async (emergencyId: string, responderId: string)
 
     const updated = await tx.emergency.update({
       where: { id: emergencyId },
-      data: { status: 'RESOLVED', resolvedAt: new Date() },
+      data: {
+        status: 'RESOLVED',
+        resolvedAt: new Date(),
+        resolutionOutcome: resolution.outcome,
+        resolutionNote: resolution.note ?? null,
+      },
     });
 
     await tx.responder.update({
@@ -219,7 +229,13 @@ export const resolveEmergency = async (emergencyId: string, responderId: string)
 
   const resolvedPayload = {
     type: 'EMERGENCY_STATUS_CHANGE',
-    data: { emergencyId, newStatus: 'RESOLVED', responderId, timestamp: new Date().toISOString() },
+    data: {
+      emergencyId,
+      newStatus: 'RESOLVED',
+      responderId,
+      outcome: resolution.outcome,
+      timestamp: new Date().toISOString(),
+    },
   };
   getIo().to(`emergency:${emergencyId}`).emit('EMERGENCY_STATUS_CHANGE', resolvedPayload);
   getIo().to('admin_notifications').emit('EMERGENCY_STATUS_CHANGE', resolvedPayload);
@@ -232,8 +248,14 @@ export const resolveEmergency = async (emergencyId: string, responderId: string)
     priority: 'normal',
     data: { emergencyId, status: 'RESOLVED', responderId },
   };
-  sendNotification(updatedEmergency.patientId, resolvedNotice).catch(err =>
-    logger.error(`[Resolve] Failed to notify patient: ${err.message}`));
+  if (resolution.outcome === 'FALSE_ALARM') {
+    // The false-alarm warning replaces the usual "please rate" message
+    handleFalseAlarm(emergencyId, updatedEmergency.patientId, responderId, resolution.note)
+      .catch(err => logger.error(`[Resolve] False alarm handling failed: ${err.message}`));
+  } else {
+    sendNotification(updatedEmergency.patientId, resolvedNotice).catch(err =>
+      logger.error(`[Resolve] Failed to notify patient: ${err.message}`));
+  }
   notifyLinkedCaregivers(updatedEmergency.patientId, {
     ...resolvedNotice,
     type: NotificationType.PATIENT_SAFE,

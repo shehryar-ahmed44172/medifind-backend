@@ -10,6 +10,7 @@ export const emergencyRepository = {
     additionalInfo?: string;
     cancellationDeadline: Date;
     voiceSummary?: string;
+    locationMocked?: boolean;
   }) => {
     return await prisma.emergency.create({ data: data as any });
   },

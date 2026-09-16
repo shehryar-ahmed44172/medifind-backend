@@ -188,6 +188,8 @@ export const getUserProfile = async (req: Request, res: Response) => {
 
     // ── Audit log count ─────────────────────────────────────────────────────
     const auditCount = await prisma.auditLog.count({ where: { userId: id } });
+    const { countRecentFalseAlarms } = await import('../services/sosSafeguards');
+    const falseAlarmsLast30Days = user.role === 'PATIENT' ? await countRecentFalseAlarms(id) : 0;
 
     // Strip sensitive fields
     const { passwordHash, refreshTokenHash, fcmTokens, ...safeUser } = user as any;
@@ -198,7 +200,7 @@ export const getUserProfile = async (req: Request, res: Response) => {
 
     sendSuccess(
       res,
-      { ...safeUser, emergencyStats, emergencyHistory, responderHistory, auditCount },
+      { ...safeUser, emergencyStats, emergencyHistory, responderHistory, auditCount, falseAlarmsLast30Days },
       'User profile retrieved'
     );
   } catch (error: any) {

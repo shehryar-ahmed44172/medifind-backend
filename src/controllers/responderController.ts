@@ -89,7 +89,18 @@ export const resolveEmergency = async (req: Request, res: Response) => {
   try {
     if (!req.user) return sendError(res, 'Unauthorized', 401);
     const { emergencyId } = req.params;
-    const result = await responderService.resolveEmergency(emergencyId, req.user.userId);
+    const outcome = String(req.body?.outcome || 'TREATED').toUpperCase();
+    const note = typeof req.body?.note === 'string' ? req.body.note.trim().slice(0, 300) : undefined;
+
+    const { RESOLUTION_OUTCOMES } = await import('../services/sosSafeguards');
+    if (!(RESOLUTION_OUTCOMES as readonly string[]).includes(outcome)) {
+      return sendError(res, `outcome must be one of: ${RESOLUTION_OUTCOMES.join(', ')}`, 400);
+    }
+    if ((outcome === 'FALSE_ALARM' || outcome === 'PATIENT_NOT_FOUND') && !note) {
+      return sendError(res, 'Please add a short note explaining this outcome', 400);
+    }
+
+    const result = await responderService.resolveEmergency(emergencyId, req.user.userId, { outcome: outcome as any, note });
     sendSuccess(res, result, 'Emergency resolved and closed successfully');
   } catch (error: any) {
     sendError(res, error.message, 400);
