@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createEmergency, getEmergency, cancelEmergency, getActiveEmergencies, updateEmergencyStatus } from '../controllers/emergencyController';
+import { createEmergency, getEmergency, cancelEmergency, getActiveEmergencies, updateEmergencyStatus, classifyEmergency, getQuickReplies } from '../controllers/emergencyController';
 import { authMiddleware, roleMiddleware } from '../middleware/authMiddleware';
 
 const router = Router();
@@ -19,5 +19,11 @@ router.patch('/:id/status', roleMiddleware('RESPONDER', 'ADMIN'), updateEmergenc
 
 // POST /api/emergencies/:id/cancel — Patient cancels within 10 seconds
 router.post('/:id/cancel', roleMiddleware('PATIENT'), cancelEmergency);
+
+// POST /api/emergencies/classify — AI symptom-to-emergency-type classification
+router.post('/classify', roleMiddleware('PATIENT'), classifyEmergency);
+
+// POST /api/emergencies/:id/quick-replies — AI-personalized AAC cards for deaf patients
+router.post('/:id/quick-replies', roleMiddleware('PATIENT'), getQuickReplies);
 
 export default router;

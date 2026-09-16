@@ -1,11 +1,10 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 import logger from '../utils/logger';
 import { getIo } from '../server';
 import { sendNotification } from '../services/notification';
 import { NotificationChannel, NotificationType } from '../types/notification';
-
-const prisma = new PrismaClient();
+import { encrypt, decrypt } from '../utils/encryption';
 
 // ── Helper: check if user has access to a room ───────────────────────────────
 function hasRoomAccess(room: any, userId: string): boolean {
@@ -69,7 +68,8 @@ export const getMessages = async (req: Request, res: Response) => {
       take: 100,
     });
 
-    res.json(messages);
+    const decrypted = messages.map(m => ({ ...m, content: decrypt(m.content) }));
+    res.json(decrypted);
   } catch (error: any) {
     logger.error(`Error fetching chat messages: ${error.message}`);
     res.status(500).json({ error: 'Failed to fetch chat messages' });
@@ -88,8 +88,11 @@ export const sendMessage = async (req: Request, res: Response) => {
     }
 
     const message = await prisma.chatMessage.create({
-      data: { roomId, senderId, content, messageType, mediaUrl },
+      data: { roomId, senderId, content: encrypt(content), messageType, mediaUrl },
     });
+
+    // Emit and respond with plaintext so clients don't need to decrypt
+    const messageForClient = { ...message, content };
 
     // Update room timestamp
     await prisma.chatRoom.update({
@@ -97,8 +100,8 @@ export const sendMessage = async (req: Request, res: Response) => {
       data: { updatedAt: new Date() },
     });
 
-    // Emit via socket
-    getIo().to(`chat:${roomId}`).emit('message:new', message);
+    // Emit plaintext to connected clients
+    getIo().to(`chat:${roomId}`).emit('message:new', messageForClient);
 
     // Identify all recipients (everyone in the room except sender)
     const recipientIds: string[] = [];
@@ -119,14 +122,14 @@ export const sendMessage = async (req: Request, res: Response) => {
         channels: [
           NotificationChannel.IN_APP,
           NotificationChannel.PUSH,
-          NotificationChannel.EMAIL,
+          // EMAIL intentionally excluded: chat messages must not trigger emails
         ],
         priority: 'normal',
         data: { roomId, senderId, click_action: 'FLUTTER_NOTIFICATION_CLICK' },
       }).catch(err => logger.error(`Failed to send chat notification: ${err.message}`));
     }
 
-    res.status(201).json(message);
+    res.status(201).json(messageForClient);
   } catch (error: any) {
     logger.error(`Error sending message: ${error.message}`);
     res.status(500).json({ error: 'Failed to send message' });

@@ -2,13 +2,14 @@ import { responderRepository } from '../repositories/responderRepository';
 import { emergencyRepository } from '../repositories/emergencyRepository';
 import { getIo } from '../server';
 import prisma from '../lib/prisma';
+import { decryptJson } from '../utils/encryption';
 
 /**
  * Responder accepts an emergency request.
  * Uses a transaction to handle race conditions (FR5.5 - FR5.7)
  */
 export const acceptEmergencyRequest = async (emergencyId: string, responderId: string) => {
-  return await prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     // 1. Check if the emergency is still ACTIVE and unassigned
     const emergency = await tx.emergency.findUnique({
       where: { id: emergencyId },
@@ -118,11 +119,67 @@ export const acceptEmergencyRequest = async (emergencyId: string, responderId: s
         longitude: emergency.longitude,
         emergencyType: emergency.emergencyType,
         additionalInfo: emergency.additionalInfo,
-        voiceSummary: (emergency as any).voiceSummary, // Explicitly pull if available
-        medicalProfile: emergency.medicalReports, // Or actual profile data
+        voiceSummary: (emergency as any).voiceSummary,
+        medicalProfile: emergency.medicalReports,
+        patientId: emergency.patientId,
       }
     };
   });
+
+  // Generate AI medical brief outside the transaction so it doesn't hold the DB connection
+  let aiBrief: { brief: string; criticalFlags: string[]; recommendedActions: string[] } | null = null;
+  let patient: any = null;
+  try {
+    const { generateMedicalBrief } = await import('./aiService');
+    patient = await prisma.user.findUnique({
+      where: { id: result.emergency.patientId },
+      include: { medicalProfile: true },
+    });
+    aiBrief = await generateMedicalBrief({
+      patientName: patient?.fullName || 'Unknown',
+      emergencyType: result.emergency.emergencyType,
+      bloodType: patient?.medicalProfile?.bloodType || 'Unknown',
+      allergies: (decryptJson(patient?.medicalProfile?.allergies) as string[]) || [],
+      chronicDiseases: (decryptJson(patient?.medicalProfile?.chronicDiseases) as string[]) || [],
+      medications: (decryptJson(patient?.medicalProfile?.medications) as string[]) || [],
+      patientType: patient?.medicalProfile?.patientType || 'NORMAL',
+      additionalInfo: result.emergency.additionalInfo || '',
+    });
+  } catch { /* brief is optional — never block the accept flow */ }
+
+  // Auto-message responder when patient is deaf — creates or reuses the emergency chat room
+  if (patient?.medicalProfile?.patientType === 'DEAF') {
+    try {
+      const patientId = result.emergency.patientId;
+      const emergencyId = result.emergency.id || result.emergencyId;
+
+      let chatRoom = await prisma.chatRoom.findFirst({
+        where: { roomType: 'EMERGENCY_RESPONDER', patientId, responderId, emergencyId },
+      });
+      if (!chatRoom) {
+        chatRoom = await prisma.chatRoom.create({
+          data: { roomType: 'EMERGENCY_RESPONDER', patientId, responderId, emergencyId } as any,
+        });
+      }
+
+      const autoMsg = await prisma.chatMessage.create({
+        data: {
+          roomId: chatRoom.id,
+          senderId: patientId,
+          content: '⚠️ SYSTEM: This patient is DEAF and cannot speak or hear. Please communicate exclusively via this text chat. Do NOT ring the doorbell — knock loudly and wave. The patient may also use quick-tap message cards.',
+          messageType: 'TEXT',
+        } as any,
+      });
+
+      getIo().to(`chat:${chatRoom.id}`).emit('NEW_MESSAGE', autoMsg);
+    } catch (err: any) {
+      // Auto-message is non-critical — log and continue
+      const logger = (await import('../utils/logger')).default;
+      logger.error(`[DeafAutoMsg] Failed for emergency ${result.emergency.id}: ${err.message}`);
+    }
+  }
+
+  return { ...result, aiBrief };
 };
 
 /**
@@ -296,8 +353,8 @@ export const setResponderAvailability = async (userId: string, isAvailable: bool
 /**
  * Get all emergency history for a responder.
  */
-export const getResponderHistory = async (responderId: string) => {
-  return await responderRepository.getHistory(responderId);
+export const getResponderHistory = async (responderId: string, since?: Date) => {
+  return await responderRepository.getHistory(responderId, since);
 };
 /**
  * Submit a rating for a responder after an emergency is resolved.

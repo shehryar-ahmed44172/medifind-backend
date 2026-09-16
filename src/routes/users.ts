@@ -34,9 +34,9 @@ router.post('/profile/image', upload.single('image'), uploadProfileImage);
 
 /**
  * PATCH /api/users/upgrade
- * Self-service plan upgrade for Patients
+ * Self-service plan upgrade — available to all authenticated users (PATIENT, CAREGIVER, RESPONDER)
  */
-router.patch('/upgrade', roleMiddleware('PATIENT'), upgradePlan);
+router.patch('/upgrade', upgradePlan);
 
 /**
  * PATCH /api/users/:id/verify

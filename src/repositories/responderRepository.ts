@@ -1,6 +1,4 @@
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma';
 
 export const responderRepository = {
   findById: async (responderId: string) => {
@@ -10,17 +8,34 @@ export const responderRepository = {
     });
   },
 
-  findNearbyAvailable: async (latitude: number, longitude: number, radiusKm = 5) => {
+  findNearbyAvailable: async (
+    latitude: number,
+    longitude: number,
+    radiusKm = 5,
+    responderTypes?: string[]   // optional: filter by specialisation
+  ) => {
     const logger = (await import('../utils/logger')).default;
-    logger.info(`[Geospatial Search] Looking for responders near ${latitude}, ${longitude} within ${radiusKm}km`);
-    
+    logger.info(
+      `[Geospatial Search] Looking for responders near ${latitude}, ${longitude} ` +
+      `within ${radiusKm}km` +
+      (responderTypes ? ` (types: ${responderTypes.join(', ')})` : '')
+    );
+
     const isDev = process.env.NODE_ENV === 'development';
-    
+
+    // Build the optional type-filter clause.
+    // prisma.$queryRaw does not support dynamic IN lists via template literals,
+    // so we convert the array to a SQL string and use Prisma.raw to splice it in.
+    const { Prisma } = await import('@prisma/client');
+    const typeClause = responderTypes && responderTypes.length > 0
+      ? Prisma.sql`AND r."responderType" IN (${Prisma.join(responderTypes)})`
+      : Prisma.empty;
+
     const results = await prisma.$queryRaw<any[]>`
       SELECT r.*, u."fullName", u."phoneNumber", u."email",
         (
           6371 * acos(
-            LEAST(1.0, GREATEST(-1.0, 
+            LEAST(1.0, GREATEST(-1.0,
               cos(radians(${latitude}::double precision)) *
               cos(radians(r."currentLatitude"::double precision)) *
               cos(radians(r."currentLongitude"::double precision) - radians(${longitude}::double precision)) +
@@ -37,6 +52,7 @@ export const responderRepository = {
         AND (u."isEmailVerified" = true OR ${isDev}::boolean)
         AND r."currentLatitude" IS NOT NULL
         AND r."currentLongitude" IS NOT NULL
+        ${typeClause}
         AND (
           6371 * acos(
             LEAST(1.0, GREATEST(-1.0,
@@ -53,17 +69,32 @@ export const responderRepository = {
     `;
 
     logger.info(`[Geospatial Search] Found ${results.length} eligible responders`);
-    
-    if (results.length === 0) {
-      // Diagnostic: Check why no one was found
-      const allResponders = await prisma.responder.findMany({
-        include: { user: { select: { isActive: true, isEmailVerified: true } } }
+
+    // ── Diagnostic log (always runs so we can see why nobody was found) ──────
+    const allResponders = await prisma.responder.findMany({
+      include: { user: { select: { isActive: true, isEmailVerified: true } } }
+    });
+    logger.info(`[Geospatial Search] Diagnostic: Total Responders=${allResponders.length}`);
+    allResponders.forEach(r => {
+      logger.info(`  - Responder ${r.userId}: available=${r.isAvailable}, verified=${r.isVerified}, lat=${r.currentLatitude}, lon=${r.currentLongitude}, active=${r.user.isActive}, emailVerified=${r.user.isEmailVerified}`);
+    });
+
+    // ── Dev-mode GPS fallback ─────────────────────────────────────────────────
+    // The Haversine SQL query requires non-null GPS coords.  In development the
+    // isVerified / isEmailVerified checks are already bypassed above, but a
+    // responder who has never shared their location still gets filtered out by
+    // the IS NOT NULL clauses.  Fix: if dev mode and still no results, return
+    // all available responders with a synthetic distanceKm so notifications reach
+    // them without needing real GPS data.
+    if (results.length === 0 && isDev) {
+      logger.info('[Geospatial Search] DEV FALLBACK: no GPS-located responders found — returning all available responders');
+      const devResponders = await prisma.responder.findMany({
+        where: { isAvailable: true, user: { isActive: true } },
+        include: { user: { select: { fullName: true, phoneNumber: true, email: true } } },
+        take: 10,
       });
-      
-      logger.info(`[Geospatial Search] Diagnostic: Total Responders=${allResponders.length}`);
-      allResponders.forEach(r => {
-        logger.info(`  - Responder ${r.userId}: available=${r.isAvailable}, verified=${r.isVerified}, active=${r.user.isActive}, emailVerified=${r.user.isEmailVerified}, location=(${r.currentLatitude}, ${r.currentLongitude})`);
-      });
+      logger.info(`[Geospatial Search] DEV FALLBACK: found ${devResponders.length} available responders`);
+      return devResponders.map(r => ({ ...r, distanceKm: 0.5 }));
     }
 
     return results;
@@ -145,9 +176,12 @@ export const responderRepository = {
     });
   },
 
-  getHistory: async (responderId: string) => {
+  getHistory: async (responderId: string, since?: Date) => {
     return await prisma.emergencyRequest.findMany({
-      where: { responderId },
+      where: {
+        responderId,
+        ...(since ? { createdAt: { gte: since } } : {}),
+      },
       include: {
         emergency: {
           include: {

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { updateLocation, setAvailability, acceptEmergency, rejectEmergency, getNearbyResponders, resolveEmergency, getHistory, cancelAssignment, getActiveRequests } from '../controllers/responderController';
+import { updateLocation, setAvailability, acceptEmergency, rejectEmergency, getNearbyResponders, resolveEmergency, getHistory, cancelAssignment, getActiveRequests, rateResponder } from '../controllers/responderController';
 import { authMiddleware, roleMiddleware } from '../middleware/authMiddleware';
 
 const router = Router();
@@ -31,5 +31,8 @@ router.get('/history', roleMiddleware('RESPONDER'), getHistory);
 
 // GET /api/responders/emergencies — Responder sees their current pending/accepted requests
 router.get('/emergencies', roleMiddleware('RESPONDER'), getActiveRequests);
+
+// POST /api/responders/:responderId/rate — Patient rates a responder (1–5 stars) after resolution
+router.post('/:responderId/rate', roleMiddleware('PATIENT'), rateResponder);
 
 export default router;

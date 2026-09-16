@@ -202,11 +202,10 @@ async function sendPush(userId: string, payload: NotificationPayload) {
 
   if (tokens.length === 0) {
     logger.warn(`⚠️ No device tokens for user ${userId}, skipping push notification`);
-    console.warn(`[Notification Service] User ${userId} has no FCM tokens in DB.`);
     return;
   }
 
-  console.log(`[Notification Service] Sending FCM to user ${userId} on ${tokens.length} tokens...`);
+  logger.debug(`Sending FCM to user ${userId} on ${tokens.length} token(s)`);
 
   const message: admin.messaging.MulticastMessage = {
     tokens,
@@ -245,11 +244,33 @@ async function sendPush(userId: string, payload: NotificationPayload) {
   logger.info(`FCM sent: ${response.successCount} success, ${response.failureCount} failed`);
 
   if (response.failureCount > 0) {
-    const failedTokens = response.responses
+    // Identify which tokens are permanently invalid so we can remove them from the DB
+    const INVALID_TOKEN_ERRORS = new Set([
+      'messaging/registration-token-not-registered',
+      'messaging/invalid-registration-token',
+      'messaging/invalid-argument',
+    ]);
+
+    const staleTokens: string[] = [];
+    response.responses.forEach((r, idx) => {
+      if (!r.success && r.error?.code && INVALID_TOKEN_ERRORS.has(r.error.code)) {
+        staleTokens.push(tokens[idx]);
+      }
+    });
+
+    const failedMessages = response.responses
       .filter((r) => !r.success)
       .map((r) => r.error?.message)
       .join('; ');
-    logger.warn(`FCM failures: ${failedTokens}`);
+    logger.warn(`FCM failures: ${failedMessages}`);
+
+    if (staleTokens.length > 0) {
+      logger.info(`Removing ${staleTokens.length} stale FCM token(s) for user ${userId}`);
+      const { userRepository } = await import('../../repositories/userRepository');
+      (userRepository as any).removeFcmTokens(userId, staleTokens).catch((err: any) =>
+        logger.error(`Failed to remove stale FCM tokens: ${err.message}`)
+      );
+    }
   }
 }
 

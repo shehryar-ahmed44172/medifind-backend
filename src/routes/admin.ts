@@ -18,6 +18,7 @@ router.get('/stats',                   adminController.getDashboardStats);
 router.get('/health',                  adminController.getSystemHealth);
 router.get('/logs',                    adminController.getAuditLogs);
 router.get('/subscriptions',           adminController.getSubscriptions);
+router.get('/subscriptions/all',       adminController.getAllSubscriptions);
 router.get('/notifications',           adminController.getCommAudit);
 router.get('/analytics/emergencies',   adminController.getEmergencyTrend);   // NEW: analytics
 router.get('/responders/pending',      adminController.getPendingResponders);

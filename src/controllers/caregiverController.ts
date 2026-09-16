@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import * as caregiverService from '../services/caregiverService';
 import { sendSuccess, sendError } from '../utils/response';
-import { PLAN_LIMITS } from '../middleware/planMiddleware';
+import { patientLimits, caregiverLimits } from '../middleware/planMiddleware';
 import prisma from '../lib/prisma';
 
 /**
@@ -24,23 +24,43 @@ export const linkCaregiver = async (req: Request, res: Response) => {
       return sendError(res, 'target email and relationship are required', 400);
     }
 
-    // Enforce per-plan caregiver limit (only for PATIENT role inviting caregivers)
+    // Enforce per-plan caregiver limit (PATIENT inviting a caregiver)
     if (req.user.role === 'PATIENT') {
       const user = await prisma.user.findUnique({
         where: { id: req.user.userId },
         select: { subscriptionPlan: true },
       });
-      const plan = (user?.subscriptionPlan ?? 'FREE') as keyof typeof PLAN_LIMITS;
-      const limit = PLAN_LIMITS[plan].maxCaregivers;
+      const limits = patientLimits(user?.subscriptionPlan ?? 'FREE');
       const activeCount = await prisma.caregiverLink.count({
         where: { patientId: req.user.userId, status: 'ACCEPTED', isActive: true },
       });
-      if (activeCount >= limit) {
+      if (activeCount >= limits.maxCaregivers) {
         return sendError(
           res,
-          `Caregiver limit reached (${limit} on ${plan} plan). Upgrade to add more caregivers.`,
+          `Caregiver limit reached (${limits.maxCaregivers} on ${user?.subscriptionPlan ?? 'FREE'} plan). Upgrade to add more caregivers.`,
           403
         );
+      }
+    }
+
+    // Enforce per-plan patient limit (CAREGIVER inviting / linking to a patient)
+    if (req.user.role === 'CAREGIVER') {
+      const user = await prisma.user.findUnique({
+        where: { id: req.user.userId },
+        select: { subscriptionPlan: true },
+      });
+      const limits = caregiverLimits(user?.subscriptionPlan ?? 'FREE');
+      if (limits.maxPatients !== -1) {
+        const activeCount = await prisma.caregiverLink.count({
+          where: { caregiverId: req.user.userId, status: 'ACCEPTED', isActive: true },
+        });
+        if (activeCount >= limits.maxPatients) {
+          return sendError(
+            res,
+            `Patient monitoring limit reached (${limits.maxPatients} on ${user?.subscriptionPlan ?? 'FREE'} plan). Upgrade to monitor more patients.`,
+            403
+          );
+        }
       }
     }
 

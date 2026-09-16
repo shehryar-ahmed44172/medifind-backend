@@ -132,7 +132,7 @@ export const verifyResponder = async (req: Request, res: Response) => {
  */
 export const upgradePlan = async (req: Request, res: Response) => {
   try {
-    if (!req.user || req.user.role !== 'PATIENT') return sendError(res, 'Unauthorized - Only Patients can upgrade plans', 403);
+    if (!req.user) return sendError(res, 'Unauthorized', 401);
     const { plan } = req.body;
 
     if (!['FREE', 'PROFESSIONAL', 'EXECUTIVE'].includes(plan)) {

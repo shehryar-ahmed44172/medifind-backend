@@ -93,7 +93,9 @@ export class PasswordResetService {
       });
 
       logger.info(`Password reset email sent to user: ${user.email}`);
-      console.log(`\n🔗 Reset Link (for fallback/logging): ${resetLink}\n`);
+      if (process.env.NODE_ENV !== 'production') {
+        logger.debug(`[DEV ONLY] Password reset link for ${user.email}: ${resetLink}`);
+      }
 
       return {
         success: true,

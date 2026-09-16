@@ -13,6 +13,7 @@ import medicalProfileRoutes from './routes/medicalProfile';
 import emergencyRoutes from './routes/emergencies';
 import { checkAndEscalate } from './services/emergencyService';
 import { submitLocationUpdate } from './services/trackingService';
+import { validatePakistanCoordinates } from './utils/geoValidation';
 import responderRoutes from './routes/responders';
 import trackingRoutes from './routes/tracking';
 import reportRoutes from './routes/reports';
@@ -21,6 +22,8 @@ import chatRoutes from './routes/chat';
 import adminRoutes from './routes/admin';
 import notificationRoutes from './routes/notification';
 import { initializeNotifications } from './services/notification';
+import paymentRoutes from './routes/payments';
+import fileRoutes from './routes/files';
 import path from 'path';
 
 // Initialize Express app
@@ -56,6 +59,9 @@ app.use(cors({
   origin: '*', // Relaxed for development debugging
   credentials: true,
 }));
+// Payments — must be mounted BEFORE express.json() so the webhook receives the raw body
+app.use('/api/payments', paymentRoutes);
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use(morgan('combined', {
@@ -229,15 +235,23 @@ io.on('connection', (socket) => {
     };
     const trackingStatus = statusMap[(status || '').toUpperCase()] ?? 'EN_ROUTE';
 
+    const parsedLat = parseFloat(latitude);
+    const parsedLon = parseFloat(longitude);
+    const coordError = validatePakistanCoordinates(parsedLat, parsedLon);
+    if (coordError) {
+      logger.warn(`⚠️ update_location rejected — ${coordError} (socket ${socket.id})`);
+      return;
+    }
+
     try {
       await submitLocationUpdate({
         emergencyId,
         responderId,
-        latitude: parseFloat(latitude),
-        longitude: parseFloat(longitude),
+        latitude: parsedLat,
+        longitude: parsedLon,
         status: trackingStatus,
       });
-      logger.info(`📍 Location update: responder ${responderId} → [${latitude}, ${longitude}] (${trackingStatus}) for emergency ${emergencyId}`);
+      logger.info(`📍 Location update: responder ${responderId} → [${parsedLat}, ${parsedLon}] (${trackingStatus}) for emergency ${emergencyId}`);
     } catch (err: any) {
       logger.error(`❌ Failed to process location update: ${err.message}`);
     }
@@ -277,8 +291,13 @@ app.use('/api/chat', chatRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/notifications', notificationRoutes);
 
-// Static route for serving uploaded files
-app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+// Profile images and registration docs are non-sensitive — serve publicly
+app.use('/uploads/profile',   express.static(path.join(process.cwd(), 'uploads', 'profile')));
+app.use('/uploads/documents', express.static(path.join(process.cwd(), 'uploads', 'documents')));
+app.use('/uploads/chat',      express.static(path.join(process.cwd(), 'uploads', 'chat')));
+
+// Medical reports require authentication — served through access-controlled route
+app.use('/api/files', fileRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {
@@ -316,8 +335,8 @@ const gracefulShutdown = (signal: string) => {
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 
-// Start server
-server.listen(PORT, HOST, () => {
+// Start server (skip in test environment — supertest manages the port)
+if (NODE_ENV !== 'test') server.listen(PORT, HOST, () => {
   logger.info(`🚀 Server running on http://${HOST}:${PORT}`);
   logger.info(`📡 WebSocket available at ws://${HOST}:${PORT}`);
   logger.info(`🔧 Environment: ${NODE_ENV}`);

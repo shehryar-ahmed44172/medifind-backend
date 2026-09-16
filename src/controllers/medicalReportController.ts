@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import * as medicalReportService from '../services/medicalReportService';
 import { sendSuccess, sendError } from '../utils/response';
-import { PLAN_LIMITS } from '../middleware/planMiddleware';
+import { patientLimits } from '../middleware/planMiddleware';
 import prisma from '../lib/prisma';
 
 /**
@@ -38,8 +38,8 @@ export const uploadProfileReport = async (req: Request, res: Response) => {
       where: { id: req.user.userId },
       select: { subscriptionPlan: true },
     });
-    const plan = (user?.subscriptionPlan ?? 'FREE') as keyof typeof PLAN_LIMITS;
-    const limit = PLAN_LIMITS[plan]?.maxMedicalReports ?? 5;
+    const limits = patientLimits(user?.subscriptionPlan ?? 'FREE');
+    const limit = limits.maxMedicalReports;
 
     if (limit !== -1) {
       const existingCount = await prisma.medicalReport.count({
@@ -48,7 +48,7 @@ export const uploadProfileReport = async (req: Request, res: Response) => {
       if (existingCount >= limit) {
         return sendError(
           res,
-          `Report limit reached (${limit} max on ${plan} plan). Upgrade to upload more.`,
+          `Report limit reached (${limit} max on ${user?.subscriptionPlan ?? 'FREE'} plan). Upgrade to upload more.`,
           403
         );
       }

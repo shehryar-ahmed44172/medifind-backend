@@ -392,6 +392,9 @@ enum ResponderType {
   EMT
   FIRST_RESPONDER
   VOLUNTEER
+  AMBULANCE
+  DOCTOR
+  EMERGENCY_RESPONDER
 }
 
 enum EmergencyStatus {

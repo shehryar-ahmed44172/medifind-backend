@@ -1,6 +1,4 @@
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma';
 
 export const createLink = async (data: { caregiverId: string, patientId: string, relationship: string, requesterId: string }) => {
   return await prisma.caregiverLink.create({

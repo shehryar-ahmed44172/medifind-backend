@@ -65,3 +65,6 @@ firebase-adminsdk.json
 uploads/
 scratch/
 .claude/
+
+# Runtime admin settings (may contain SMTP credentials)
+platform-settings.json

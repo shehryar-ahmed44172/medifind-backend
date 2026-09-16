@@ -1,6 +1,7 @@
 import { emergencyRepository } from '../repositories/emergencyRepository';
 import { responderRepository } from '../repositories/responderRepository';
 import { medicalProfileRepository } from '../repositories/medicalProfileRepository';
+import { decryptJson } from '../utils/encryption';
 import logger from '../utils/logger';
 
 import { getIo } from '../server';
@@ -29,18 +30,44 @@ export const createEmergency = async (data: {
   const patientUser = await (await import('../repositories/userRepository')).userRepository.findById(data.patientId);
   const patientName = patientUser?.fullName || 'Unknown Patient';
 
-  // Attach medical profile to emergency context
+  // Attach medical profile to emergency context — decrypt sensitive fields before use
   const medicalProfile = await medicalProfileRepository.findByUserId(data.patientId);
 
-  // Voice Alert Summary Generation (FR6.1 - FR6.3)
-  const allergies = (medicalProfile?.allergies as string[]) || [];
-  const chronic = (medicalProfile?.chronicDiseases as string[]) || [];
+  const allergies   = (decryptJson(medicalProfile?.allergies)        as string[]) || [];
+  const chronic     = (decryptJson(medicalProfile?.chronicDiseases)   as string[]) || [];
+  const medications = (decryptJson(medicalProfile?.medications)       as string[]) || [];
   const isDeaf = medicalProfile?.patientType === 'DEAF';
 
-  const voiceSummary = (isDeaf ? "ATTENTION: PATIENT IS DEAF AND UNABLE TO SPEAK. " : "") +
+  // Build the fallback template first — used immediately if AI is slow or unavailable.
+  // SOS creation must never be delayed by an AI call, so we race Gemini against a
+  // 1.5-second hard timeout. The patient gets a confirmed SOS within normal latency.
+  const fallbackSummary =
+    (isDeaf ? 'ATTENTION: PATIENT IS DEAF AND UNABLE TO SPEAK. ' : '') +
     `Emergency Type: ${data.emergencyType || 'MEDICAL'}. ` +
     (allergies.length > 0 ? `Patient has allergies: ${allergies.join(', ')}. ` : '') +
     (chronic.length > 0 ? `Chronic conditions: ${chronic.join(', ')}.` : '');
+
+  let voiceSummary: string;
+  try {
+    const { generateVoiceSummary } = await import('./aiService');
+    const timeout = new Promise<string>((resolve) =>
+      setTimeout(() => resolve(fallbackSummary), 1500)
+    );
+    voiceSummary = await Promise.race([
+      generateVoiceSummary({
+        patientName,
+        emergencyType: data.emergencyType || 'MEDICAL',
+        isDeaf,
+        allergies,
+        chronicDiseases: chronic,
+        medications,
+        bloodType: medicalProfile?.bloodType || 'Unknown',
+      }),
+      timeout,
+    ]);
+  } catch {
+    voiceSummary = fallbackSummary;
+  }
 
   const emergency = await emergencyRepository.create({
     patientId: data.patientId,
@@ -63,7 +90,7 @@ export const createEmergency = async (data: {
   }).catch((err) => logger.error(`Failed to notify caregivers: ${err.message}`));
 
   // Notify nearby responders asynchronously
-  notifyNearbyResponders(emergency.id, data.latitude, data.longitude, data.patientId, patientName, voiceSummary).catch((err) =>
+  notifyNearbyResponders(emergency.id, data.latitude, data.longitude, data.patientId, patientName, voiceSummary, data.emergencyType || 'OTHER').catch((err) =>
     logger.error(`Failed to notify responders: ${err.message}`)
   );
 
@@ -176,17 +203,30 @@ export const getAllEmergenciesForAdmin = async () => {
 /**
  * Find nearby responders and send them emergency requests.
  */
+// Maps each emergency type to the responder specialisations best suited for it.
+// The list is ordered by priority (most qualified first).
+// undefined means "any available responder" (used for generic / unknown types).
+const SPECIALIST_MAP: Record<string, string[]> = {
+  CARDIAC:             ['PARAMEDIC', 'EMT'],
+  STROKE:              ['PARAMEDIC', 'EMT'],
+  CHEST_PAIN:          ['PARAMEDIC', 'EMT'],
+  SHORTNESS_OF_BREATH: ['PARAMEDIC', 'EMT', 'FIRST_RESPONDER'],
+  TRAUMA:              ['PARAMEDIC', 'RESCUE_OFFICER', 'EMT'],
+  SEIZURE:             ['PARAMEDIC', 'EMT'],
+  DIABETIC:            ['PARAMEDIC', 'EMT', 'FIRST_RESPONDER'],
+};
+
 const notifyNearbyResponders = async (
   emergencyId: string,
   latitude: number,
   longitude: number,
   patientId: string,
   patientName: string = 'Patient',
-  voiceSummary: string = ''
+  voiceSummary: string = '',
+  emergencyType: string = 'OTHER'
 ) => {
   const { userRepository } = await import('../repositories/userRepository');
   const patient = await userRepository.findById(patientId);
-  const nearbyResponders = await responderRepository.findNearbyAvailable(latitude, longitude, 5);
   const emergency = await emergencyRepository.findById(emergencyId);
 
   if (!emergency) {
@@ -194,8 +234,34 @@ const notifyNearbyResponders = async (
     return;
   }
 
+  // Step 1: Try specialist responders within 5 km first.
+  const specialistTypes = SPECIALIST_MAP[emergencyType.toUpperCase()];
+  let nearbyResponders = await responderRepository.findNearbyAvailable(latitude, longitude, 5, specialistTypes);
+
+  if (nearbyResponders.length > 0) {
+    logger.info(
+      `[Dispatch] Found ${nearbyResponders.length} specialist(s) (${specialistTypes?.join(', ')}) ` +
+      `for ${emergencyType} within 5km`
+    );
+  } else {
+    // Step 2: Expand to 10 km — still specialists only.
+    if (specialistTypes) {
+      nearbyResponders = await responderRepository.findNearbyAvailable(latitude, longitude, 10, specialistTypes);
+      logger.info(`[Dispatch] Specialist search expanded to 10km — found ${nearbyResponders.length}`);
+    }
+
+    // Step 3: No specialists anywhere → fall back to ANY available responder within 10 km.
+    if (nearbyResponders.length === 0) {
+      nearbyResponders = await responderRepository.findNearbyAvailable(latitude, longitude, 10);
+      logger.warn(
+        `[Dispatch] No specialist responders for ${emergencyType}. ` +
+        `Falling back to all types — found ${nearbyResponders.length} within 10km`
+      );
+    }
+  }
+
   if (nearbyResponders.length === 0) {
-    // Try expanding radius to 10km
+    // Try expanding radius to 10km (legacy path kept for safety)
     const expanded = await responderRepository.findNearbyAvailable(latitude, longitude, 10);
     logger.warn(`No responders in 5km, found ${expanded.length} in 10km`);
 
@@ -222,6 +288,18 @@ const notifyNearbyResponders = async (
       }
     }
   }
+
+  // AI Responder Scorer: rank by weighted score (distance + rating + response time + specialist match)
+  // Pure TypeScript — no API call, negligible latency
+  const scoreResponder = (r: any): number => {
+    const distScore   = 1 / Math.max(r.distanceKm, 0.1);
+    const ratingScore = (r.rating ?? 5.0) / 5.0;
+    const avgRtScore  = r.averageResponseTime ? 1 / Math.max(r.averageResponseTime, 1) : 0.5;
+    const specBonus   = specialistTypes?.includes(r.responderType) ? 1.0 : 0.0;
+    return distScore * 0.4 + ratingScore * 0.3 + avgRtScore * 0.2 + specBonus * 0.1;
+  };
+  nearbyResponders.sort((a, b) => scoreResponder(b) - scoreResponder(a));
+  logger.info(`[Dispatch] Responders ranked by AI score (top: ${nearbyResponders[0]?.userId ?? 'none'})`);
 
   for (const responder of nearbyResponders) {
     try {
@@ -254,7 +332,7 @@ const notifyNearbyResponders = async (
             userId: patientId, // Map to entity userId
             patientId,
             status: "ACTIVE", // Current state
-            emergencyType: "MEDICAL",
+            emergencyType: emergencyType,
             patientName,
             latitude: latitude.toString(),
             longitude: longitude.toString(),
@@ -265,8 +343,8 @@ const notifyNearbyResponders = async (
             serverTime: now.toISOString(),
             voiceSummary, // FR6 Voice Alert
             bloodType: patient?.medicalProfile?.bloodType || 'Unknown',
-            allergies: JSON.stringify(patient?.medicalProfile?.allergies || []),
-            chronicDiseases: JSON.stringify(patient?.medicalProfile?.chronicDiseases || []),
+            allergies: JSON.stringify(decryptJson(patient?.medicalProfile?.allergies) || []),
+            chronicDiseases: JSON.stringify(decryptJson(patient?.medicalProfile?.chronicDiseases) || []),
             patientType: patient?.medicalProfile?.patientType || 'NORMAL',
             createdAt: new Date().toISOString(),
           }
@@ -306,9 +384,13 @@ const notifyCaregivers = async (patientId: string, emergencyData: any) => {
   }
 };
 
+// Track which emergencies have already received a 60-second escalation alert (prevents re-alert on repeat checks)
+const escalatedEmergencyIds = new Set<string>();
+
 /**
  * Periodically check for active emergencies that haven't been accepted (FR5.8 Escalation).
- * Emergencies older than 2 minutes with no responder are force-cancelled by the system.
+ * At 60s: AI generates an admin alert and re-dispatches with wider radius.
+ * At 120s: emergency is force-cancelled by the system.
  */
 export const checkAndEscalate = async () => {
   const activeEmergencies = await emergencyRepository.findAllActive();
@@ -316,6 +398,43 @@ export const checkAndEscalate = async () => {
 
   for (const emergency of activeEmergencies) {
     const ageSeconds = (now.getTime() - new Date(emergency.createdAt).getTime()) / 1000;
+
+    // 60s bracket: AI escalation alert to admin + wider re-dispatch
+    if (ageSeconds > 60 && ageSeconds <= 120 && !escalatedEmergencyIds.has(emergency.id)) {
+      const hasAccepted = (emergency.emergencyRequests as any[])?.some((r: any) => r.status === 'ACCEPTED');
+      if (!hasAccepted) {
+        escalatedEmergencyIds.add(emergency.id);
+        try {
+          const { generateNotificationDraft } = await import('./aiService');
+          const draft = await generateNotificationDraft(
+            `URGENT: Emergency ${emergency.id} (${(emergency as any).emergencyType}) has had no responder acceptance for over 60 seconds. Patient at coordinates ${(emergency as any).latitude}, ${(emergency as any).longitude}.`
+          );
+          getIo().to('admin_notifications').emit('ESCALATION_ALERT', {
+            type: 'ESCALATION_ALERT',
+            data: {
+              emergencyId: emergency.id,
+              title: draft.title,
+              body: draft.body,
+              ageSeconds: Math.round(ageSeconds),
+              timestamp: new Date().toISOString(),
+            },
+          });
+          logger.warn(`[Escalation] 60s alert sent for emergency ${emergency.id}: "${draft.title}"`);
+          // Re-dispatch to catch any newly available responders
+          notifyNearbyResponders(
+            emergency.id,
+            (emergency as any).latitude,
+            (emergency as any).longitude,
+            (emergency as any).patientId,
+            (emergency as any).patient?.fullName || 'Patient',
+            (emergency as any).voiceSummary || '',
+            (emergency as any).emergencyType || 'OTHER'
+          ).catch(() => {});
+        } catch (err: any) {
+          logger.error(`[Escalation] Failed to send 60s alert for ${emergency.id}: ${err.message}`);
+        }
+      }
+    }
 
     // Auto-cancel emergencies with no accepted responder after 2 minutes
     if (ageSeconds > 120) {

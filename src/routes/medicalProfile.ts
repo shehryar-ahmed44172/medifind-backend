@@ -8,6 +8,7 @@ import {
 } from '../controllers/medicalProfileController';
 import { authMiddleware, roleMiddleware } from '../middleware/authMiddleware';
 import * as caregiverService from '../services/caregiverService';
+import prisma from '../lib/prisma';
 
 const router = Router();
 
@@ -40,33 +41,55 @@ router.delete('/emergency-contacts/:phone', removeEmergencyContact);
 
 /**
  * GET /api/medical-profile/:userId
- * Get a patient's medical profile - Responders, Admins, Linked Caregivers, or the User themselves
+ * Access rules:
+ * - Own profile: always allowed
+ * - ADMIN: always allowed
+ * - RESPONDER: only while they have an ACCEPTED request for this patient's active emergency
+ * - CAREGIVER: only if linked to this patient
  */
 router.get('/:userId', async (req, res, next) => {
   if (!req.user) return next();
 
-  // 1. Allow if it's the user's own profile
+  // 1. Own profile
   if (req.user.userId === req.params.userId) {
     return next();
   }
 
-  // 2. Allow if RESPONDER or ADMIN
-  if (['RESPONDER', 'ADMIN'].includes(req.user.role)) {
+  // 2. Admin
+  if (req.user.role === 'ADMIN') {
     return next();
   }
 
-  // 3. Allow if CAREGIVER and linked to this patient
-  if (req.user.role === 'CAREGIVER') {
-    const isLinked = await caregiverService.isLinked(req.user.userId, req.params.userId);
-    if (isLinked) {
-      return next();
-    }
+  // 3. Responder — only if they have an ACCEPTED request for this patient's active (non-resolved) emergency
+  if (req.user.role === 'RESPONDER') {
+    const activeRequest = await prisma.emergencyRequest.findFirst({
+      where: {
+        responderId: req.user.userId,
+        status: 'ACCEPTED',
+        emergency: {
+          patientId: req.params.userId,
+          status: { notIn: ['RESOLVED', 'COMPLETED', 'CANCELLED'] },
+        },
+      },
+    });
+
+    if (activeRequest) return next();
+
+    return res.status(403).json({
+      error: 'Forbidden',
+      message: 'You can only view a patient\'s medical profile while actively responding to their emergency.',
+    });
   }
 
-  // Otherwise, block
-  res.status(403).json({ 
-    error: 'Forbidden', 
-    message: 'You do not have permission to view this medical profile' 
+  // 4. Caregiver — only if linked to this patient
+  if (req.user.role === 'CAREGIVER') {
+    const isLinked = await caregiverService.isLinked(req.user.userId, req.params.userId);
+    if (isLinked) return next();
+  }
+
+  res.status(403).json({
+    error: 'Forbidden',
+    message: 'You do not have permission to view this medical profile',
   });
 }, getMedicalProfileByUserId);
 

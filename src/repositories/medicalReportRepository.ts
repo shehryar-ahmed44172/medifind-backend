@@ -1,6 +1,5 @@
-import { PrismaClient, MedicalReportType } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma';
+import { MedicalReportType } from '@prisma/client';
 
 export const medicalReportRepository = {
   /**

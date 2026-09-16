@@ -74,14 +74,26 @@ export const reactivateUser = async (req: Request, res: Response) => {
 };
 
 /**
- * Admin: Delete user (Hard delete)
+ * Admin: Delete user (Soft delete — preserves payment/subscription audit trail)
  * DELETE /api/admin/users/:id
  */
 export const deleteUser = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    await prisma.user.delete({ where: { id } });
-    sendSuccess(res, null, 'User deleted');
+
+    const user = await prisma.user.findUnique({ where: { id } });
+    if (!user) return sendError(res, 'User not found', 404);
+
+    await prisma.user.update({
+      where: { id },
+      data: {
+        isActive: false,
+        refreshTokens: { deleteMany: {} },
+        email: `deleted_${Date.now()}_${user.email}`,
+      },
+    });
+
+    sendSuccess(res, null, 'User account deactivated and sessions revoked');
   } catch (error: any) {
     sendError(res, error.message, 400);
   }
@@ -919,6 +931,40 @@ export const getVerifiedResponders = async (_req: Request, res: Response) => {
       orderBy: { createdAt: 'desc' },
     });
     sendSuccess(res, responders, 'Verified responders retrieved');
+  } catch (error: any) {
+    sendError(res, error.message, 500);
+  }
+};
+
+/**
+ * GET /api/admin/subscriptions/all
+ * Returns subscription data for every user regardless of role.
+ */
+export const getAllSubscriptions = async (_req: Request, res: Response) => {
+  try {
+    const users = await prisma.user.findMany({
+      where: { role: { not: 'ADMIN' } },
+      select: { id: true, fullName: true, email: true, role: true, subscriptionPlan: true, isActive: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const byRole = (role: string) => users.filter(u => u.role === role);
+    const byPlan = (plan: string) => users.filter(u => u.subscriptionPlan === plan);
+
+    const stats = {
+      total: users.length,
+      active: users.filter(u => u.isActive).length,
+      FREE: byPlan('FREE').length,
+      PROFESSIONAL: byPlan('PROFESSIONAL').length,
+      EXECUTIVE: byPlan('EXECUTIVE').length,
+      byRole: {
+        PATIENT:   byRole('PATIENT').length,
+        CAREGIVER: byRole('CAREGIVER').length,
+        RESPONDER: byRole('RESPONDER').length,
+      },
+    };
+
+    sendSuccess(res, { subscribers: users, stats }, 'All subscriptions retrieved');
   } catch (error: any) {
     sendError(res, error.message, 500);
   }

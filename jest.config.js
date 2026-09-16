@@ -6,9 +6,7 @@ export default {
   moduleFileExtensions: ['ts', 'js', 'json', 'node'],
   transform: {
     '^.+\\.ts$': ['ts-jest', {
-      tsconfig: {
-        module: 'commonjs',
-      },
+      tsconfig: './tsconfig.test.json',
     }],
   },
   moduleNameMapper: {

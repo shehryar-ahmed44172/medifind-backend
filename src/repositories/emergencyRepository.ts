@@ -45,7 +45,7 @@ export const emergencyRepository = {
       where: { status: 'ACTIVE' },
       include: {
         patient: { select: { id: true, fullName: true, phoneNumber: true } },
-        emergencyRequests: { select: { id: true } },
+        emergencyRequests: { select: { id: true, status: true } },
       },
       orderBy: { createdAt: 'desc' },
     });

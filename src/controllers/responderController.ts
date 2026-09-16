@@ -1,6 +1,9 @@
 import { Request, Response } from 'express';
 import * as responderService from '../services/responderService';
 import { sendSuccess, sendError } from '../utils/response';
+import { validatePakistanCoordinates } from '../utils/geoValidation';
+import { responderLimits } from '../middleware/planMiddleware';
+import prisma from '../lib/prisma';
 
 /**
  * POST /api/responders/location
@@ -13,10 +16,16 @@ export const updateLocation = async (req: Request, res: Response) => {
 
     if (!latitude || !longitude) return sendError(res, 'latitude and longitude required', 400);
 
+    const lat = parseFloat(latitude);
+    const lon = parseFloat(longitude);
+
+    const coordError = validatePakistanCoordinates(lat, lon);
+    if (coordError) return sendError(res, coordError, 422);
+
     const updated = await responderService.updateResponderLocation(
       req.user.userId,
-      parseFloat(latitude),
-      parseFloat(longitude)
+      lat,
+      lon
     );
     sendSuccess(res, updated, 'Location updated');
   } catch (error: any) {
@@ -112,9 +121,15 @@ export const getNearbyResponders = async (req: Request, res: Response) => {
     const { latitude, longitude, radius } = req.query;
     if (!latitude || !longitude) return sendError(res, 'latitude and longitude required', 400);
 
+    const lat = parseFloat(latitude as string);
+    const lon = parseFloat(longitude as string);
+
+    const coordError = validatePakistanCoordinates(lat, lon);
+    if (coordError) return sendError(res, coordError, 422);
+
     const responders = await responderService.getNearbyResponders(
-      parseFloat(latitude as string),
-      parseFloat(longitude as string),
+      lat,
+      lon,
       radius ? parseFloat(radius as string) : 5
     );
     sendSuccess(res, responders, 'Nearby responders retrieved');
@@ -130,7 +145,17 @@ export const getNearbyResponders = async (req: Request, res: Response) => {
 export const getHistory = async (req: Request, res: Response) => {
   try {
     if (!req.user) return sendError(res, 'Unauthorized', 401);
-    const history = await responderService.getResponderHistory(req.user.userId);
+
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.userId },
+      select: { subscriptionPlan: true },
+    });
+    const limits = responderLimits(user?.subscriptionPlan ?? 'FREE');
+    const since = limits.caseHistoryDays === -1
+      ? undefined
+      : new Date(Date.now() - limits.caseHistoryDays * 24 * 60 * 60 * 1000);
+
+    const history = await responderService.getResponderHistory(req.user.userId, since);
     sendSuccess(res, history, 'Responder history retrieved');
   } catch (error: any) {
     sendError(res, error.message, 500);
@@ -147,5 +172,32 @@ export const getActiveRequests = async (req: Request, res: Response) => {
     sendSuccess(res, requests, 'Active requests retrieved');
   } catch (error: any) {
     sendError(res, error.message, 500);
+  }
+};
+
+/**
+ * POST /api/responders/:responderId/rate
+ * Patient rates a responder after an emergency is resolved.
+ * Body: { emergencyId, stars }  (stars: 1–5 integer)
+ */
+export const rateResponder = async (req: Request, res: Response) => {
+  try {
+    if (!req.user) return sendError(res, 'Unauthorized', 401);
+    const { responderId } = req.params;
+    const { emergencyId, stars } = req.body;
+
+    if (!emergencyId) return sendError(res, 'emergencyId is required', 400);
+    if (stars === undefined || stars === null) return sendError(res, 'stars is required (1–5)', 400);
+
+    const result = await responderService.rateResponder(
+      emergencyId,
+      req.user.userId,
+      responderId,
+      parseInt(stars, 10),
+    );
+
+    sendSuccess(res, result, 'Rating submitted successfully');
+  } catch (error: any) {
+    sendError(res, error.message, 400);
   }
 };
