@@ -120,7 +120,7 @@ Patient symptoms: "${symptoms}"`;
           return { emergencyType: parsed.emergencyType, confidence: parsed.confidence, reasoning: parsed.reasoning || '' };
         }
       } catch (err: any) {
-        logger.warn(`[AI Classify] Model ${modelName} failed: ${String(err?.message).slice(0, 160)}`);
+        logger.warn(`[AI] Model ${modelName} failed: ${String(err?.message).slice(0, 160)}`);
         continue;
       }
     }
@@ -175,7 +175,7 @@ Respond with plain text only — no markdown, no bullet points, no headers. Maxi
           return text;
         }
       } catch (err: any) {
-        logger.warn(`[AI Classify] Model ${modelName} failed: ${String(err?.message).slice(0, 160)}`);
+        logger.warn(`[AI] Model ${modelName} failed: ${String(err?.message).slice(0, 160)}`);
         continue;
       }
     }
@@ -242,7 +242,7 @@ Each text must be under 40 characters. Exactly 8 items. JSON array only.`;
           return parsed;
         }
       } catch (err: any) {
-        logger.warn(`[AI Classify] Model ${modelName} failed: ${String(err?.message).slice(0, 160)}`);
+        logger.warn(`[AI] Model ${modelName} failed: ${String(err?.message).slice(0, 160)}`);
         continue;
       }
     }
@@ -304,7 +304,7 @@ Keep criticalFlags to 1-4 items, recommendedActions to 2-4 actionable steps. JSO
           return parsed;
         }
       } catch (err: any) {
-        logger.warn(`[AI Classify] Model ${modelName} failed: ${String(err?.message).slice(0, 160)}`);
+        logger.warn(`[AI] Model ${modelName} failed: ${String(err?.message).slice(0, 160)}`);
         continue;
       }
     }

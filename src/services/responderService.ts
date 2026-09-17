@@ -117,11 +117,10 @@ export const acceptEmergencyRequest = async (emergencyId: string, responderId: s
     body: `${responderName} is responding to ${patient?.fullName || 'your patient'}'s emergency.`,
   });
 
-  // Generate AI medical brief outside the transaction so it doesn't hold the DB connection
-  let aiBrief: { brief: string; criticalFlags: string[]; recommendedActions: string[] } | null = null;
-  try {
-    const { generateMedicalBrief } = await import('./aiService');
-    aiBrief = await generateMedicalBrief({
+  // AI medical brief takes a few seconds (Gemini), so it must not delay the accept response:
+  // generate it in the background and deliver it to the responder over the socket.
+  import('./aiService')
+    .then(({ generateMedicalBrief }) => generateMedicalBrief({
       patientName: patient?.fullName || 'Unknown',
       emergencyType: emergency.emergencyType,
       bloodType: medicalProfile?.bloodType || 'Unknown',
@@ -130,8 +129,11 @@ export const acceptEmergencyRequest = async (emergencyId: string, responderId: s
       medications: toNameList(medicalProfile?.medications),
       patientType: medicalProfile?.patientType || 'NORMAL',
       additionalInfo: emergency.additionalInfo || '',
-    });
-  } catch { /* brief is optional — never block the accept flow */ }
+    }))
+    .then((brief) => {
+      if (brief) getIo().to(`notifications:${responderId}`).emit('AI_MEDICAL_BRIEF', { emergencyId, ...brief });
+    })
+    .catch((err: any) => logger.warn(`[Accept] AI medical brief skipped for ${emergencyId}: ${err?.message}`));
 
   // Deaf patient: open the emergency chat with a system briefing for the responder
   if (medicalProfile?.patientType === 'DEAF') {
@@ -170,7 +172,7 @@ export const acceptEmergencyRequest = async (emergencyId: string, responderId: s
       patientPhone: patient?.phoneNumber,
       medicalProfile,
     },
-    aiBrief,
+    aiBrief: null, // delivered later via the AI_MEDICAL_BRIEF socket event
   };
 };
 
