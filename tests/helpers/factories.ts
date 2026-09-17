@@ -34,7 +34,7 @@ export async function createUser(opts: CreateUserOptions = {}) {
     isEmailVerified = true,
     isActive = true,
     fullName = `Test User ${uid()}`,
-    email = `test-${uid()}@medifind.test`,
+    email = `test-${uid()}@integration.medifind.test`,
     phoneNumber = `+923${String(seq % 1_000_000_000).padStart(9, '0')}`,
   } = opts;
 
@@ -176,9 +176,13 @@ export async function createChatRoom(opts: {
 
 /**
  * Delete users by email pattern — use in afterAll for test cleanup.
- * Example: cleanupTestUsers('@medifind.test')
+ * Example: cleanupTestUsers('@integration.medifind.test')
  */
-export async function cleanupTestUsers(emailSuffix = '@medifind.test') {
+export async function cleanupTestUsers(emailSuffix = '@integration.medifind.test') {
+  // Never touch demo accounts (@medifind.test) or real users on a shared dev database
+  if (!emailSuffix.endsWith('@integration.medifind.test')) {
+    throw new Error(`Refusing to delete users with suffix ${emailSuffix}`);
+  }
   await prisma.user.deleteMany({
     where: { email: { endsWith: emailSuffix } },
   });

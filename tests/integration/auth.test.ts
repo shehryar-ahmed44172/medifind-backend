@@ -16,7 +16,7 @@ beforeAll(async () => {
     const { default: prisma } = await import('../../src/lib/prisma');
     await (prisma as any).$queryRaw`SELECT 1`;
     // Pre-run cleanup: remove any stale test data from previous crashed runs
-    await cleanupTestUsers('@medifind.test');
+    await cleanupTestUsers('@integration.medifind.test');
   } catch {
     dbAvailable = false;
     console.warn('⚠️  Skipping integration/auth: no database connection');
@@ -25,7 +25,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   if (dbAvailable) {
-    await cleanupTestUsers('@medifind.test');
+    await cleanupTestUsers('@integration.medifind.test');
     const { default: prisma } = await import('../../src/lib/prisma');
     await (prisma as any).$disconnect();
   }
@@ -40,7 +40,7 @@ const skipIfNoDb = () => {
 const ts = Date.now();
 const testUser = {
   fullName: 'Integration Test Patient',
-  email: `integration-auth-${ts}@medifind.test`,
+  email: `integration-auth-${ts}@integration.medifind.test`,
   phoneNumber: `+923${ts.toString().slice(-9)}`,
   password: 'TestPass@Integration1',
   role: 'PATIENT',
@@ -79,7 +79,7 @@ describe('POST /api/auth/register', () => {
     if (skipIfNoDb()) return;
     const res = await request(app)
       .post('/api/auth/register')
-      .send({ email: 'incomplete@medifind.test' });
+      .send({ email: 'incomplete@integration.medifind.test' });
 
     expect(res.status).toBe(400);
   });
@@ -161,7 +161,7 @@ describe('POST /api/auth/login (verified)', () => {
     if (skipIfNoDb()) return;
     const res = await request(app)
       .post('/api/auth/login')
-      .send({ email: 'nobody@medifind.test', password: 'anypass' });
+      .send({ email: 'nobody@integration.medifind.test', password: 'anypass' });
 
     expect(res.status).toBe(401);
   });
@@ -241,7 +241,7 @@ describe('POST /api/auth/forgot-password', () => {
     if (skipIfNoDb()) return;
     const res = await request(app)
       .post('/api/auth/forgot-password')
-      .send({ email: 'nonexistent@medifind.test' });
+      .send({ email: 'nonexistent@integration.medifind.test' });
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);

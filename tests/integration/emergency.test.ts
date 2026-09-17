@@ -20,7 +20,7 @@ beforeAll(async () => {
   try {
     const { default: prisma } = await import('../../src/lib/prisma');
     await (prisma as any).$queryRaw`SELECT 1`;
-    await cleanupTestUsers('@medifind.test');
+    await cleanupTestUsers('@integration.medifind.test');
   } catch {
     dbAvailable = false;
     console.warn('⚠️  Skipping integration/emergency: no database connection');
@@ -29,7 +29,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   if (dbAvailable) {
-    await cleanupTestUsers('@medifind.test');
+    await cleanupTestUsers('@integration.medifind.test');
     const { default: prisma } = await import('../../src/lib/prisma');
     await (prisma as any).$disconnect();
   }
