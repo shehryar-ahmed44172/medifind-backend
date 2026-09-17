@@ -46,10 +46,11 @@ export const acceptEmergencyRequest = async (emergencyId: string, responderId: s
       throw new Error('This emergency has already been assigned or cancelled.');
     }
 
-    // Close every other pending request for this SOS
+    // Close every other pending request for this SOS. They did not handle it, so they
+    // must not count as completed (chat room, history, rating and stats rely on that).
     await tx.emergencyRequest.updateMany({
       where: { emergencyId, responderId: { not: responderId }, status: 'PENDING' },
-      data: { status: 'COMPLETED' },
+      data: { status: 'REJECTED', rejectedAt: new Date(), rejectionReason: 'ASSIGNED_TO_ANOTHER_RESPONDER' },
     });
 
     await tx.responder.update({
@@ -424,7 +425,7 @@ export const rateResponder = async (
   // Verify the emergency exists, belongs to this patient, and is resolved
   const emergency = await prisma.emergency.findUnique({
     where: { id: emergencyId },
-    include: { emergencyRequests: { where: { responderId, status: 'COMPLETED' } } },
+    include: { emergencyRequests: { where: { responderId, status: 'COMPLETED', acceptedAt: { not: null } } } },
   });
 
   if (!emergency) throw new Error('Emergency not found');
@@ -486,7 +487,6 @@ export const getActiveEmergencyRequests = async (responderId: string) => {
               id: true,
               fullName: true,
               phoneNumber: true,
-              email: true,
               medicalProfile: true
             }
           }
@@ -504,6 +504,8 @@ export const getActiveEmergencyRequests = async (responderId: string) => {
       ...emergency,
       patient: emergency.patient && {
         ...emergency.patient,
+        // Contact details only after accepting (pending requests may go to several responders)
+        phoneNumber: request.status === 'ACCEPTED' ? emergency.patient.phoneNumber : undefined,
         medicalProfile: emergency.patient.medicalProfile
           ? decryptSensitiveFields(emergency.patient.medicalProfile as any)
           : null,

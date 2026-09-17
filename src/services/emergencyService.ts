@@ -1,3 +1,4 @@
+import { OPEN_EMERGENCY_STATUSES } from '../utils/accessControl';
 import { emergencyRepository } from '../repositories/emergencyRepository';
 import { responderRepository } from '../repositories/responderRepository';
 import { medicalProfileRepository } from '../repositories/medicalProfileRepository';
@@ -204,7 +205,7 @@ export const getEmergency = async (emergencyId: string) => {
   const emergency = await emergencyRepository.findById(emergencyId);
   if (!emergency) throw new Error('Emergency not found');
 
-  const assigned = emergency.emergencyRequests.find(r => r.status === 'ACCEPTED' || r.status === 'COMPLETED');
+  const assigned = emergency.emergencyRequests.find(r => !!r.acceptedAt && (r.status === 'ACCEPTED' || r.status === 'COMPLETED'));
   return {
     ...withDecryptedProfile(emergency),
     assignedResponderId: assigned?.responderId ?? null,
@@ -332,7 +333,7 @@ export const getEmergencyHistoryForUser = async (userId: string, role: string, l
     include: {
       patient: { select: { id: true, fullName: true, phoneNumber: true } },
       emergencyRequests: {
-        where: { status: { in: ['ACCEPTED', 'COMPLETED'] } },
+        where: { status: { in: ['ACCEPTED', 'COMPLETED'] }, acceptedAt: { not: null } },
         select: {
           responderId: true,
           status: true,
@@ -354,7 +355,10 @@ export const getEmergencyHistoryForUser = async (userId: string, role: string, l
         ? {
             id: assigned.responderId,
             fullName: assigned.responder.user.fullName,
-            phoneNumber: assigned.responder.user.phoneNumber,
+            // Contact ends with the emergency
+            phoneNumber: (OPEN_EMERGENCY_STATUSES as readonly string[]).includes(e.status)
+              ? assigned.responder.user.phoneNumber
+              : undefined,
             organization: assigned.responder.organization,
             rating: assigned.responder.rating,
             acceptedAt: assigned.acceptedAt,

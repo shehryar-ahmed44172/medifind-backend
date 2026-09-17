@@ -188,11 +188,10 @@ export const responderRepository = {
         emergency: {
           include: {
             patient: {
+              // No phone/email: history must not become a list of patient contacts
               select: {
                 id: true,
                 fullName: true,
-                phoneNumber: true,
-                email: true,
               }
             }
           }

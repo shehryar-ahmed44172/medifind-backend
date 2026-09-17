@@ -1,3 +1,4 @@
+import { isChatRoomLocked, OPEN_EMERGENCY_STATUSES } from '../utils/accessControl';
 import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
 import logger from '../utils/logger';
@@ -44,11 +45,14 @@ export const getRooms = async (req: Request, res: Response) => {
       orderBy: { updatedAt: 'desc' },
     });
 
-    // Message content is encrypted at rest — decrypt the preview for the client
-    res.json(rooms.map(room => ({
+    // Message content is encrypted at rest — decrypt the preview for the client.
+    // isLocked: the emergency behind a responder room is over, so the room is read-only.
+    const withLock = await Promise.all(rooms.map(async room => ({
       ...room,
+      isLocked: await isChatRoomLocked(room),
       messages: room.messages.map(m => ({ ...m, content: decrypt(m.content) })),
     })));
+    res.json(withLock);
   } catch (error: any) {
     logger.error(`Error fetching chat rooms: ${error.message}`);
     res.status(500).json({ error: 'Failed to fetch chat rooms' });
@@ -94,6 +98,9 @@ export const sendMessage = async (req: Request, res: Response) => {
 
     if (!room || !hasRoomAccess(room, senderId)) {
       return res.status(403).json({ error: 'Access denied' });
+    }
+    if (await isChatRoomLocked(room)) {
+      return res.status(403).json({ error: 'This emergency has ended. The chat is closed.', code: 'CHAT_CLOSED' });
     }
 
     const message = await prisma.chatMessage.create({
@@ -157,7 +164,7 @@ export const createOrGetRoom = async (req: Request, res: Response) => {
     if (emergencyId) {
       const emergency = await prisma.emergency.findUnique({
         where: { id: emergencyId },
-        select: { patientId: true },
+        select: { patientId: true, status: true },
       });
       if (!emergency) {
         return res.status(404).json({ error: 'Emergency not found' });
@@ -165,7 +172,7 @@ export const createOrGetRoom = async (req: Request, res: Response) => {
 
       // The responder in the room must be the one assigned to this emergency
       const assignedRequest = await prisma.emergencyRequest.findFirst({
-        where: { emergencyId, status: { in: ['ACCEPTED', 'COMPLETED'] } },
+        where: { emergencyId, status: { in: ['ACCEPTED', 'COMPLETED'] }, acceptedAt: { not: null } },
         orderBy: { acceptedAt: 'desc' },
       });
       if (!assignedRequest) {
@@ -195,6 +202,13 @@ export const createOrGetRoom = async (req: Request, res: Response) => {
         },
       });
 
+      // After the emergency is over no new conversation can be opened; an existing
+      // room is returned read-only (isLocked) so its history stays visible.
+      const locked = !(OPEN_EMERGENCY_STATUSES as readonly string[]).includes(emergency.status);
+      if (!room && locked) {
+        return res.status(403).json({ error: 'This emergency has ended. The chat is closed.', code: 'CHAT_CLOSED' });
+      }
+
       if (!room) {
         room = await prisma.chatRoom.create({
           data: {
@@ -208,7 +222,7 @@ export const createOrGetRoom = async (req: Request, res: Response) => {
         logger.info(`Created emergency chat room ${room.id} for emergency ${emergencyId}`);
       }
 
-      return res.json(room);
+      return res.json({ ...room, isLocked: locked });
     }
 
     // ── Caregiver ↔ Patient room (original behaviour) ─────────────────────
