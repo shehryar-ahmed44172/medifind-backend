@@ -1,3 +1,4 @@
+import { endCallsForEmergency } from './callService';
 import { responderRepository } from '../repositories/responderRepository';
 import { emergencyRepository } from '../repositories/emergencyRepository';
 import { getIo } from '../server';
@@ -243,6 +244,7 @@ export const resolveEmergency = async (
   };
   getIo().to(`emergency:${emergencyId}`).emit('EMERGENCY_STATUS_CHANGE', resolvedPayload);
   getIo().to('admin_notifications').emit('EMERGENCY_STATUS_CHANGE', resolvedPayload);
+  endCallsForEmergency(emergencyId);
 
   const resolvedNotice: NotificationPayload = {
     type: NotificationType.EMERGENCY_RESOLVED,
@@ -333,6 +335,7 @@ export const cancelAcceptedEmergency = async (emergencyId: string, responderId: 
   };
   getIo().to(`emergency:${emergencyId}`).emit('EMERGENCY_STATUS_CHANGE', payload);
   getIo().to('admin_notifications').emit('EMERGENCY_STATUS_CHANGE', payload);
+  endCallsForEmergency(emergencyId, 'RESPONDER_RELEASED');
 
   if (emergency && emergency.status === 'ACTIVE') {
     redispatchEmergency(emergencyId).catch(err =>

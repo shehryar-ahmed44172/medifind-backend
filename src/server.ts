@@ -24,6 +24,8 @@ import notificationRoutes from './routes/notification';
 import { initializeNotifications } from './services/notification';
 import paymentRoutes from './routes/payments';
 import fileRoutes from './routes/files';
+import callRoutes from './routes/calls';
+import { registerCallHandlers } from './services/callService';
 import path from 'path';
 import { verifyAccessToken } from './utils/jwt';
 import prisma from './lib/prisma';
@@ -182,6 +184,9 @@ io.on('connection', (socket) => {
       logger.error(`Caregiver room auto-join failed for ${userId}: ${err.message}`));
   }
 
+  // In-app voice/video call signalling
+  registerCallHandlers(io, socket);
+
   // Diagnostic Ping
   socket.on('ping', (data: any) => {
     socket.emit('pong', {
@@ -300,6 +305,7 @@ app.use('/api/tracking', trackingRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/caregivers', caregiverRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/calls', callRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/notifications', notificationRoutes);
 

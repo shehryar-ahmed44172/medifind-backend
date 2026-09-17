@@ -1,3 +1,4 @@
+import { endCallsForEmergency } from './callService';
 import { OPEN_EMERGENCY_STATUSES } from '../utils/accessControl';
 import { emergencyRepository } from '../repositories/emergencyRepository';
 import { responderRepository } from '../repositories/responderRepository';
@@ -194,6 +195,7 @@ export const cancelEmergency = async (emergencyId: string, patientId: string) =>
   getIo().to(`emergency:${emergencyId}`).emit('EMERGENCY_STATUS_CHANGE', cancelPayload);
   // Notify admin dashboard so it updates in real-time without waiting for the poll
   getIo().to('admin_notifications').emit('EMERGENCY_STATUS_CHANGE', cancelPayload);
+  endCallsForEmergency(emergencyId);
 
   return cancelled;
 };
@@ -289,6 +291,7 @@ export const updateEmergencyStatus = async (
   // Closing an emergency releases the assigned responder
   if (['CANCELLED', 'RESOLVED', 'COMPLETED'].includes(status)) {
     clearDispatchState(emergencyId);
+    endCallsForEmergency(emergencyId);
     const accepted = await prisma.emergencyRequest.findMany({
       where: { emergencyId, status: 'ACCEPTED' },
       select: { responderId: true },
