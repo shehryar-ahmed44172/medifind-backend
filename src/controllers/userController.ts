@@ -1,3 +1,4 @@
+import { canSeeContactDetails } from '../utils/accessControl';
 import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
 import * as userService from '../services/userService';
@@ -186,13 +187,15 @@ export const getUserById = async (req: Request, res: Response) => {
     const { id } = req.params;
     const profile = await userService.getUserProfile(id);
     const canSeePrivate = req.user?.userId === id || req.user?.role === 'ADMIN';
+    // Phone and email only for people with a care or emergency relationship to this user
+    const canSeeContact = canSeePrivate || (!!req.user && (await canSeeContactDetails(req.user, id)));
     
     // Map backend User object to the UserProfile structure frontend expects
     const userProfile = {
       userId: profile.id,
       fullName: profile.fullName,
-      email: profile.email,
-      phoneNumber: profile.phoneNumber,
+      email: canSeeContact ? profile.email : '', // app model requires the key
+      phoneNumber: canSeeContact ? profile.phoneNumber : '',
       role: profile.role,
       profileImageUrl: profile.profileImageUrl,
       lastUpdated: (profile as any).updatedAt,

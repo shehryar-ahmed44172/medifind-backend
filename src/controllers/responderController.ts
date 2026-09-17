@@ -1,3 +1,4 @@
+import { withoutContact } from '../utils/accessControl';
 import { Request, Response } from 'express';
 import * as responderService from '../services/responderService';
 import { sendSuccess, sendError } from '../utils/response';
@@ -143,7 +144,10 @@ export const getNearbyResponders = async (req: Request, res: Response) => {
       lon,
       radius ? parseFloat(radius as string) : 5
     );
-    sendSuccess(res, responders, 'Nearby responders retrieved');
+    const visible = req.user.role === 'ADMIN'
+      ? responders
+      : (responders as any[]).map((r) => ({ ...r, user: withoutContact(r.user), phoneNumber: undefined, email: undefined }));
+    sendSuccess(res, visible, 'Nearby responders retrieved');
   } catch (error: any) {
     sendError(res, error.message, 500);
   }

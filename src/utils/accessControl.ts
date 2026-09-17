@@ -57,3 +57,83 @@ export const isChatRoomMember = async (userId: string, roomId: string): Promise<
   });
   return !!room && [room.patientId, room.caregiverId, room.responderId].includes(userId);
 };
+
+/** Emergency statuses during which patient, caregivers and responder may contact each other. */
+export const OPEN_EMERGENCY_STATUSES = ['ACTIVE', 'ASSIGNED', 'ARRIVED'] as const;
+
+/**
+ * A chat room is locked once its emergency is over (resolved or cancelled): no new
+ * messages, uploads, calls or contact details between patient/caregiver and responder.
+ * Caregiver-patient rooms (no responder) never lock.
+ */
+export const isChatRoomLocked = async (room: { responderId: string | null; emergencyId: string | null }): Promise<boolean> => {
+  if (!room.responderId) return false;
+  if (!room.emergencyId) return true;
+  const emergency = await prisma.emergency.findUnique({ where: { id: room.emergencyId }, select: { status: true } });
+  return !emergency || !(OPEN_EMERGENCY_STATUSES as readonly string[]).includes(emergency.status);
+};
+
+/**
+ * Whether `viewer` may see `targetUserId`'s contact details (phone number, email).
+ *  - the user themself and ADMIN
+ *  - a patient and their caregivers (accepted, active link)
+ *  - a patient and the responder assigned to their emergency, only while it is open
+ *  - a caregiver and the responder assigned to their linked patient's open emergency
+ * Once the responder's job is done the contact details are hidden again.
+ */
+export const canSeeContactDetails = async (
+  viewer: Pick<TokenPayload, 'userId' | 'role'>,
+  targetUserId: string,
+): Promise<boolean> => {
+  if (!targetUserId) return false;
+  if (viewer.userId === targetUserId || viewer.role === 'ADMIN') return true;
+  const a = viewer.userId;
+  const b = targetUserId;
+
+  const caregiverLink = await prisma.caregiverLink.findFirst({
+    where: {
+      status: 'ACCEPTED',
+      isActive: true,
+      OR: [{ caregiverId: a, patientId: b }, { caregiverId: b, patientId: a }],
+    },
+    select: { id: true },
+  });
+  if (caregiverLink) return true;
+
+  const openEmergency = { status: { in: [...OPEN_EMERGENCY_STATUSES] } };
+  const patientResponder = await prisma.emergencyRequest.findFirst({
+    where: {
+      status: 'ACCEPTED',
+      OR: [
+        { responderId: b, emergency: { patientId: a, ...openEmergency } },
+        { responderId: a, emergency: { patientId: b, ...openEmergency } },
+      ],
+    },
+    select: { id: true },
+  });
+  if (patientResponder) return true;
+
+  if (viewer.role === 'CAREGIVER' || viewer.role === 'RESPONDER') {
+    const [caregiverId, responderId] = viewer.role === 'CAREGIVER' ? [a, b] : [b, a];
+    const viaPatient = await prisma.emergencyRequest.findFirst({
+      where: {
+        responderId,
+        status: 'ACCEPTED',
+        emergency: {
+          ...openEmergency,
+          patient: { caregiverEmployers: { some: { caregiverId, status: 'ACCEPTED', isActive: true } } },
+        },
+      },
+      select: { id: true },
+    });
+    if (viaPatient) return true;
+  }
+  return false;
+};
+
+/** Removes phone number and email from a user-like object (returns a copy). */
+export const withoutContact = <T extends Record<string, any> | null | undefined>(user: T): T => {
+  if (!user) return user;
+  const { phoneNumber, email, ...rest } = user as Record<string, any>;
+  return rest as T;
+};

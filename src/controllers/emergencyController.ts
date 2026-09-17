@@ -1,3 +1,4 @@
+import { canSeeContactDetails, withoutContact } from '../utils/accessControl';
 import { Request, Response } from 'express';
 import * as emergencyService from '../services/emergencyService';
 import { sendSuccess, sendError } from '../utils/response';
@@ -67,7 +68,11 @@ export const getEmergency = async (req: Request, res: Response) => {
       });
     }
 
-    sendSuccess(res, emergency, 'Emergency retrieved');
+    // Dispatched responders may read the medical summary, but the patient's phone and
+    // email are only for the assigned responder while the emergency is open (and family).
+    const canContact = await canSeeContactDetails(req.user, emergency.patientId);
+    const visible = canContact ? emergency : { ...emergency, patient: withoutContact((emergency as any).patient) };
+    sendSuccess(res, visible, 'Emergency retrieved');
   } catch (error: any) {
     sendError(res, error.message, 404);
   }

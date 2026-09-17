@@ -186,6 +186,7 @@ export const getAllLinks = async (req: Request, res: Response) => {
       const links = await caregiverService.getAllLinkedCaregivers(req.user.userId);
       const transformed = links.map((l: any) => ({
         ...l,
+        caregiver: l.status === 'ACCEPTED' && l.isActive ? l.caregiver : l.caregiver && { ...l.caregiver, phoneNumber: undefined },
         caregiverName: l.caregiver?.fullName,
         caregiverEmail: l.caregiver?.email,
       }));
@@ -194,6 +195,7 @@ export const getAllLinks = async (req: Request, res: Response) => {
       const links = await caregiverService.getAllLinkedPatients(req.user.userId);
       const transformed = links.map((l: any) => ({
         ...l,
+        patient: l.status === 'ACCEPTED' && l.isActive ? l.patient : l.patient && { ...l.patient, phoneNumber: undefined },
         patientName: l.patient?.fullName,
         patientEmail: l.patient?.email,
       }));
