@@ -165,7 +165,7 @@ export const upgradePlan = async (req: Request, res: Response) => {
       }
       const { verifyPlanPayment } = await import('../services/stripeService');
       const verification = await verifyPlanPayment(paymentIntentId, req.user.userId, plan);
-      if (!verification.ok) {
+      if (verification.ok === false) {
         return sendError(res, verification.reason, 402);
       }
     }

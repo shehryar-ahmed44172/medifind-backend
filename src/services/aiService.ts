@@ -1,14 +1,14 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import logger from '../utils/logger';
 
-const GEMINI_MODELS = [
-  'gemini-2.0-flash',
-  'gemini-2.0-flash-lite',
-  'gemini-flash-latest',
-  'gemini-1.5-flash',
-  'gemini-pro-latest',
-  'gemini-pro',
-];
+// Free-tier Gemini models only (Flash-Lite family), tried in order.
+// Override with GEMINI_MODELS=model-a,model-b in .env if Google retires one.
+const GEMINI_MODELS = (process.env.GEMINI_MODELS
+  ? process.env.GEMINI_MODELS.split(',').map((m) => m.trim()).filter(Boolean)
+  : ['gemini-3.1-flash-lite', 'gemini-flash-lite-latest', 'gemini-3.5-flash-lite']);
+
+// Per-model time limit so a slow model falls through to the next one quickly
+const AI_REQUEST_OPTIONS = { timeout: 12000 };
 
 export const generateNotificationDraft = async (prompt: string) => {
   try {
@@ -36,7 +36,7 @@ export const generateNotificationDraft = async (prompt: string) => {
     for (const modelName of modelsToTry) {
       try {
         logger.info(`🤖 Attempting draft generation with model: ${modelName}`);
-        const model = genAI.getGenerativeModel({ model: modelName });
+        const model = genAI.getGenerativeModel({ model: modelName }, AI_REQUEST_OPTIONS);
 
         const systemInstruction = `
           You are an expert emergency response communications assistant for the 'MediFind' platform.
@@ -110,7 +110,7 @@ Patient symptoms: "${symptoms}"`;
 
     for (const modelName of GEMINI_MODELS) {
       try {
-        const model = genAI.getGenerativeModel({ model: modelName });
+        const model = genAI.getGenerativeModel({ model: modelName }, AI_REQUEST_OPTIONS);
         const result = await model.generateContent(classifyPrompt);
         const text = result.response.text().trim()
           .replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
@@ -119,7 +119,10 @@ Patient symptoms: "${symptoms}"`;
           logger.info(`[AI Classify] ${modelName} → ${parsed.emergencyType} (${parsed.confidence})`);
           return { emergencyType: parsed.emergencyType, confidence: parsed.confidence, reasoning: parsed.reasoning || '' };
         }
-      } catch { continue; }
+      } catch (err: any) {
+        logger.warn(`[AI Classify] Model ${modelName} failed: ${String(err?.message).slice(0, 160)}`);
+        continue;
+      }
     }
     return fallback;
   } catch (err: any) {
@@ -164,14 +167,17 @@ Respond with plain text only — no markdown, no bullet points, no headers. Maxi
 
     for (const modelName of GEMINI_MODELS) {
       try {
-        const model = genAI.getGenerativeModel({ model: modelName });
+        const model = genAI.getGenerativeModel({ model: modelName }, AI_REQUEST_OPTIONS);
         const result = await model.generateContent(voicePrompt);
         const text = result.response.text().trim();
         if (text) {
           logger.info(`[AI VoiceSummary] Generated via ${modelName}`);
           return text;
         }
-      } catch { continue; }
+      } catch (err: any) {
+        logger.warn(`[AI Classify] Model ${modelName} failed: ${String(err?.message).slice(0, 160)}`);
+        continue;
+      }
     }
     return fallback;
   } catch (err: any) {
@@ -226,7 +232,7 @@ Each text must be under 40 characters. Exactly 8 items. JSON array only.`;
 
     for (const modelName of GEMINI_MODELS) {
       try {
-        const model = genAI.getGenerativeModel({ model: modelName });
+        const model = genAI.getGenerativeModel({ model: modelName }, AI_REQUEST_OPTIONS);
         const result = await model.generateContent(quickReplyPrompt);
         const text = result.response.text().trim()
           .replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
@@ -235,7 +241,10 @@ Each text must be under 40 characters. Exactly 8 items. JSON array only.`;
           logger.info(`[AI QuickReplies] Generated ${parsed.length} cards via ${modelName}`);
           return parsed;
         }
-      } catch { continue; }
+      } catch (err: any) {
+        logger.warn(`[AI Classify] Model ${modelName} failed: ${String(err?.message).slice(0, 160)}`);
+        continue;
+      }
     }
     return staticFallback;
   } catch (err: any) {
@@ -285,7 +294,7 @@ Keep criticalFlags to 1-4 items, recommendedActions to 2-4 actionable steps. JSO
 
     for (const modelName of GEMINI_MODELS) {
       try {
-        const model = genAI.getGenerativeModel({ model: modelName });
+        const model = genAI.getGenerativeModel({ model: modelName }, AI_REQUEST_OPTIONS);
         const result = await model.generateContent(briefPrompt);
         const text = result.response.text().trim()
           .replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
@@ -294,7 +303,10 @@ Keep criticalFlags to 1-4 items, recommendedActions to 2-4 actionable steps. JSO
           logger.info(`[AI MedicalBrief] Generated via ${modelName}`);
           return parsed;
         }
-      } catch { continue; }
+      } catch (err: any) {
+        logger.warn(`[AI Classify] Model ${modelName} failed: ${String(err?.message).slice(0, 160)}`);
+        continue;
+      }
     }
     return fallback;
   } catch (err: any) {

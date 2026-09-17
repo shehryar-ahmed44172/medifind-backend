@@ -75,6 +75,13 @@ export const sendEmail = async (options: EmailOptions): Promise<boolean> => {
     return false;
   }
 
+  // Reserved test domains (RFC 2606, e.g. the demo @medifind.test accounts) cannot receive mail;
+  // sending would only bounce back to the sender mailbox.
+  if (/@[^@]+\.(test|example|invalid|localhost)$/i.test(options.to.trim())) {
+    logger.info(`Email skipped for test address ${options.to}: ${options.subject}`);
+    return true;
+  }
+
   try {
     const transporter = getTransporter();
     const info = await transporter.sendMail({
