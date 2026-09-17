@@ -363,7 +363,17 @@ export const updateResponderLocation = async (
     select: { emergencyId: true }
   });
 
-  if (activeRequest) {
+  // Live tracking (socket, every few seconds) already moves the map. This periodic
+  // availability sync uses a separate GPS reading, so broadcasting it too would make
+  // the responder marker jump back and forth; only use it when live tracking is quiet.
+  const liveTracking = activeRequest
+    ? await prisma.emergencyTracking.findFirst({
+        where: { emergencyId: activeRequest.emergencyId, timestamp: { gte: new Date(Date.now() - 20000) } },
+        select: { id: true },
+      })
+    : null;
+
+  if (activeRequest && !liveTracking) {
     getIo().to([`location:${activeRequest.emergencyId}`, `emergency:${activeRequest.emergencyId}`]).emit('RESPONDER_LOCATION_UPDATE', {
       emergencyId: activeRequest.emergencyId,
       responderId: userId,
