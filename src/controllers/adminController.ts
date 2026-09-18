@@ -5,6 +5,7 @@ import { sendSuccess, sendError } from '../utils/response';
 import { sendNotification } from '../services/notification/index';
 import { NotificationChannel } from '../types/notification';
 import { sendEmail } from '../utils/email';
+import { getEmergencyCallLogs } from '../services/callLogService';
 
 /** Administrator accounts cannot be deactivated, deleted or re-planned from the portal. */
 const rejectAdminTarget = async (res: Response, id: string): Promise<boolean> => {
@@ -1068,5 +1069,19 @@ export const updateUserSubscription = async (req: Request, res: Response) => {
     sendSuccess(res, updated, `Subscription changed to ${plan}`);
   } catch (error: any) {
     sendError(res, error.message, 400);
+  }
+};
+
+/**
+ * GET /api/admin/calls
+ * Responder ↔ patient / caregiver call records (metadata only; no audio is recorded).
+ */
+export const getCallLogs = async (req: Request, res: Response) => {
+  try {
+    const { kind, outcome, media, search, page, limit } = req.query as Record<string, string | undefined>;
+    const data = await getEmergencyCallLogs({ kind, outcome, media, search, page: Number(page), limit: Number(limit) });
+    sendSuccess(res, data, 'Call logs retrieved');
+  } catch (error: any) {
+    sendError(res, error.message, 500);
   }
 };

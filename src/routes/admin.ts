@@ -17,6 +17,7 @@ router.get('/users/:id',               adminController.getUserProfile);
 router.get('/stats',                   adminController.getDashboardStats);
 router.get('/health',                  adminController.getSystemHealth);
 router.get('/logs',                    adminController.getAuditLogs);
+router.get('/calls',                   adminController.getCallLogs);   // responder ↔ patient/caregiver call records
 router.get('/subscriptions',           adminController.getSubscriptions);
 router.get('/subscriptions/all',       adminController.getAllSubscriptions);
 router.get('/notifications',           adminController.getCommAudit);

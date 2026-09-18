@@ -111,6 +111,8 @@ const logCall = (call: CallSession, action: string, extra: Record<string, unknow
         media: call.media,
         emergencyId: call.emergencyId,
         durationSeconds: call.answeredAt ? Math.round((Date.now() - call.answeredAt) / 1000) : 0,
+        ringStartedAt: new Date(call.createdAt).toISOString(),
+        answeredAt: call.answeredAt ? new Date(call.answeredAt).toISOString() : null,
         ...extra,
       },
     },
