@@ -27,7 +27,9 @@ export const createPaymentIntent = async (req: Request, res: Response) => {
         userId: req.user.userId,
         plan,
       },
-      automatic_payment_methods: { enabled: true },
+      // Card only: the app offers card payments, and skipping automatic methods
+      // (Link, wallets) lets Stripe's payment sheet open noticeably faster.
+      payment_method_types: ['card'],
     });
 
     sendSuccess(res, { clientSecret: paymentIntent.client_secret, paymentIntentId: paymentIntent.id }, 'Payment intent created');

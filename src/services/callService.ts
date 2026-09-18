@@ -69,7 +69,8 @@ const isDeafPatient = async (userId: string): Promise<boolean> => {
   return user?.role === 'PATIENT' && user.medicalProfile?.patientType === 'DEAF';
 };
 
-type Permission = { ok: true; emergencyId: string | null } | { ok: false; code: string; message: string };
+type Denied = { ok: false; code: string; message: string };
+type Permission = { ok: true; emergencyId: string | null } | Denied;
 
 /**
  * Who may call whom:
@@ -159,7 +160,10 @@ export const registerCallHandlers = (server: Server, socket: Socket) => {
       const calleeId = String(data?.toUserId || '');
       const media: CallMedia = data?.media === 'video' ? 'video' : 'audio';
       const permission = await checkCallPermission(user, calleeId, media);
-      if (!permission.ok) return reply({ ok: false, code: permission.code, message: permission.message });
+      if (!permission.ok) {
+        const denied = permission as Denied;
+        return reply({ ok: false, code: denied.code, message: denied.message });
+      }
       if (callOf(userId)) return reply({ ok: false, code: 'BUSY_SELF', message: 'You are already in a call.' });
       if (callOf(calleeId)) return reply({ ok: false, code: 'BUSY', message: 'The other person is on another call.' });
 
