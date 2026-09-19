@@ -267,14 +267,16 @@ export const uploadFile = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    const fileUrl = `${req.protocol}://${req.get('host')}/uploads/chat/${req.file.filename}`;
-
-    res.json({
-      url: fileUrl,
+    // Relative path: the apps join it with whatever server address they use
+    // (behind a tunnel the Host header is the local one, which phones cannot reach).
+    const file = {
+      url: `/uploads/chat/${req.file.filename}`,
       filename: req.file.filename,
       mimetype: req.file.mimetype,
       size: req.file.size,
-    });
+    };
+    // `data` matches the rest of the API; the top-level copy keeps older app builds working
+    res.json({ success: true, data: file, ...file });
   } catch (error: any) {
     logger.error(`Error uploading chat file: ${error.message}`);
     res.status(500).json({ error: 'Failed to upload file' });
