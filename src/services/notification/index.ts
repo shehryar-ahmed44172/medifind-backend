@@ -1,4 +1,5 @@
 import { Server as SocketIOServer } from 'socket.io';
+import { renderEmail } from '../../utils/emailTemplate';
 import { NotificationPayload, NotificationChannel, NotificationType } from '../../types/notification';
 import { notificationRepository } from '../../repositories/notificationRepository';
 import { sendEmail } from '../../utils/email';
@@ -166,62 +167,19 @@ async function sendEmailNotification(userId: string, payload: NotificationPayloa
       : `${appOrigin}chats`;
   }
 
-  const htmlContent = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>${payload.title}</title>
-      <style>
-        body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f9fafb; }
-        .wrapper { padding: 40px 10px; }
-        .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 40px; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
-        .header { text-align: center; margin-bottom: 30px; }
-        .logo { font-size: 28px; font-weight: 800; color: #3b82f6; text-decoration: none; letter-spacing: -0.5px; }
-        .content { margin-bottom: 40px; }
-        .title { font-size: 24px; font-weight: 700; color: #111827; margin-bottom: 20px; text-align: center; }
-        .body-text { font-size: 16px; color: #4b5563; margin-bottom: 30px; line-height: 1.7; text-align: center; }
-        .button-container { text-align: center; margin: 40px 0; }
-        .button { background-color: #3b82f6; color: #ffffff !important; padding: 16px 32px; text-decoration: none; border-radius: 12px; font-weight: 600; display: inline-block; font-size: 16px; transition: background-color 0.2s; }
-        .footer { text-align: center; font-size: 14px; color: #9ca3af; border-top: 1px solid #f3f4f6; padding-top: 30px; }
-        .fallback-link { font-size: 12px; color: #6b7280; word-break: break-all; margin-top: 25px; background: #f3f4f6; padding: 15px; border-radius: 8px; }
-      </style>
-    </head>
-    <body>
-      <div class="wrapper">
-        <div class="container">
-          <div class="header">
-            <a href="#" class="logo">MediFind</a>
-          </div>
-          <div class="content">
-            <div class="title">${payload.title}</div>
-            <p class="body-text">${payload.body}</p>
-            
-            <div class="button-container">
-              <a href="${ctaUrl}" class="button">${ctaText}</a>
-              <div class="fallback-link">
-                <strong>Having trouble?</strong><br/>
-                Copy and paste this link into your browser: <br/> 
-                <span style="color: #3b82f6;">${ctaUrl}</span>
-              </div>
-            </div>
-          </div>
-          <div class="footer">
-            <p>&copy; ${new Date().getFullYear()} MediFind. Protecting what matters most.</p>
-            <p>You received this because you are a registered user of MediFind.</p>
-          </div>
-        </div>
-      </div>
-    </body>
-    </html>
-  `;
+  // The app's deep links (medifind-app://) do not open from email and look like
+  // phishing to spam filters, so only a public https link becomes a button.
+  const email = renderEmail({
+    title: payload.title,
+    name: user.fullName,
+    paragraphs: [payload.body, 'Open the MediFind app to see the details.'],
+    action: { label: ctaText, url: ctaUrl },
+  });
 
   const success = await sendEmail({
     to: user.email,
     subject: `MediFind: ${payload.title}`,
-    text: `${payload.title}\n\n${payload.body}\n\nLink: ${ctaUrl}`,
-    html: htmlContent,
+    ...email,
   });
 
   if (!success) {

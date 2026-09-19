@@ -8,6 +8,7 @@ import { sendEmail } from '../utils/email';
 import crypto from 'crypto';
 import prisma from '../lib/prisma';
 import { getIo } from '../server';
+import { renderEmail } from '../utils/emailTemplate';
 import logger from '../utils/logger';
 
 /*
@@ -142,20 +143,14 @@ export const sendVerificationCode = async (userId: string, email: string, fullNa
   
   await sendEmail({
     to: email,
-    subject: 'Verify your MediFind Account',
-    html: `
-      <div style="font-family: sans-serif; padding: 20px; color: #333;">
-        <h2 style="color: #0E9AA7;">Welcome to MediFind!</h2>
-        <p>Hello ${fullName},</p>
-        <p>Your account has been approved by the admin. Please use the following code to verify your email address and activate your account:</p>
-        <div style="background: #f4f4f4; padding: 15px; border-radius: 8px; font-size: 32px; font-weight: bold; text-align: center; letter-spacing: 5px; margin: 20px 0;">
-          ${otp}
-        </div>
-        <p>This code will expire in 15 minutes.</p>
-        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
-        <p style="font-size: 12px; color: #999;">MediFind - Your Health, Our Priority</p>
-      </div>
-    `
+    subject: 'Your MediFind verification code',
+    ...renderEmail({
+      title: 'Verify your email address',
+      name: fullName,
+      paragraphs: ['Enter this code in the MediFind app to verify your email address and activate your account.'],
+      code: otp,
+      note: 'The code expires in 15 minutes. If you did not create a MediFind account, you can ignore this email.',
+    }),
   });
 };
 
@@ -255,20 +250,14 @@ export const resendVerificationCode = async (email: string) => {
 
   await sendEmail({
     to: user.email,
-    subject: 'Your new MediFind Verification Code',
-    html: `
-      <div style="font-family: sans-serif; padding: 20px; color: #333;">
-        <h2 style="color: #0E9AA7;">Email Verification Code</h2>
-        <p>Hello ${user.fullName},</p>
-        <p>You requested a new verification code. Please use the following code to verify your email address:</p>
-        <div style="background: #f4f4f4; padding: 15px; border-radius: 8px; font-size: 32px; font-weight: bold; text-align: center; letter-spacing: 5px; margin: 20px 0;">
-          ${otp}
-        </div>
-        <p>This code will expire in 15 minutes.</p>
-        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
-        <p style="font-size: 12px; color: #999;">MediFind - Your Health, Our Priority</p>
-      </div>
-    `
+    subject: 'Your new MediFind verification code',
+    ...renderEmail({
+      title: 'Your new verification code',
+      name: user.fullName,
+      paragraphs: ['You asked for a new code. Enter it in the MediFind app to verify your email address.'],
+      code: otp,
+      note: 'The code expires in 15 minutes. Codes sent earlier no longer work.',
+    }),
   });
 
   return { success: true, message: 'New verification code sent' };
@@ -445,21 +434,14 @@ export const requestPasswordReset = async (email: string) => {
 
   await sendEmail({
     to: user.email,
-    subject: 'MediFind — Password Reset Code',
-    html: `
-      <div style="font-family: sans-serif; padding: 20px; color: #333; max-width: 480px; margin: auto;">
-        <h2 style="color: #0E9AA7;">Password Reset Request</h2>
-        <p>Hello ${user.fullName},</p>
-        <p>We received a request to reset your <strong>MediFind</strong> account password. Enter the code below in the app:</p>
-        <div style="background: #f4f4f4; padding: 20px; border-radius: 10px; font-size: 36px; font-weight: bold; text-align: center; letter-spacing: 10px; margin: 24px 0; color: #0E9AA7;">
-          ${otp}
-        </div>
-        <p>This code will expire in <strong>15 minutes</strong>.</p>
-        <p style="color: #e74c3c;">If you didn't request a password reset, please ignore this email. Your password will not be changed.</p>
-        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
-        <p style="font-size: 12px; color: #999;">MediFind — Your Health, Our Priority</p>
-      </div>
-    `
+    subject: 'Your MediFind password reset code',
+    ...renderEmail({
+      title: 'Reset your password',
+      name: user.fullName,
+      paragraphs: ['We received a request to reset the password of your MediFind account. Enter this code in the app to choose a new password.'],
+      code: otp,
+      note: 'The code expires in 15 minutes. If you did not ask to reset your password, ignore this email; your password stays the same.',
+    }),
   });
 
   return { success: true, message: 'A 6-digit reset code has been sent to your email.' };

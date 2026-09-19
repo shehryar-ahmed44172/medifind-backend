@@ -2,6 +2,7 @@ import nodemailer from 'nodemailer';
 import fs from 'fs';
 import path from 'path';
 import logger from './logger';
+import { htmlToText } from './emailTemplate';
 
 export interface EmailOptions {
   to: string;
@@ -25,7 +26,7 @@ function getSmtpConfig() {
           secure:    saved.smtpEncryption === 'ssl',
           user:      saved.smtpUser,
           pass:      saved.smtpPass,
-          fromName:  saved.smtpFromName || 'MediFind Emergency Network',
+          fromName:  saved.smtpFromName || 'MediFind',
         };
       }
     }
@@ -37,7 +38,7 @@ function getSmtpConfig() {
     secure:   Number(process.env.SMTP_PORT) === 465,
     user:     process.env.SMTP_USER || '',
     pass:     process.env.SMTP_PASS || '',
-    fromName: 'MediFind Emergency Network',
+    fromName: 'MediFind',
   };
 }
 
@@ -88,8 +89,14 @@ export const sendEmail = async (options: EmailOptions): Promise<boolean> => {
       from:    `"${cfg.fromName}" <${cfg.user}>`,
       to:      options.to,
       subject: options.subject,
-      text:    options.text,
+      // Spam filters distrust HTML-only mail: always include a plain-text part
+      text:    options.text || (options.html ? htmlToText(options.html) : undefined),
       html:    options.html,
+      headers: {
+        // Automated, transactional mail: no auto-replies (out-of-office) back to the sender
+        'Auto-Submitted': 'auto-generated',
+        'X-Auto-Response-Suppress': 'All',
+      },
     });
     logger.info(`✅ Email sent to ${options.to}: ${info.messageId}`);
     return true;
