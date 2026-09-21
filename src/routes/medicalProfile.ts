@@ -5,6 +5,7 @@ import {
   getMedicalProfileByUserId,
   addEmergencyContact,
   removeEmergencyContact,
+  updatePatientType,
 } from '../controllers/medicalProfileController';
 import { authMiddleware, roleMiddleware } from '../middleware/authMiddleware';
 import * as caregiverService from '../services/caregiverService';
@@ -26,6 +27,12 @@ router.get('/', getMedicalProfile);
  * Create or update current user's medical profile
  */
 router.put('/', updateMedicalProfile);
+
+/**
+ * PUT /api/medical-profile/patient-type
+ * Switch between hearing and deaf mode (PATIENT only)
+ */
+router.put('/patient-type', roleMiddleware('PATIENT'), updatePatientType);
 
 /**
  * POST /api/medical-profile/emergency-contacts

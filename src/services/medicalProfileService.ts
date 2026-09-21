@@ -65,8 +65,18 @@ export const updateMedicalProfile = async (userId: string, profileData: any) => 
   const user = await userRepository.findById(userId);
   if (!user) throw new Error('User not found');
 
-  // Row metadata must never be written back through the upsert
-  const { id: _id, userId: _userId, createdAt: _c, updatedAt: _u, user: _user, ...fields } = profileData || {};
+  // Row metadata must never be written back through the upsert.
+  // patientType is deliberately excluded too — it only changes through
+  // updatePatientType(), which validates the value and writes an audit log.
+  const {
+    id: _id,
+    userId: _userId,
+    createdAt: _c,
+    updatedAt: _u,
+    user: _user,
+    patientType: _patientType,
+    ...fields
+  } = profileData || {};
 
   // Fields the client didn't send keep their current value (e.g. saving the
   // profile form must not wipe emergency contacts or quick phrases)
@@ -86,4 +96,27 @@ export const updateMedicalProfile = async (userId: string, profileData: any) => 
   const dataToUpsert = encryptSensitiveFields(raw);
   const saved = await medicalProfileRepository.upsert(userId, dataToUpsert);
   return decryptSensitiveFields(saved as any);
+};
+
+export const PATIENT_TYPES = ['NORMAL', 'DEAF'] as const;
+export type PatientTypeValue = (typeof PATIENT_TYPES)[number];
+
+/**
+ * Switches the patient between hearing (NORMAL) and deaf (DEAF) mode.
+ * Hearing can change after registration, so the patient owns this setting —
+ * but it is the flag responders and the dispatch summary rely on, so it is
+ * written on its own, never as part of a profile save.
+ */
+export const updatePatientType = async (userId: string, patientType: PatientTypeValue) => {
+  const user = await userRepository.findById(userId);
+  if (!user) throw new Error('User not found');
+  if (user.role !== 'PATIENT') throw new Error('Only patients have a hearing mode');
+
+  const existing = await medicalProfileRepository.findByUserId(userId);
+  const previous = (existing as any)?.patientType ?? 'NORMAL';
+
+  // Only this column is written — the rest of the profile keeps its stored
+  // (already encrypted) values.
+  const saved = await medicalProfileRepository.upsert(userId, { patientType } as any);
+  return { profile: decryptSensitiveFields(saved as any), previous };
 };

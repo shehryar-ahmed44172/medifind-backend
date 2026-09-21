@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import * as medicalProfileService from '../services/medicalProfileService';
 import { sendSuccess, sendError } from '../utils/response';
+import prisma from '../lib/prisma';
+import logger from '../utils/logger';
 
 /**
  * GET /api/medical-profile
@@ -47,6 +49,43 @@ export const updateMedicalProfile = async (req: Request, res: Response) => {
     });
 
     sendSuccess(res, profile, 'Medical profile saved successfully');
+  } catch (error: any) {
+    sendError(res, error.message, 400);
+  }
+};
+
+/**
+ * PUT /api/medical-profile/patient-type
+ * Switch the authenticated patient between hearing (NORMAL) and deaf (DEAF) mode
+ */
+export const updatePatientType = async (req: Request, res: Response) => {
+  try {
+    if (!req.user) return sendError(res, 'Unauthorized', 401);
+
+    const patientType = String(req.body?.patientType || '').toUpperCase();
+    if (!medicalProfileService.PATIENT_TYPES.includes(patientType as any)) {
+      return sendError(res, 'patientType must be NORMAL or DEAF', 400);
+    }
+
+    const { profile, previous } = await medicalProfileService.updatePatientType(
+      req.user.userId,
+      patientType as medicalProfileService.PatientTypeValue
+    );
+
+    if (previous !== patientType) {
+      await prisma.auditLog.create({
+        data: {
+          userId: req.user.userId,
+          action: 'UPDATE_PATIENT_TYPE',
+          entity: 'MedicalProfile',
+          entityId: req.user.userId,
+          oldValues: { patientType: previous },
+          newValues: { patientType, changedBy: 'patient_self_service' },
+        },
+      }).catch((e: any) => logger.warn(`[MedicalProfile] audit log failed: ${e.message}`));
+    }
+
+    sendSuccess(res, { patientType: (profile as any).patientType }, 'Hearing mode updated');
   } catch (error: any) {
     sendError(res, error.message, 400);
   }
