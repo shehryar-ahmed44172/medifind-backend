@@ -6,9 +6,19 @@ import {
   hashResetToken,
   generateResetLink,
 } from '../utils/resetTokenUtils';
-import { hashPassword, verifyPassword } from '../utils/password';
+import { hashPassword, verifyPassword, validatePasswordStrength } from '../utils/password';
 import { logger } from '../utils/logger';
 import { sendEmail } from '../utils/email';
+import prisma from '../lib/prisma';
+
+/**
+ * Wrong current-password attempts per user, so a stolen or forgotten laptop
+ * cannot be used to guess the password from the change form. In memory only —
+ * a restart clears it, which is acceptable for a short lockout.
+ */
+const changeAttempts = new Map<string, { count: number; firstAt: number }>();
+const MAX_CHANGE_ATTEMPTS = 5;
+const CHANGE_LOCK_MS = 15 * 60 * 1000;
 
 export class PasswordResetService {
   /**
@@ -142,11 +152,9 @@ export class PasswordResetService {
       }
 
       // Validate new password
-      if (!newPassword || newPassword.length < 8) {
-        return {
-          success: false,
-          message: 'Password must be at least 8 characters long.',
-        };
+      const weakness = validatePasswordStrength(newPassword);
+      if (weakness) {
+        return { success: false, message: weakness };
       }
 
       // Don't allow reusing recent passwords
@@ -170,6 +178,13 @@ export class PasswordResetService {
 
       // Mark token as used
       await passwordResetRepository.markTokenAsUsed(resetRecord.id);
+
+      // Sign out every existing session — the person resetting may be
+      // recovering the account from someone else.
+      await prisma.refreshToken.updateMany({
+        where: { userId: user.id, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
 
       logger.info(`Password reset successfully for user: ${user.id}`);
 
@@ -206,24 +221,41 @@ export class PasswordResetService {
         };
       }
 
+      // Too many wrong guesses of the current password → stop trying for a while
+      const attempts = changeAttempts.get(userId);
+      if (attempts && Date.now() - attempts.firstAt > CHANGE_LOCK_MS) {
+        changeAttempts.delete(userId);
+      } else if (attempts && attempts.count >= MAX_CHANGE_ATTEMPTS) {
+        const minutes = Math.ceil((CHANGE_LOCK_MS - (Date.now() - attempts.firstAt)) / 60000);
+        return {
+          success: false,
+          message: `Too many incorrect attempts. Try again in ${minutes} minute${minutes === 1 ? '' : 's'}.`,
+        };
+      }
+
       // Verify current password
       const isPasswordValid = await verifyPassword(
         currentPassword,
         user.passwordHash
       );
       if (!isPasswordValid) {
+        const current = changeAttempts.get(userId);
+        changeAttempts.set(
+          userId,
+          current ? { count: current.count + 1, firstAt: current.firstAt } : { count: 1, firstAt: Date.now() }
+        );
+        logger.warn(`[Password] wrong current password for user ${userId}`);
         return {
           success: false,
           message: 'Current password is incorrect.',
         };
       }
+      changeAttempts.delete(userId);
 
       // Validate new password
-      if (!newPassword || newPassword.length < 8) {
-        return {
-          success: false,
-          message: 'New password must be at least 8 characters long.',
-        };
+      const weakness = validatePasswordStrength(newPassword);
+      if (weakness) {
+        return { success: false, message: weakness };
       }
 
       if (currentPassword === newPassword) {
@@ -237,11 +269,30 @@ export class PasswordResetService {
       const hashedPassword = await hashPassword(newPassword);
       await userRepository.updatePassword(userId, hashedPassword);
 
+      // A password change also means "lock everyone else out": every refresh
+      // token is revoked, so other devices must sign in with the new password.
+      await prisma.refreshToken.updateMany({
+        where: { userId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+
+      await prisma.auditLog
+        .create({
+          data: {
+            userId,
+            action: 'CHANGE_PASSWORD',
+            entity: 'User',
+            entityId: userId,
+            newValues: { changedBy: 'self_service', sessionsRevoked: true },
+          },
+        })
+        .catch((e: any) => logger.warn(`[Password] audit log failed: ${e.message}`));
+
       logger.info(`Password changed successfully for user: ${userId}`);
 
       return {
         success: true,
-        message: 'Password changed successfully.',
+        message: 'Password changed. Other devices have been signed out.',
       };
     } catch (error) {
       logger.error('Error changing password:', error);
