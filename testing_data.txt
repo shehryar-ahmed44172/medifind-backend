@@ -161,3 +161,16 @@ Table 6.6: Functional testing results (Part 1 - Auth, Roles & RBAC)
 | FT-006 | FR.06 – Password Reset | Reset password using OTP verification | Phone: registered number | OTP sent, password reset successfully | OTP sent, reset completed | PASS |
 | FT-007 | FR.07 – RBAC | Enforce role-based access control | Patient accesses /api/admin route | Return 403 Forbidden | 403 Forbidden returned | PASS |
 | FT-008 | FR.08 – Credential Validation | Validate credentials before granting access | Incorrect password entered | Access denied, error shown | Access denied correctly | PASS |
+
+[Date: 2026-09-22]
+Table 6.6: Functional testing results (Part 2 - Medical Profiles & SOS Trigger)
+| Test ID | Requirement | Test Description | Test Data / Steps | Expected Result | Actual Result | Status |
+| FT-009 | FR.09 – Audit Logs | Maintain audit logs of system activities | Perform login, approval, deletion | Each action logged with timestamp | Actions logged correctly | PASS |
+| FT-010 | FR.10 – Session Management | Ensure secure session across app | Login, stay idle 30 min, resume | Session remains valid per expiry policy | Session remained valid correctly | PASS |
+| FT-011 | FR.11 – Medical Profile | Create and update digital medical profile | Blood group, disability type entered | Profile saved, confirmation shown | Profile saved successfully | PASS |
+| FT-012 | FR.12 – Medical Details | Enter disability type, allergies, diseases, medications | Full medical detail form submitted | All fields saved correctly | Fields saved correctly | PASS |
+| FT-013 | FR.13 – Upload Medical Reports | Upload multiple medical reports | Upload 3 PDF reports | All files stored, listed in profile | Files stored and listed | PASS |
+| FT-014 | FR.14 – Update/Delete Reports | Delete an uploaded medical report | Select report, tap delete | Report removed from profile and storage | Report removed successfully | PASS |
+| FT-015 | FR.15 – One-Tap SOS | Trigger SOS using one-tap button | Tap SOS button on home screen | 60-second cancellation window starts | 60-second cancellation window started correctly | PASS |
+| FT-016 | FR.16 – GPS Auto-Capture | Capture GPS location upon SOS activation | SOS triggered with GPS enabled | Coordinates captured automatically | Coordinates captured correctly | PASS |
+| FT-017 | FR.17 – Attach Medical Profile | Attach medical profile with emergency request | SOS triggered by patient with profile | Profile visible to responder | Profile attached and visible | PASS |
