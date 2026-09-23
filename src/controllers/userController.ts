@@ -24,6 +24,10 @@ export const getProfile = async (req: Request, res: Response) => {
       licenseNumber: (profile as any).responder?.licenseNumber,
       responderType: (profile as any).responder?.responderType,
       vehicleType: (profile as any).responder?.vehicleType,
+      // Responder stats, so the app can tell a rated responder from a new one
+      rating: (profile as any).responder?.rating ?? null,
+      totalRatings: (profile as any).responder?.totalRatings ?? null,
+      totalResponsesHandled: (profile as any).responder?.totalResponsesHandled ?? null,
     };
     sendSuccess(res, responseData, 'Profile retrieved successfully');
   } catch (error: any) {

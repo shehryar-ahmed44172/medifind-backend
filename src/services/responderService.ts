@@ -92,6 +92,8 @@ export const acceptEmergencyRequest = async (emergencyId: string, responderId: s
       responderPhone:        responderDetails?.user.phoneNumber,
       responderProfileImage: responderDetails?.user.profileImageUrl ?? null,
       responderRating:       responderDetails?.rating ?? 5.0,
+      // 0 means nobody has rated yet, so the app shows "New" instead of 5.0
+      responderTotalRatings: responderDetails?.totalRatings ?? 0,
       responderType:         responderDetails?.responderType ?? null,
       organization:          responderDetails?.organization ?? null,
       vehicleType:           responderDetails?.vehicleType ?? 'MOTORBIKE_AMBULANCE',
