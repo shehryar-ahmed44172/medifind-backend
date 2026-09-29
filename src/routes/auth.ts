@@ -7,7 +7,7 @@ import { upload } from '../middleware/uploadMiddleware';
 const router = Router();
 
 /**
- * Public endpoints
+ * Public endpoints.
  */
 router.post('/register', authController.register);
 router.post('/login', loginRateLimitMiddleware, authController.login);
