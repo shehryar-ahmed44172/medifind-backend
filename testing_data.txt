@@ -174,3 +174,15 @@ Table 6.6: Functional testing results (Part 2 - Medical Profiles & SOS Trigger)
 | FT-015 | FR.15 – One-Tap SOS | Trigger SOS using one-tap button | Tap SOS button on home screen | 60-second cancellation window starts | 60-second cancellation window started correctly | PASS |
 | FT-016 | FR.16 – GPS Auto-Capture | Capture GPS location upon SOS activation | SOS triggered with GPS enabled | Coordinates captured automatically | Coordinates captured correctly | PASS |
 | FT-017 | FR.17 – Attach Medical Profile | Attach medical profile with emergency request | SOS triggered by patient with profile | Profile visible to responder | Profile attached and visible | PASS |
+
+[Date: 2026-09-29]
+Table 6.6: Functional testing results (Part 3 - Emergency Cancellation, Tracking & Chat)
+| Test ID | Requirement | Test Description | Test Data / Steps | Expected Result | Actual Result | Status |
+| FT-018 | FR.18 – Select Emergency Category | Select emergency category optionally | Category: Cardiac selected | Category saved with request | Category saved correctly | PASS |
+| FT-019 | FR.19 – SOS Without Category | Trigger SOS without selecting category | Skip category, confirm SOS | Request sent without category, marked "Other" | Request sent without category | PASS |
+| FT-020 | FR.20 – Cancel SOS | Cancel SOS within defined time window | Tap Cancel at 5s of 10s countdown | Request cancelled, no alert sent | Request cancelled, no alert sent | PASS |
+| FT-021 | FR.21 – SOS Confirmation | Receive confirmation after SOS activation | Complete SOS activation flow | Confirmation screen displayed | Confirmation displayed correctly | PASS |
+| FT-022 | FR.22 – Real-time Responder Status | View real-time status of responder | Responder accepts request | Status updates to "Responder En Route" | Status updated in real time | PASS |
+| FT-023 | FR.23 – Predefined Messages | Communicate using predefined emergency messages | Select "I need help" quick message | Message sent to responder instantly | Message sent instantly | PASS |
+| FT-024 | FR.24 – Real-time Chat | Communicate using real-time chat | Type and send custom message | Message delivered instantly | Message delivered instantly | PASS |
+| FT-025 | FR.25 – Live Tracking View | View live tracking of assigned responder | Open tracking screen during active emergency | Responder location shown on map | Location shown correctly | PASS |
