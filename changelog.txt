@@ -2,3 +2,4 @@ Update project documentation
 Create responder dashboard screen
 Implement caregiver invitation functionality
 Implement high contrast UI settings
+Add secure token storage using Hive
