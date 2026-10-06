@@ -209,3 +209,15 @@ Table 6.6: Functional testing results (Part 5 - Navigation, Alerts & Caregiver N
 | FT-038 | FR.38 – Responder Chat | Communicate via chat during emergency | Responder sends message to patient | Message delivered instantly | Message delivered instantly | PASS |
 | FT-039 | FR.39 – Manage Caregivers | Add and manage caregivers | Add caregiver by phone number | Caregiver linked to patient account | Caregiver linked correctly | PASS |
 | FT-040 | FR.40 – SOS Notification to Caregiver | Caregiver notified when SOS is triggered | Patient triggers SOS | Push notification sent instantly | Notification sent instantly | PASS |
+
+[Date: 2026-10-06]
+Table 6.6: Functional testing results (Part 6 - Caregiver Tracking & Admin Approval Flow)
+| Test ID | Requirement | Test Description | Test Data / Steps | Expected Result | Actual Result | Status |
+| FT-041 | FR.41 – Receive Location and Details | Caregiver receives patient location and emergency details | Caregiver opens notification | Location and category displayed | Details displayed correctly | PASS |
+| FT-042 | FR.42 – Monitor Live Tracking | Caregiver monitors live tracking of responder | Caregiver opens tracking map | Responder position updates live | Position updates correctly | PASS |
+| FT-043 | FR.43 – Emergency Status Updates | Caregiver receives emergency status updates | Status changes to "Resolved" | Caregiver notified of resolution | Notification received correctly | PASS |
+| FT-044 | FR.44 – Caregiver Chat | Caregiver communicates through chat | Caregiver sends message in group chat | Message delivered to all participants | Message delivered to all | PASS |
+| FT-045 | FR.45 – Restrict Assignment Modification | Caregiver cannot modify responder assignment | Caregiver attempts to reassign responder | Action blocked, 403 returned | Action blocked correctly | PASS |
+| FT-046 | FR.46 – Manage User Accounts | Create and manage user accounts | Admin creates a patient account manually | Account created, credentials sent | Account created successfully | PASS |
+| FT-047 | FR.47 – Verify/Approve Responder | Verify and approve responder accounts | Admin reviews documents, approves | Status updated to APPROVED | Status updated correctly | PASS |
+| FT-048 | FR.48 – Reject Invalid Responder | Reject invalid responder registrations | Admin rejects with reason "Unclear CNIC" | Responder notified with reason | Notification sent with reason | PASS |
