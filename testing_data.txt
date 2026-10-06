@@ -186,3 +186,15 @@ Table 6.6: Functional testing results (Part 3 - Emergency Cancellation, Tracking
 | FT-023 | FR.23 – Predefined Messages | Communicate using predefined emergency messages | Select "I need help" quick message | Message sent to responder instantly | Message sent instantly | PASS |
 | FT-024 | FR.24 – Real-time Chat | Communicate using real-time chat | Type and send custom message | Message delivered instantly | Message delivered instantly | PASS |
 | FT-025 | FR.25 – Live Tracking View | View live tracking of assigned responder | Open tracking screen during active emergency | Responder location shown on map | Location shown correctly | PASS |
+
+[Date: 2026-10-06]
+Table 6.6: Functional testing results (Part 4 - Responder Registration, Approval & Assignment)
+| Test ID | Requirement | Test Description | Test Data / Steps | Expected Result | Actual Result | Status |
+| FT-026 | FR.26 – Responder Registration | Register by providing professional details | License number, specialization entered | Registration submitted for review | Registration submitted | PASS |
+| FT-027 | FR.27 – Document Verification Upload | Upload CNIC and employee card | Upload cnic.jpg, employeecard.jpg | Documents stored, status PENDING | Documents stored correctly | PASS |
+| FT-028 | FR.28 – Pending Approval State | Account stays pending until admin approval | Register, attempt login before approval | Login blocked, "Pending approval" shown | Login blocked correctly | PASS |
+| FT-029 | FR.29 – Approval Notification | Responder notified after account approval | Admin approves responder account | Push and email notification sent | Notification sent successfully | PASS |
+| FT-030 | FR.30 – Nearest Responder Assignment | Receive emergency requests by nearest location | SOS triggered within 5km of responder | Alert received with distance shown | Alert received with distance | PASS |
+| FT-031 | FR.31 – Accept/Reject Request | Accept or reject emergency requests | Responder taps Accept | Emergency assigned to responder | Emergency assigned correctly | PASS |
+| FT-032 | FR.32 – First-Accept Assignment | Assign emergency to first responder who accepts | 3 responders receive same alert | Only first acceptor gets assignment | First acceptor assigned correctly | PASS |
+| FT-033 | FR.33 – Auto-Reject Others | Automatically close request for other responders | First responder accepts | Other responders' requests auto-closed | Requests auto-closed correctly | PASS |
