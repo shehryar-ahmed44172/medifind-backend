@@ -5,3 +5,4 @@ Implement high contrast UI settings
 Add secure token storage using Hive
 Add Dio HTTP client configuration
 Implement high contrast UI settings
+Add unit tests for application services
