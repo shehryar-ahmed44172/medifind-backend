@@ -221,3 +221,14 @@ Table 6.6: Functional testing results (Part 6 - Caregiver Tracking & Admin Appro
 | FT-046 | FR.46 – Manage User Accounts | Create and manage user accounts | Admin creates a patient account manually | Account created, credentials sent | Account created successfully | PASS |
 | FT-047 | FR.47 – Verify/Approve Responder | Verify and approve responder accounts | Admin reviews documents, approves | Status updated to APPROVED | Status updated correctly | PASS |
 | FT-048 | FR.48 – Reject Invalid Responder | Reject invalid responder registrations | Admin rejects with reason "Unclear CNIC" | Responder notified with reason | Notification sent with reason | PASS |
+
+[Date: 2026-10-13]
+Table 6.6: Functional testing results (Part 7 - Analytics, Responder Performance & Records)
+| Test ID | Requirement | Test Description | Test Data / Steps | Expected Result | Actual Result | Status |
+| FT-049 | FR.49 – Monitor Active Emergencies | Monitor active emergencies in real time | Admin opens live emergencies panel | All active emergencies listed live | Emergencies listed and updating live | PASS |
+| FT-050 | FR.50 – System Analytics and Reports | View system analytics and reports | Admin opens Analytics tab | Charts and summary statistics shown | Analytics displayed correctly | PASS |
+| FT-051 | FR.51 – Monitor Responder Performance | Monitor responder performance metrics | Admin opens performance panel | Response time and accept rate shown | Metrics shown; new responders show blank instead of 0% | PARTIAL PASS |
+| FT-052 | FR.52 – Emergency Logs and History | Access emergency logs and activity history | Admin searches logs by date | Filtered emergency history returned | History returned correctly | PASS |
+| FT-053 | FR.53 – Handle System Alerts | Handle system-level issues and alerts | Simulated server alert triggered | Admin receives alert notification | Alert received correctly | PASS |
+| FT-054 | FR.54 – One-Tap SOS Activation | Confirm one-tap SOS activation flow | Tap SOS from home screen | Emergency flow initiated immediately | Flow initiated immediately | PASS |
+| FT-055 | FR.55 – Emergency Record Generation | Generate emergency request record in database | Complete SOS trigger | New row created in EmergencyRequests table | Record created correctly | PASS |
