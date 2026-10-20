@@ -255,3 +255,11 @@ Table 6.6: Functional testing results (Part 9 - Maps, Live Status & Multi-Role C
 | FT-068 | FR.68 – Image Sharing in Chat | Share images in chat | Patient sends injury photo | Image uploaded and visible to responder | Image uploaded and visible | PASS |
 | FT-069 | FR.69 – Automatic Voice Alerts | Generate automatic voice alerts for responders | New emergency assigned | Voice alert auto-plays on responder device | Voice alert auto-played | PASS |
 | FT-070 | FR.70 – Emergency Update Notifications | Notify users about all emergency updates | Status changes throughout emergency lifecycle | Notification sent at every status change | One status change ("En Route") missed for caregiver | FAIL |
+
+[Date: 2026-10-20]
+Table 6.6: Functional testing results (Part 10 - Edge Cases & Concurrency Handling)
+| Test ID | Requirement | Test Description | Test Data / Steps | Expected Result | Actual Result | Status |
+| FT-071 | FR.16 – GPS Unavailable Edge Case | Trigger SOS with GPS disabled | GPS turned off on device | Prompt to enable GPS before sending | Prompt shown correctly | PASS |
+| FT-072 | FR.32 – Race Condition Handling | Two responders accept simultaneously | Simulated near-identical accept timestamps | Late acceptor notified "Already assigned" | Late acceptor notified correctly | PASS |
+| FT-073 | FR.13 – Medical Report Size Limit | Upload medical report exceeding 10MB | PDF file size: 13MB | Show "File exceeds 10MB" error | Error shown, form retains other fields | PASS |
+| FT-074 | FR.24 – Chat Network Interruption | Send chat message during network drop | Disconnect network mid-message send | Message queued locally, sent on reconnect | Message queued and sent on reconnect | PASS |
