@@ -243,3 +243,15 @@ Table 6.6: Functional testing results (Part 8 - Responder Notification & ETA Com
 | FT-060 | FR.60 – Notify on Cancellation | Notify responders if emergency is cancelled | Patient cancels after 2 responders notified | Both responders receive cancellation alert | Both notified correctly | PASS |
 | FT-061 | FR.61 – Real-Time Responder Tracking | Track responder location in real time | Active emergency in progress | Location updates continuously on map | Location updates continuously | PASS |
 | FT-062 | FR.62 – ETA Calculation | Calculate estimated time of arrival | Responder 3.2km from patient | ETA displayed and updates as responder moves | ETA displayed and updates correctly | PASS |
+
+[Date: 2026-10-20]
+Table 6.6: Functional testing results (Part 9 - Maps, Live Status & Multi-Role Chat)
+| Test ID | Requirement | Test Description | Test Data / Steps | Expected Result | Actual Result | Status |
+| FT-063 | FR.63 – Map-Based Navigation | Provide map-based navigation to responders | Responder taps Navigate | Google Maps route opened | Route opened correctly | PASS |
+| FT-064 | FR.64 – Live Status Display | Display live status updates to patient and caregiver | Responder status changes | Both patient and caregiver see updated status | Status updated for both | PASS |
+| FT-065 | FR.65 – Continuous Tracking Until Completion | Continue tracking until emergency completion | Track from assignment to resolution | Tracking stops exactly at resolution | Tracking stopped correctly | PASS |
+| FT-066 | FR.66 – Multi-User Real-Time Chat | Provide chat between patient, responder, caregiver | All 3 roles join same emergency chat | All messages visible to all participants | Messages visible to all | PASS |
+| FT-067 | FR.67 – Text Messaging | Send text messages during emergency | Type and send message | Message delivered and timestamped | Message delivered and timestamped | PASS |
+| FT-068 | FR.68 – Image Sharing in Chat | Share images in chat | Patient sends injury photo | Image uploaded and visible to responder | Image uploaded and visible | PASS |
+| FT-069 | FR.69 – Automatic Voice Alerts | Generate automatic voice alerts for responders | New emergency assigned | Voice alert auto-plays on responder device | Voice alert auto-played | PASS |
+| FT-070 | FR.70 – Emergency Update Notifications | Notify users about all emergency updates | Status changes throughout emergency lifecycle | Notification sent at every status change | One status change ("En Route") missed for caregiver | FAIL |
