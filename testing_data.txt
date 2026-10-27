@@ -263,3 +263,15 @@ Table 6.6: Functional testing results (Part 10 - Edge Cases & Concurrency Handli
 | FT-072 | FR.32 – Race Condition Handling | Two responders accept simultaneously | Simulated near-identical accept timestamps | Late acceptor notified "Already assigned" | Late acceptor notified correctly | PASS |
 | FT-073 | FR.13 – Medical Report Size Limit | Upload medical report exceeding 10MB | PDF file size: 13MB | Show "File exceeds 10MB" error | Error shown, form retains other fields | PASS |
 | FT-074 | FR.24 – Chat Network Interruption | Send chat message during network drop | Disconnect network mid-message send | Message queued locally, sent on reconnect | Message queued and sent on reconnect | PASS |
+
+[Date: 2026-10-27]
+6.3.2 Usability Testing Data
+Usability Testing evaluates the system from real users' perspectives, measuring ease of use, navigation clarity, and overall accessibility experience for patients, responders, caregivers, and administrators. Table 6.7 documents feedback on MediFind's accessibility-focused design. (Test IDs: UAT-001 to UAT-015)
+
+Table 6.7: Usability testing results (Part 1 - Patient SOS, Predefined Messages & Maps)
+| Test ID | User Type | Feature Tested | Scenario | User Feedback | Result | Status |
+| UAT-001 | Patient (Deaf) | SOS Button | Trigger SOS using one-tap button | One-tap button is large and easy to find even under panic; countdown timer is very reassuring. | Positive | PASS |
+| UAT-002 | Patient (Speech-Impaired) | Predefined Messages | Use quick emergency messages instead of typing | Predefined messages save time, though more emergency-specific phrases (like "can't breathe") would help. | Positive | PARTIAL PASS |
+| UAT-003 | Emergency Responder | Accept Emergency Screen | Review and accept an emergency alert | Patient medical summary is clear at a glance; voice alert is loud enough to notice during commute. | Positive | PASS |
+| UAT-004 | New User | Registration and OTP | Register account and verify via OTP | Icon-based interface made signup easy without needing to read much text. | Positive | PASS |
+| UAT-005 | Caregiver | Live Tracking Map | View live location of patient and responder on mobile | Map view is cluttered on small screens; responder and patient icons overlap when close together. | Negative | FAIL |
