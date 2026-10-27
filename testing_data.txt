@@ -275,3 +275,12 @@ Table 6.7: Usability testing results (Part 1 - Patient SOS, Predefined Messages 
 | UAT-003 | Emergency Responder | Accept Emergency Screen | Review and accept an emergency alert | Patient medical summary is clear at a glance; voice alert is loud enough to notice during commute. | Positive | PASS |
 | UAT-004 | New User | Registration and OTP | Register account and verify via OTP | Icon-based interface made signup easy without needing to read much text. | Positive | PASS |
 | UAT-005 | Caregiver | Live Tracking Map | View live location of patient and responder on mobile | Map view is cluttered on small screens; responder and patient icons overlap when close together. | Negative | FAIL |
+
+[Date: 2026-10-27]
+Table 6.7: Usability testing results (Part 2 - Accessibility UI, Analytics & Verification)
+| Test ID | User Type | Feature Tested | Scenario | User Feedback | Result | Status |
+| UAT-006 | Patient (Physically Disabled) | Large Buttons / Accessibility UI | Navigate app using large-button accessibility mode | Large buttons and high-contrast icons made one-handed use much easier. | Positive | PASS |
+| UAT-007 | Admin | Analytics Dashboard | Review system-wide emergency analytics | Charts are informative, but loading is slow when filtering by a custom date range. | Neutral | PARTIAL PASS |
+| UAT-008 | Patient | Medical Profile Upload | Upload medical reports and disability details | Uploading reports was simple; an option to reorder uploaded reports would help. | Positive | PASS |
+| UAT-009 | Emergency Responder | Availability Toggle | Switch availability status on/off duty | Toggle is intuitive and instantly stops new alerts, very reliable during breaks. | Positive | PASS |
+| UAT-010 | Admin | Responder Verification | Approve or reject a responder's documents | Approval flow is smooth, but there's no way to zoom into the CNIC image before deciding. | Negative | FAIL |
