@@ -1,0 +1,84 @@
+# Render blueprint for the MediFind API.
+#
+# The Node runtime is used rather than the Dockerfile because the Prisma CLI is
+# a devDependency: Render keeps the build workspace, so `prisma migrate deploy`
+# can still run at start-up, while the Docker image installs production
+# dependencies only and would not have it.
+#
+# Every secret is declared with `sync: false`, which means Render asks for it in
+# the dashboard and it never goes into this file or into git.
+services:
+  - type: web
+    name: medifind-api
+    runtime: node
+    plan: free
+    region: oregon
+    branch: main
+    healthCheckPath: /health
+    buildCommand: npm ci && npx prisma generate && npm run build
+    startCommand: npx prisma migrate deploy && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+
+      # PostgreSQL connection string (Neon, Supabase, or Render Postgres)
+      - key: DATABASE_URL
+        sync: false
+
+      # Authentication
+      - key: JWT_SECRET
+        generateValue: true
+      - key: RESET_TOKEN_SECRET
+        generateValue: true
+      - key: ENCRYPTION_KEY
+        generateValue: true
+      - key: JWT_EXPIRATION
+        value: 24h
+      - key: JWT_REFRESH_EXPIRATION
+        value: 30d
+
+      # Where password-reset and verification links point (the Vercel URL)
+      - key: APP_URL
+        sync: false
+      - key: MOBILE_APP_ORIGIN
+        sync: false
+
+      # Email delivery
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+
+      # AI symptom suggestions
+      - key: GEMINI_API_KEY
+        sync: false
+
+      # Subscription payments
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+
+      # Voice and video calls
+      - key: TURN_URL
+        sync: false
+      - key: TURN_USERNAME
+        sync: false
+      - key: TURN_CREDENTIAL
+        sync: false
+
+      # Emergency behaviour (defaults match the report)
+      - key: EMERGENCY_CANCELLATION_WINDOW_SECONDS
+        value: "60"
+      - key: SOS_HOURLY_LIMIT
+        value: "5"
+      - key: FALSE_ALARM_REVIEW_THRESHOLD
+        value: "3"
+      - key: LOG_LEVEL
+        value: info
