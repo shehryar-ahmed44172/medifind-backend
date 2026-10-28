@@ -86,10 +86,10 @@ const AdminInbox = () => {
   });
 
   const getIcon = (type) => {
-    if (type.includes('SOS')) return <AlertTriangle size={18} color="#ef4444" />;
+    if (type.includes('SOS')) return <AlertTriangle size={18} color="var(--error)" />;
     if (type.includes('REGISTRATION')) return <UserCheck size={18} color="var(--primary)" />;
-    if (type.includes('SYSTEM')) return <CheckCheck size={18} color="#10b981" />;
-    return <Info size={18} color="#64748b" />;
+    if (type.includes('SYSTEM')) return <CheckCheck size={18} color="var(--success)" />;
+    return <Info size={18} color="var(--text-muted)" />;
   };
 
   const handleAction = (n) => {
@@ -143,7 +143,7 @@ const AdminInbox = () => {
                   onClick={() => setFilter(f)}
                   style={{
                     padding: '0.4rem 0.8rem', borderRadius: '8px', border: 'none',
-                    background: filter === f ? 'var(--primary)' : 'white',
+                    background: filter === f ? 'var(--primary)' : 'var(--surface)',
                     color: filter === f ? 'white' : 'var(--text-muted)',
                     fontWeight: 700, fontSize: '0.7rem', cursor: 'pointer',
                     boxShadow: '0 1px 2px rgba(0,0,0,0.05)', whiteSpace: 'nowrap'
@@ -173,7 +173,7 @@ const AdminInbox = () => {
                   style={{ 
                     padding: '1.25rem', borderBottom: '1px solid var(--border)', 
                     cursor: 'pointer', position: 'relative',
-                    background: selectedNotif?.id === n.id ? '#f1f5f9' : 'transparent',
+                    background: selectedNotif?.id === n.id ? 'var(--primary-pale)' : 'transparent',
                     transition: 'background 0.2s'
                   }}
                 >
@@ -225,7 +225,7 @@ const AdminInbox = () => {
                   </div>
                   <button 
                     onClick={() => deleteNotif(selectedNotif.id)}
-                    style={{ padding: '0.5rem', borderRadius: '8px', background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer' }}
+                    style={{ padding: '0.5rem', borderRadius: '8px', background: 'transparent', border: 'none', color: 'var(--error)', cursor: 'pointer' }}
                   >
                     <Trash2 size={18} />
                   </button>
@@ -240,7 +240,7 @@ const AdminInbox = () => {
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '2px' }}>
                         <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--secondary)', margin: 0 }}>{selectedNotif.title}</h2>
-                        <span style={{ fontSize: '0.7rem', fontWeight: 800, padding: '0.2rem 0.6rem', borderRadius: '4px', background: selectedNotif.type.includes('SOS') ? '#fee2e2' : '#ebf8ff', color: selectedNotif.type.includes('SOS') ? '#ef4444' : 'var(--primary)' }}>
+                        <span style={{ fontSize: '0.7rem', fontWeight: 800, padding: '0.2rem 0.6rem', borderRadius: '4px', background: selectedNotif.type.includes('SOS') ? 'var(--error-bg)' : 'var(--primary-pale)', color: selectedNotif.type.includes('SOS') ? 'var(--error-fg)' : 'var(--primary)' }}>
                           {selectedNotif.type}
                         </span>
                       </div>
@@ -263,7 +263,7 @@ const AdminInbox = () => {
                         onClick={() => handleAction(selectedNotif)}
                         style={{ 
                           padding: '0.8rem 1.8rem', borderRadius: '12px', 
-                          background: 'linear-gradient(135deg, #0C637E, #2496A7)', 
+                          background: 'linear-gradient(135deg, var(--grad-start), var(--grad-end))',
                           border: 'none', color: 'white', fontWeight: 800, 
                           fontSize: '0.9rem', cursor: 'pointer', display: 'flex', 
                           alignItems: 'center', gap: '0.6rem',

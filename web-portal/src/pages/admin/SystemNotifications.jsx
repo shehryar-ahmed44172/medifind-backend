@@ -317,7 +317,7 @@ const SystemNotifications = () => {
                   <div style={{ display: 'flex', gap: '0.875rem' }}>
                     {[
                       { id: 'IN_APP', label: 'In-App', Icon: Bell, color: 'var(--primary)' },
-                      { id: 'PUSH', label: 'Push', Icon: Smartphone, color: '#8b5cf6' },
+                      { id: 'PUSH', label: 'Push', Icon: Smartphone, color: 'var(--primary)' },
                       { id: 'EMAIL', label: 'Email Copy', Icon: Mail, color: 'var(--s-pending)' },
                     ].map(ch => {
                       const active = formData.channels.includes(ch.id);
@@ -538,7 +538,7 @@ const SystemNotifications = () => {
             <div className="card" style={{
               padding: '1.75rem',
               border: '1px solid var(--border)',
-              background: 'linear-gradient(135deg, #0C637E, #2496A7)',
+              background: 'linear-gradient(135deg, var(--grad-start), var(--grad-end))',
               color: 'white',
             }}>
               <h3 style={{ fontSize: '0.975rem', fontWeight: 700, marginBottom: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>

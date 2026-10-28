@@ -16,15 +16,15 @@ const MOCK_COMMS = [
 ];
 
 const STATUS_CONFIG = {
-  DELIVERED: { color: '#10b981', bg: '#d1fae5', icon: CheckCircle },
-  PENDING:   { color: '#f59e0b', bg: '#fef3c7', icon: Clock },
-  FAILED:    { color: '#ef4444', bg: '#fee2e2', icon: XCircle },
+  DELIVERED: { color: 'var(--success)', bg: 'var(--success-bg)', icon: CheckCircle },
+  PENDING:   { color: 'var(--warning)', bg: 'var(--warning-bg)', icon: Clock },
+  FAILED:    { color: 'var(--error)',   bg: 'var(--error-bg)',   icon: XCircle },
 };
 
 const TYPE_CONFIG = {
-  EMAIL: { color: 'var(--primary)', bg: '#ebf8ff', icon: Mail },
-  PUSH:  { color: '#8b5cf6', bg: '#ede9fe', icon: Bell },
-  SMS:   { color: '#10b981', bg: '#d1fae5', icon: MessageSquare },
+  EMAIL: { color: 'var(--primary)',  bg: 'var(--primary-pale)', icon: Mail },
+  PUSH:  { color: 'var(--warning)',  bg: 'var(--warning-bg)',   icon: Bell },
+  SMS:   { color: 'var(--success)',  bg: 'var(--success-bg)',   icon: MessageSquare },
 };
 
 const formatTime = (iso) =>
@@ -65,7 +65,7 @@ const CommunicationAudit = () => {
       </div>
 
       {/* Demo data notice */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.875rem 1.25rem', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '12px', marginBottom: '2rem', fontSize: '0.875rem', color: 'var(--warning-fg)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.875rem 1.25rem', background: 'var(--warning-bg)', border: '1px solid var(--warning-border)', borderRadius: '12px', marginBottom: '2rem', fontSize: '0.875rem', color: 'var(--warning-fg)' }}>
         <span style={{ fontSize: '1.1rem' }}>⚠️</span>
         <span><strong>Demo data</strong> — This page displays sample records. A live notification-log API endpoint will be connected in the next release.</span>
       </div>
@@ -73,10 +73,10 @@ const CommunicationAudit = () => {
       {/* Summary Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem', marginBottom: '2.5rem' }}>
         {[
-          { label: 'Total Sent', value: summary.total, color: 'var(--primary)', bg: '#ebf8ff' },
-          { label: 'Delivered', value: summary.delivered, color: '#10b981', bg: '#d1fae5' },
-          { label: 'Pending', value: summary.pending, color: '#f59e0b', bg: '#fef3c7' },
-          { label: 'Failed', value: summary.failed, color: '#ef4444', bg: '#fee2e2' },
+          { label: 'Total Sent', value: summary.total, color: 'var(--primary)', bg: 'var(--primary-pale)' },
+          { label: 'Delivered', value: summary.delivered, color: 'var(--success)', bg: 'var(--success-bg)' },
+          { label: 'Pending', value: summary.pending, color: 'var(--warning)', bg: 'var(--warning-bg)' },
+          { label: 'Failed', value: summary.failed, color: 'var(--error)', bg: 'var(--error-bg)' },
         ].map((card, i) => (
           <motion.div
             key={i}
@@ -102,7 +102,7 @@ const CommunicationAudit = () => {
               <button
                 key={t}
                 onClick={() => setTypeFilter(t)}
-                style={{ padding: '0.5rem 1.25rem', borderRadius: '100px', fontWeight: 700, fontSize: '0.8rem', border: active ? 'none' : '1px solid var(--border)', background: active ? (cfg?.bg || 'var(--secondary)') : 'white', color: active ? (cfg?.color || 'white') : 'var(--text-muted)', cursor: 'pointer' }}
+                style={{ padding: '0.5rem 1.25rem', borderRadius: '100px', fontWeight: 700, fontSize: '0.8rem', border: active ? 'none' : '1px solid var(--border)', background: active ? (cfg?.bg || 'var(--secondary)') : 'var(--surface)', color: active ? (cfg?.color || 'white') : 'var(--text-muted)', cursor: 'pointer' }}
               >
                 {t}
               </button>
@@ -117,7 +117,7 @@ const CommunicationAudit = () => {
               <button
                 key={s}
                 onClick={() => setStatusFilter(s)}
-                style={{ padding: '0.5rem 1.25rem', borderRadius: '100px', fontWeight: 700, fontSize: '0.8rem', border: active ? 'none' : '1px solid var(--border)', background: active ? (cfg?.bg || '#f1f5f9') : 'white', color: active ? (cfg?.color || 'var(--secondary)') : 'var(--text-muted)', cursor: 'pointer' }}
+                style={{ padding: '0.5rem 1.25rem', borderRadius: '100px', fontWeight: 700, fontSize: '0.8rem', border: active ? 'none' : '1px solid var(--border)', background: active ? (cfg?.bg || 'var(--surface-raised)') : 'var(--surface)', color: active ? (cfg?.color || 'var(--secondary)') : 'var(--text-muted)', cursor: 'pointer' }}
               >
                 {s}
               </button>

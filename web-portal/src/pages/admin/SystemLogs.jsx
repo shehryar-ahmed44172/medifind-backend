@@ -4,10 +4,10 @@ import { motion } from 'framer-motion';
 import api from '../../services/api';
 
 const LEVEL_CONFIG = {
-  INFO:    { color: 'var(--primary)', bg: '#ebf8ff', icon: Info },
-  SUCCESS: { color: '#10b981', bg: '#d1fae5', icon: CheckCircle },
-  WARNING: { color: '#f59e0b', bg: '#fef3c7', icon: AlertCircle },
-  ERROR:   { color: '#ef4444', bg: '#fee2e2', icon: XCircle },
+  INFO:    { color: 'var(--primary)',  bg: 'var(--primary-pale)',  icon: Info },
+  SUCCESS: { color: 'var(--success)', bg: 'var(--success-bg)',    icon: CheckCircle },
+  WARNING: { color: 'var(--warning)', bg: 'var(--warning-bg)',    icon: AlertCircle },
+  ERROR:   { color: 'var(--error)',   bg: 'var(--error-bg)',      icon: XCircle },
 };
 
 const formatTime = (iso) => {
@@ -89,7 +89,7 @@ const SystemLogs = () => {
                 style={{
                   padding: '0.5rem 1.25rem', borderRadius: '100px', fontWeight: 700, fontSize: '0.8rem',
                   border: active ? 'none' : '1px solid var(--border)',
-                  background: active ? (cfg?.bg || 'var(--secondary)') : 'white',
+                  background: active ? (cfg?.bg || 'var(--secondary)') : 'var(--surface)',
                   color: active ? (cfg?.color || 'white') : 'var(--text-muted)',
                   cursor: 'pointer', transition: 'all 0.15s',
                 }}

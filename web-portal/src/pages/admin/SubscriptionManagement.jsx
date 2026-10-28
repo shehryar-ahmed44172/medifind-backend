@@ -11,9 +11,9 @@ const PLAN_META = [
     name: 'Free',
     icon: Zap,
     price: 0,
-    color: '#64748B',
-    bg: '#F8FAFC',
-    border: '#E2E8F0',
+    color: 'var(--text-muted)',
+    bg: 'var(--surface-alt)',
+    border: 'var(--border)',
     features: ['Up to 3 SOS triggers/month', 'Basic medical profile', 'No caregiver linking'],
   },
   {
@@ -21,9 +21,9 @@ const PLAN_META = [
     name: 'Pro',
     icon: Star,
     price: 499,
-    color: '#0C637E',
-    bg: '#E2F0F3',
-    border: '#2496A7',
+    color: 'var(--primary)',
+    bg: 'var(--primary-pale)',
+    border: 'var(--primary-mid)',
     features: ['Unlimited SOS triggers', 'Full medical profile', 'Up to 5 caregivers', 'Priority dispatch'],
   },
   {
@@ -31,9 +31,9 @@ const PLAN_META = [
     name: 'Enterprise',
     icon: Crown,
     price: 2499,
-    color: '#04364E',
-    bg: 'linear-gradient(135deg,#0C637E,#2891C2)',
-    border: '#0C637E',
+    color: '#ffffff',
+    bg: 'linear-gradient(135deg, var(--grad-start), var(--grad-end))',
+    border: 'var(--primary)',
     features: ['Unlimited everything', 'Custom SLA', 'Dedicated support', 'API access', 'White-label option'],
   },
 ];
@@ -42,16 +42,16 @@ const PLAN_LABEL = { FREE: 'Free', PROFESSIONAL: 'Pro', EXECUTIVE: 'Enterprise' 
 const PLAN_PRICE = { FREE: 0, PROFESSIONAL: 499, EXECUTIVE: 2499 };
 
 const STATUS_STYLE = {
-  ACTIVE:    { color: '#10B981', bg: '#D1FAE5' },
-  CANCELLED: { color: '#6B7280', bg: '#F3F4F6' },
-  PAST_DUE:  { color: '#EF4444', bg: '#FEE2E2' },
-  TRIALING:  { color: '#F59E0B', bg: '#FEF3C7' },
+  ACTIVE:    { color: 'var(--s-resolved)',  bg: 'var(--s-resolved-bg)'  },
+  CANCELLED: { color: 'var(--s-cancelled)', bg: 'var(--s-cancelled-bg)' },
+  PAST_DUE:  { color: 'var(--s-active)',    bg: 'var(--s-active-bg)'    },
+  TRIALING:  { color: 'var(--s-pending)',   bg: 'var(--s-pending-bg)'   },
 };
 
 const PLAN_STYLE = {
-  Free:       { color: '#64748B', bg: '#F1F5F9' },
-  Pro:        { color: '#0C637E', bg: '#E2F0F3' },
-  Enterprise: { color: '#04364E', bg: '#C4DDE6' },
+  Free:       { color: 'var(--text-muted)', bg: 'var(--surface-raised)' },
+  Pro:        { color: 'var(--primary)',     bg: 'var(--primary-pale)'   },
+  Enterprise: { color: 'var(--primary)',     bg: 'var(--primary-pale)'   },
 };
 
 const formatDate = (iso) => iso === '—' ? '—' : new Date(iso).toLocaleDateString('en-PK', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -143,10 +143,10 @@ const SubscriptionManagement = () => {
       {/* Summary KPI Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem', marginBottom: '2.5rem' }}>
         {[
-          { label: 'Monthly Revenue', value: `Rs. ${totalMRR.toLocaleString()}`, icon: TrendingUp, color: '#0C637E', bg: '#E2F0F3' },
-          { label: 'Active Subscriptions', value: activeCount, icon: CheckCircle, color: '#10B981', bg: '#D1FAE5' },
-          { label: 'Past Due', value: pastDueCount, icon: AlertCircle, color: '#EF4444', bg: '#FEE2E2' },
-          { label: 'Enterprise Accounts', value: subscribers.filter(s => s.plan === 'Enterprise').length, icon: Crown, color: '#04364E', bg: '#C4DDE6' },
+          { label: 'Monthly Revenue', value: `Rs. ${totalMRR.toLocaleString()}`, icon: TrendingUp, color: 'var(--primary)',      bg: 'var(--primary-pale)' },
+          { label: 'Active Subscriptions', value: activeCount, icon: CheckCircle, color: 'var(--success)',      bg: 'var(--success-bg)'   },
+          { label: 'Past Due', value: pastDueCount, icon: AlertCircle, color: 'var(--error)',        bg: 'var(--error-bg)'     },
+          { label: 'Enterprise Accounts', value: subscribers.filter(s => s.plan === 'Enterprise').length, icon: Crown, color: 'var(--primary-dark)', bg: 'var(--primary-pale)' },
         ].map((card, i) => (
           <motion.div key={i} initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }}
             className="card" style={{ padding: '1.75rem 2rem', border: '1px solid var(--border)' }}>
@@ -230,7 +230,7 @@ const SubscriptionManagement = () => {
               const active = planFilter === p;
               return (
                 <button key={p} onClick={() => setPlanFilter(p)}
-                  style={{ padding: '0.5rem 1.25rem', borderRadius: '100px', fontWeight: 700, fontSize: '0.8rem', border: active ? 'none' : '1px solid var(--border)', background: active ? (cfg?.bg || 'var(--secondary)') : 'white', color: active ? (cfg?.color || 'white') : 'var(--text-muted)', cursor: 'pointer' }}>
+                  style={{ padding: '0.5rem 1.25rem', borderRadius: '100px', fontWeight: 700, fontSize: '0.8rem', border: active ? 'none' : '1px solid var(--border)', background: active ? (cfg?.bg || 'var(--secondary)') : 'var(--surface)', color: active ? (cfg?.color || 'white') : 'var(--text-muted)', cursor: 'pointer' }}>
                   {p}
                 </button>
               );
@@ -243,7 +243,7 @@ const SubscriptionManagement = () => {
                 const active = statusFilter === s;
                 return (
                   <button key={s} onClick={() => setStatusFilter(s)}
-                    style={{ padding: '0.375rem 0.875rem', borderRadius: '100px', fontWeight: 700, fontSize: '0.72rem', border: active ? 'none' : '1px solid var(--border)', background: active ? (cfg?.bg || '#f1f5f9') : 'white', color: active ? (cfg?.color || 'var(--secondary)') : 'var(--text-muted)', cursor: 'pointer' }}>
+                    style={{ padding: '0.375rem 0.875rem', borderRadius: '100px', fontWeight: 700, fontSize: '0.72rem', border: active ? 'none' : '1px solid var(--border)', background: active ? (cfg?.bg || 'var(--surface-raised)') : 'var(--surface)', color: active ? (cfg?.color || 'var(--secondary)') : 'var(--text-muted)', cursor: 'pointer' }}>
                     {s}
                   </button>
                 );
@@ -277,7 +277,7 @@ const SubscriptionManagement = () => {
                     style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
                     <td style={{ padding: '1rem 1.75rem' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
-                        <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: 'linear-gradient(135deg,#0C637E,#2496A7)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.95rem', flexShrink: 0 }}>
+                        <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: 'linear-gradient(135deg, var(--grad-start), var(--grad-end))', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.95rem', flexShrink: 0 }}>
                           {sub.user[0]}
                         </div>
                         <div>
@@ -303,14 +303,14 @@ const SubscriptionManagement = () => {
                         {sub.plan !== 'Enterprise' && (
                           <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                             onClick={() => handleUpgrade(sub.id)}
-                            style={{ padding: '0.375rem 0.875rem', fontSize: '0.75rem', fontWeight: 700, borderRadius: '8px', background: '#E2F0F3', color: '#0C637E', border: 'none', cursor: 'pointer' }}>
+                            style={{ padding: '0.375rem 0.875rem', fontSize: '0.75rem', fontWeight: 700, borderRadius: '8px', background: 'var(--primary-pale)', color: 'var(--primary)', border: 'none', cursor: 'pointer' }}>
                             Upgrade
                           </motion.button>
                         )}
                         {sub.status === 'ACTIVE' && sub.plan !== 'Free' && (
                           <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                             onClick={() => handleCancelSub(sub.id)}
-                            style={{ padding: '0.375rem 0.875rem', fontSize: '0.75rem', fontWeight: 700, borderRadius: '8px', background: '#FEE2E2', color: '#EF4444', border: 'none', cursor: 'pointer' }}>
+                            style={{ padding: '0.375rem 0.875rem', fontSize: '0.75rem', fontWeight: 700, borderRadius: '8px', background: 'var(--error-bg)', color: 'var(--error)', border: 'none', cursor: 'pointer' }}>
                             Cancel
                           </motion.button>
                         )}

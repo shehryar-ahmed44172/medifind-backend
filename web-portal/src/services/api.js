@@ -43,8 +43,8 @@ api.interceptors.response.use(
 
     const refreshToken = localStorage.getItem('medifind_refresh_token');
 
-    // No refresh token at all — go straight to login
-    if (!refreshToken) {
+    // No refresh token or stored as empty string '' — go straight to login
+    if (!refreshToken || refreshToken.trim() === '') {
       clearSession();
       window.location.href = '/login';
       return Promise.reject(error);
