@@ -68,3 +68,7 @@ scratch/
 
 # Runtime admin settings (may contain SMTP credentials)
 platform-settings.json
+.neon
+
+# Deployment credentials pasted into the host dashboard (never committed)
+RENDER_ENV.txt
