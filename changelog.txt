@@ -10,3 +10,4 @@ Add comments and code documentation
 Refactor repository implementation
 Fix navigation issues in authentication flow
 Implement emergency category selection
+Add patient and caregiver linking
