@@ -9,3 +9,4 @@ Add unit tests for application services
 Add comments and code documentation
 Refactor repository implementation
 Fix navigation issues in authentication flow
+Implement emergency category selection
