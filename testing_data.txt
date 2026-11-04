@@ -284,3 +284,12 @@ Table 6.7: Usability testing results (Part 2 - Accessibility UI, Analytics & Ver
 | UAT-008 | Patient | Medical Profile Upload | Upload medical reports and disability details | Uploading reports was simple; an option to reorder uploaded reports would help. | Positive | PASS |
 | UAT-009 | Emergency Responder | Availability Toggle | Switch availability status on/off duty | Toggle is intuitive and instantly stops new alerts, very reliable during breaks. | Positive | PASS |
 | UAT-010 | Admin | Responder Verification | Approve or reject a responder's documents | Approval flow is smooth, but there's no way to zoom into the CNIC image before deciding. | Negative | FAIL |
+
+[Date: 2026-11-04]
+Table 6.7: Usability testing results (Part 3 - Real-Time Chat, Caregiver Alerts & Audit Logs)
+| Test ID | User Type | Feature Tested | Scenario | User Feedback | Result | Status |
+| UAT-011 | Patient (Deaf) | Real-Time Chat | Communicate with responder using text chat | Chat removed all anxiety about not being able to call; read receipts are a nice touch. | Positive | PASS |
+| UAT-012 | Caregiver | SOS Notification | Receive and respond to a linked patient's SOS alert | Notification is instant and impossible to miss; the map link inside it is very convenient. | Positive | PASS |
+| UAT-013 | Emergency Responder | Navigation | Navigate to patient location using in-app map | Turn-by-turn directions work well; would prefer live traffic rerouting during peak hours. | Positive | PASS |
+| UAT-014 | Patient | Emergency Category Selection | Select emergency category before sending SOS | Category icons are clear and quick to tap, even in a stressful situation. | Positive | PASS |
+| UAT-015 | Admin | Audit Logs | Review emergency and admin action logs for a past incident | Logs are detailed and well-organized; exporting to PDF for reporting would be valuable. | Positive | PASS |
