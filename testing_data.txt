@@ -293,3 +293,18 @@ Table 6.7: Usability testing results (Part 3 - Real-Time Chat, Caregiver Alerts 
 | UAT-013 | Emergency Responder | Navigation | Navigate to patient location using in-app map | Turn-by-turn directions work well; would prefer live traffic rerouting during peak hours. | Positive | PASS |
 | UAT-014 | Patient | Emergency Category Selection | Select emergency category before sending SOS | Category icons are clear and quick to tap, even in a stressful situation. | Positive | PASS |
 | UAT-015 | Admin | Audit Logs | Review emergency and admin action logs for a past incident | Logs are detailed and well-organized; exporting to PDF for reporting would be valuable. | Positive | PASS |
+
+[Date: 2026-11-04]
+6.4 Requirements Traceability Matrix (RTM)
+The Requirements Traceability Matrix in Table 6.8 maps every functional requirement from Chapter 3 to its corresponding test case(s).
+
+Table 6.8: RTM showing requirement-to-test case mapping (Part 1 - Auth, RBAC & Credentials)
+| Req ID | Requirement Description | Type | Test Case(s) | Test Type | Priority | Status | Coverage |
+| FR.01 | User Registration (Email/Phone) | Functional | FT-001, UT-001 | Functional, Unit | High | PASS | Covered |
+| FR.02 | OTP Verification during Registration | Functional | FT-002, UT-002, UT-003 | Functional, Unit | High | PASS | Covered |
+| FR.03 | User Login | Functional | FT-003, UT-004, UT-005 | Functional, Unit | High | PASS | Covered |
+| FR.04 | Multi-Role Support (Patient/Responder/Caregiver) | Functional | FT-004 | Functional | High | PASS | Covered |
+| FR.05 | Admin Secure Web Dashboard | Functional | FT-005 | Functional | High | PASS | Covered |
+| FR.06 | Password Reset via OTP | Functional | FT-006, UT-006 | Functional, Unit | High | PASS | Covered |
+| FR.07 | Role-Based Access Control | Functional | FT-007, ST-004, ST-011 | Functional, Security | High | PASS | Covered |
+| FR.08 | Credential Validation | Functional | FT-008 | Functional | Medium | PASS | Covered |
