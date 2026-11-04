@@ -308,3 +308,16 @@ Table 6.8: RTM showing requirement-to-test case mapping (Part 1 - Auth, RBAC & C
 | FR.06 | Password Reset via OTP | Functional | FT-006, UT-006 | Functional, Unit | High | PASS | Covered |
 | FR.07 | Role-Based Access Control | Functional | FT-007, ST-004, ST-011 | Functional, Security | High | PASS | Covered |
 | FR.08 | Credential Validation | Functional | FT-008 | Functional | Medium | PASS | Covered |
+
+[Date: 2026-11-04]
+Table 6.8: RTM showing requirement-to-test case mapping (Part 2 - Medical Profiles & SOS Trigger)
+| Req ID | Requirement Description | Type | Test Case(s) | Test Type | Priority | Status | Coverage |
+| FR.09 | Audit Logs of System Activities | Functional | FT-009, ST-012, IT-010 | Functional, Security, Integration | Medium | PASS | Covered |
+| FR.10 | Secure Session Management | Functional | FT-010, ST-014 | Functional, Security | Medium | PASS | Covered |
+| FR.11 | Create/Update Medical Profile | Functional | FT-011, UT-007 | Functional, Unit | High | PASS | Covered |
+| FR.12 | Enter Medical Details | Functional | FT-012 | Functional | Medium | PASS | Covered |
+| FR.13 | Upload Multiple Medical Reports | Functional | FT-013, FT-073, IT-009 | Functional, Integration | High | PASS | Covered |
+| FR.14 | Update/Delete Medical Reports | Functional | FT-014, UT-009 | Functional, Unit | Medium | PARTIAL PASS | Covered |
+| FR.15 | One-Tap SOS Trigger | Functional | FT-015, UT-010 | Functional, Unit | High | PASS | Covered |
+| FR.16 | Automatic GPS Capture on SOS | Functional | FT-016, FT-071, UT-010 | Functional, Unit | High | PASS | Covered |
+| FR.17 | Attach Medical Profile to Request | Functional | FT-017, IT-003 | Functional, Integration | High | PASS | Covered |
