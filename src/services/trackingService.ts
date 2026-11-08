@@ -95,8 +95,11 @@ export const submitLocationUpdate = async (data: {
       );
     }
 
-    // Notify stakeholders of status changes via Push (FR7.4)
-    if (['ARRIVED', 'TREATING', 'TRANSPORTED'].includes(data.status)) {
+    // Notify stakeholders of status changes via Push (FR7.4).
+    // EN_ROUTE belongs here too: "help is coming" is the update a patient and
+    // caregiver most want, and leaving it out meant they heard nothing until
+    // the responder had already arrived.
+    if (['EN_ROUTE', 'ARRIVED', 'TREATING', 'TRANSPORTED'].includes(data.status)) {
       notifyStakeholdersOfStatusChange(data.emergencyId, data.responderId, data.status).catch(err =>
         logger.error(`Failed to notify stakeholders of status change: ${err.message}`)
       );
@@ -117,6 +120,7 @@ async function notifyStakeholdersOfStatusChange(emergencyId: string, responderId
   const responderName = responder?.user?.fullName || 'Responder';
 
   const statusMessages: Record<string, string> = {
+    'EN_ROUTE': `${responderName} is on the way.`,
     'ARRIVED': `${responderName} has arrived at the location.`,
     'TREATING': `${responderName} is now providing medical assistance.`,
     'TRANSPORTED': `Patient is being transported to the nearest medical facility.`
@@ -126,6 +130,7 @@ async function notifyStakeholdersOfStatusChange(emergencyId: string, responderId
 
   // 1. Notify Patient
   const statusTitles: Record<string, string> = {
+    'EN_ROUTE': 'Help is on the way',
     'ARRIVED': 'Help has arrived',
     'TREATING': 'Treatment in progress',
     'TRANSPORTED': 'On the way to hospital',
