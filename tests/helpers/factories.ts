@@ -152,6 +152,28 @@ export async function createEmergencyRequest(opts: {
   });
 }
 
+/**
+ * Link a caregiver to a patient with an accepted invitation.
+ *
+ * Chat, caregiver dashboards and tracking all refuse a caregiver who is not
+ * linked, so a test that exercises any of them needs this row to exist.
+ */
+export async function linkCaregiver(opts: {
+  caregiverId: string;
+  patientId: string;
+  relationship?: string;
+}) {
+  return await (prisma.caregiverLink as any).create({
+    data: {
+      caregiverId: opts.caregiverId,
+      patientId: opts.patientId,
+      relationship: opts.relationship ?? 'Family',
+      status: 'ACCEPTED',
+      isActive: true,
+    },
+  });
+}
+
 // ── Chat Factories ────────────────────────────────────────────────────────────
 
 export async function createChatRoom(opts: {

@@ -6,7 +6,7 @@
 
 import request from 'supertest';
 import { app } from '../../src/server';
-import { createPatient, createResponder, cleanupTestUsers } from '../helpers/factories';
+import { createUser, createPatient, createResponder, cleanupTestUsers, linkCaregiver } from '../helpers/factories';
 
 let dbAvailable = true;
 
@@ -73,9 +73,12 @@ describe('POST /api/chat/rooms', () => {
     patientToken = p.accessToken;
     patientId = p.user.id;
 
-    const c = await createPatient({ role: 'CAREGIVER' } as any);
+    const c = await createUser({ role: 'CAREGIVER' });
     caregiverToken = c.accessToken;
     caregiverId = c.user.id;
+
+    // Chat is only opened between a patient and a caregiver who are linked.
+    await linkCaregiver({ caregiverId, patientId });
   });
 
   it('200 — caregiver creates room with patient', async () => {
@@ -117,7 +120,7 @@ describe('POST /api/chat/messages', () => {
     patientToken = p.accessToken;
     patientId = p.user.id;
 
-    const c = await createPatient({ role: 'CAREGIVER' } as any);
+    const c = await createUser({ role: 'CAREGIVER' });
     const caregiverId = c.user.id;
     const caregiverToken = c.accessToken;
 
@@ -172,7 +175,7 @@ describe('GET /api/chat/messages/:roomId', () => {
     patientToken = p.accessToken;
     patientId = p.user.id;
 
-    const c = await createPatient({ role: 'CAREGIVER' } as any);
+    const c = await createUser({ role: 'CAREGIVER' });
     const caregiverToken = c.accessToken;
 
     const roomRes = await request(app)

@@ -117,7 +117,9 @@ describe('POST /api/auth/login (unverified)', () => {
       .post('/api/auth/login')
       .send({ email: testUser.email, password: testUser.password });
 
-    expect(res.status).toBe(403);
+    // The API answers 401 here, not 403 — the message is what tells the user
+    // what to do next, and the clients read that.
+    expect(res.status).toBe(401);
     expect(res.body.message).toMatch(/verify/i);
   });
 });
@@ -135,16 +137,18 @@ describe('POST /api/auth/login (verified)', () => {
     });
   });
 
-  it('200 — returns accessToken and refreshToken', async () => {
+  // Login and refresh disagree on the field name: login answers with `token`,
+  // refresh with `accessToken`. The clients follow that, so the tests do too.
+  it('200 — returns token and refreshToken', async () => {
     if (skipIfNoDb()) return;
     const res = await request(app)
       .post('/api/auth/login')
       .send({ email: testUser.email, password: testUser.password });
 
     expect(res.status).toBe(200);
-    expect(res.body.data).toHaveProperty('accessToken');
+    expect(res.body.data).toHaveProperty('token');
     expect(res.body.data).toHaveProperty('refreshToken');
-    accessToken = res.body.data.accessToken;
+    accessToken = res.body.data.token;
     refreshToken = res.body.data.refreshToken;
   });
 
@@ -283,10 +287,12 @@ describe('PATCH /api/users/upgrade', () => {
     const res = await request(app)
       .post('/api/auth/login')
       .send({ email: testUser.email, password: testUser.password });
-    freshToken = res.body.data?.accessToken;
+    freshToken = res.body.data?.token;
   });
 
-  it('200 — patient upgrades to PROFESSIONAL', async () => {
+  // A paid plan cannot be granted without a Stripe payment to verify, so the
+  // endpoint refuses the upgrade until a paymentIntentId is supplied.
+  it('402 — paid plan without a payment is refused', async () => {
     if (skipIfNoDb()) return;
     if (!freshToken) pending('No fresh token');
     const res = await request(app)
@@ -294,7 +300,8 @@ describe('PATCH /api/users/upgrade', () => {
       .set('Authorization', `Bearer ${freshToken}`)
       .send({ plan: 'PROFESSIONAL' });
 
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(402);
+    expect(res.body.message).toMatch(/paymentIntentId/i);
   });
 
   it('400 — invalid plan name', async () => {
@@ -319,7 +326,7 @@ describe('DELETE /api/users/me', () => {
     const res = await request(app)
       .post('/api/auth/login')
       .send({ email: testUser.email, password: testUser.password });
-    deleteToken = res.body.data?.accessToken;
+    deleteToken = res.body.data?.token;
   });
 
   it('200 — patient deletes own account', async () => {

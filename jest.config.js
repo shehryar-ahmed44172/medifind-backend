@@ -1,6 +1,11 @@
 export default {
   preset: 'ts-jest',
   testEnvironment: 'node',
+  // The integration suites share one database and clean up by email suffix, so
+  // running them side by side means each deletes the others' fixtures mid-run.
+  // One worker keeps them honest; the whole suite still finishes in about a
+  // minute.
+  maxWorkers: 1,
   roots: ['<rootDir>/src', '<rootDir>/tests'],
   testMatch: ['**/__tests__/**/*.ts', '**/?(*.)+(spec|test).ts'],
   moduleFileExtensions: ['ts', 'js', 'json', 'node'],

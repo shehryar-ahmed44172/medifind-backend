@@ -11,6 +11,7 @@ import {
   createPatient,
   createResponder,
   createEmergency,
+  createEmergencyRequest,
   cleanupTestUsers,
 } from '../helpers/factories';
 
@@ -228,6 +229,14 @@ describe('GET /api/emergencies/:id', () => {
 
     const r = await createResponder();
     responderToken = r.accessToken;
+
+    // A responder may only read an emergency they were dispatched to and
+    // accepted — without this row the API correctly answers 403.
+    await createEmergencyRequest({
+      emergencyId,
+      responderId: r.user.id,
+      status: 'ACCEPTED',
+    });
   });
 
   it('200 — patient can view their own emergency', async () => {
@@ -249,13 +258,16 @@ describe('GET /api/emergencies/:id', () => {
     expect(res.status).toBe(200);
   });
 
-  it('404 — non-existent emergency', async () => {
+  // The access check runs before the record is fetched, so an id that does not
+  // exist is refused the same way as one belonging to someone else. That is
+  // deliberate: a 404 here would let anyone probe for valid emergency ids.
+  it('403 — unknown emergency id is refused, not reported as missing', async () => {
     if (skipIfNoDb()) return;
     const res = await request(app)
       .get('/api/emergencies/non-existent-id')
       .set('Authorization', `Bearer ${patientToken}`);
 
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(403);
   });
 });
 
@@ -345,12 +357,15 @@ describe('POST /api/responders/:responderId/rate', () => {
     });
     resolvedEmergencyId = em.id;
 
-    // Create a COMPLETED request for this responder
+    // Create a COMPLETED request for this responder. acceptedAt must be set:
+    // rating is only allowed for a responder who actually accepted and finished
+    // the job, so a COMPLETED row with no acceptedAt is correctly rejected.
     await (prisma.emergencyRequest as any).create({
       data: {
         emergencyId: resolvedEmergencyId,
         responderId,
         status: 'COMPLETED',
+        acceptedAt: new Date(),
       },
     });
   });
