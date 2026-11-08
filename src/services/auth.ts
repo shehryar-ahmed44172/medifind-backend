@@ -405,10 +405,16 @@ export const logout = async (refreshToken: string) => {
  * Request password reset (Forgot Password)
  * Generates a 6-digit numeric OTP, stores its bcrypt hash, and emails it.
  */
+/** The one answer this endpoint gives, whether or not the email is registered. */
+const RESET_REQUESTED_MESSAGE = 'A 6-digit reset code has been sent to your email.';
+
 export const requestPasswordReset = async (email: string) => {
   const user = await userRepository.findByEmail(email);
   if (!user) {
-    throw new Error('Email is not registered');
+    // Answering "email is not registered" here lets anyone test an address and
+    // learn whether it has an account. Say the same thing either way and stop.
+    logger.warn(`Password reset requested for an unregistered email: ${email}`);
+    return { success: true, message: RESET_REQUESTED_MESSAGE };
   }
 
   // Invalidate any existing unused tokens for this user (one active reset at a time)
@@ -444,7 +450,7 @@ export const requestPasswordReset = async (email: string) => {
     }),
   });
 
-  return { success: true, message: 'A 6-digit reset code has been sent to your email.' };
+  return { success: true, message: RESET_REQUESTED_MESSAGE };
 };
 
 /**
