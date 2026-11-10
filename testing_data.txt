@@ -321,3 +321,16 @@ Table 6.8: RTM showing requirement-to-test case mapping (Part 2 - Medical Profil
 | FR.15 | One-Tap SOS Trigger | Functional | FT-015, UT-010 | Functional, Unit | High | PASS | Covered |
 | FR.16 | Automatic GPS Capture on SOS | Functional | FT-016, FT-071, UT-010 | Functional, Unit | High | PASS | Covered |
 | FR.17 | Attach Medical Profile to Request | Functional | FT-017, IT-003 | Functional, Integration | High | PASS | Covered |
+
+[Date: 2026-11-10]
+Table 6.8: RTM showing requirement-to-test case mapping (Part 3 - Emergency Flow & Tracking)
+| Req ID | Requirement Description | Type | Test Case(s) | Test Type | Priority | Status | Coverage |
+| FR.18 | Select Emergency Category (Optional) | Functional | FT-018 | Functional | Medium | PASS | Covered |
+| FR.19 | SOS Activation Without Category | Functional | FT-019 | Functional | Medium | PASS | Covered |
+| FR.20 | Cancel SOS within Time Window | Functional | FT-020, UT-014 | Functional, Unit | High | PASS | Covered |
+| FR.21 | SOS Activation Confirmation | Functional | FT-021 | Functional | Medium | PASS | Covered |
+| FR.22 | Real-Time Responder Status Updates | Functional | FT-022 | Functional | High | PASS | Covered |
+| FR.23 | Predefined Emergency Messages | Functional | FT-023 | Functional | Medium | PASS | Covered |
+| FR.24 | Real-Time Chat (Patient) | Functional | FT-024, FT-074, UT-020, IT-007 | Functional, Unit, Integration | High | PASS | Covered |
+| FR.25 | Live Tracking View for Patient | Functional | FT-025, IT-012 | Functional, Integration | Medium | PASS | Covered |
+| FR.26 | Responder Registration (Professional Details) | Functional | FT-026, UT-015 | Functional, Unit | High | PASS | Covered |
