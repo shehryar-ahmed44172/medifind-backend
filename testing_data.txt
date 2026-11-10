@@ -334,3 +334,16 @@ Table 6.8: RTM showing requirement-to-test case mapping (Part 3 - Emergency Flow
 | FR.24 | Real-Time Chat (Patient) | Functional | FT-024, FT-074, UT-020, IT-007 | Functional, Unit, Integration | High | PASS | Covered |
 | FR.25 | Live Tracking View for Patient | Functional | FT-025, IT-012 | Functional, Integration | Medium | PASS | Covered |
 | FR.26 | Responder Registration (Professional Details) | Functional | FT-026, UT-015 | Functional, Unit | High | PASS | Covered |
+
+[Date: 2026-11-10]
+Table 6.8: RTM showing requirement-to-test case mapping (Part 4 - Responder Assignment & Access Control)
+| Req ID | Requirement Description | Type | Test Case(s) | Test Type | Priority | Status | Coverage |
+| FR.27 | CNIC / Employee Card Upload | Functional | FT-027, ST-006 | Functional, Security | High | PASS | Covered |
+| FR.28 | Pending State Until Admin Approval | Functional | FT-028 | Functional | High | PASS | Covered |
+| FR.29 | Responder Notified After Approval | Functional | FT-029, IT-004 | Functional, Integration | Medium | PASS | Covered |
+| FR.30 | Nearest-Location Request Assignment | Functional | FT-030, UT-011 | Functional, Unit | High | PASS | Covered |
+| FR.31 | Accept/Reject Emergency Requests | Functional | FT-031 | Functional | High | PASS | Covered |
+| FR.32 | First-Accept Assignment to Responder | Functional | FT-032, FT-072, UT-013 | Functional, Unit | High | PASS | Covered |
+| FR.33 | Auto-Reject for Other Responders | Functional | FT-033, FT-058 | Functional | High | PASS | Covered |
+| FR.34 | Medical Data Access Restricted to Active Emergency | Functional | FT-034, ST-009 | Functional, Security | High | FAIL | Covered |
+| FR.35 | Real-Time Navigation Support | Functional | FT-035 | Functional | High | PASS | Covered |
