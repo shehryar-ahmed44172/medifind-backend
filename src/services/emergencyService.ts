@@ -426,7 +426,7 @@ const notifyNearbyResponders = async (
 
   if (nearbyResponders.length > 0) {
     logger.info(
-      `[Dispatch] Found ${nearbyResponders.length} specialist(s) (${specialistTypes?.join(', ')}) ` +
+      `[Dispatch] Found ${nearbyResponders.length} responder(s) (${specialistTypes?.join(', ') ?? 'any type'}) ` +
       `for ${emergencyType} within 5km`
     );
   } else {
@@ -474,6 +474,14 @@ const notifyNearbyResponders = async (
   logger.info(`[Dispatch] Responders ranked by AI score (top: ${nearbyResponders[0]?.userId ?? 'none'})`);
 
   for (const responder of nearbyResponders) {
+    // The patient can cancel (or a responder can accept) while this loop runs. Stop
+    // before alerting anyone else, or a responder gets an SOS that no longer exists
+    // and its request stays PENDING forever.
+    const current = await prisma.emergency.findUnique({ where: { id: emergencyId }, select: { status: true } });
+    if (current?.status !== 'ACTIVE') {
+      logger.info(`[Dispatch] ${emergencyId} is ${current?.status ?? 'gone'}; stopping dispatch.`);
+      break;
+    }
     try {
       logger.info(`[Emergency Notification] Processing responder ${responder.userId}...`);
       const existing = await responderRepository.findEmergencyRequest(emergencyId, responder.userId);

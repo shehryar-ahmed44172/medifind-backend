@@ -203,10 +203,11 @@ export const getUserById = async (req: Request, res: Response) => {
       role: profile.role,
       profileImageUrl: profile.profileImageUrl,
       lastUpdated: (profile as any).updatedAt,
-      subscriptionPlan: profile.subscriptionPlan,
+      subscriptionPlan: canSeePrivate ? profile.subscriptionPlan : undefined,
       // Include role-specific fields if available
       cnic: canSeePrivate ? (profile as any).cnic : undefined,
-      patientType: (profile as any).medicalProfile?.patientType,
+      // Deaf/Blind is health information: only for the user, admins and their care or emergency contacts
+      patientType: canSeeContact ? (profile as any).medicalProfile?.patientType : undefined,
       organization: (profile as any).responder?.organization,
       licenseNumber: canSeePrivate ? (profile as any).responder?.licenseNumber : undefined,
       responderType: (profile as any).responder?.responderType,
