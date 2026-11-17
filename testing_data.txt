@@ -373,3 +373,16 @@ Table 6.8: RTM showing requirement-to-test case mapping (Part 6 - Admin Actions,
 | FR.51 | Admin Monitors Responder Performance | Functional | FT-051, IT-014 | Functional, Integration | Medium | PARTIAL PASS | Covered |
 | FR.52 | Admin Access to Emergency Logs | Functional | FT-052 | Functional | Medium | PASS | Covered |
 | FR.53 | Admin Handles System Alerts | Functional | FT-053 | Functional | Medium | PASS | Covered |
+
+[Date: 2026-11-17]
+Table 6.8: RTM showing requirement-to-test case mapping (Part 7 - Escalation & Tracking Logic)
+| Req ID | Requirement Description | Type | Test Case(s) | Test Type | Priority | Status | Coverage |
+| FR.54 | One-Tap SOS Activation (System) | Functional | FT-054 | Functional | High | PASS | Covered |
+| FR.55 | Emergency Record Generation | Functional | FT-055 | Functional | High | PASS | Covered |
+| FR.56 | Notify Multiple Nearby Responders | Functional | FT-056, IT-002 | Functional, Integration | High | PASS | Covered |
+| FR.57 | First-Accept Assignment Mechanism | Functional | FT-057 | Functional | High | PASS | Covered |
+| FR.58 | Close Request for Other Responders | Functional | FT-058 | Functional | High | PASS | Covered |
+| FR.59 | Escalate if No Responder Accepts | Functional | FT-059, IT-008 | Functional, Integration | High | PARTIAL PASS | Covered |
+| FR.60 | Notify Responders on Cancellation | Functional | FT-060, IT-015 | Functional, Integration | Medium | PASS | Covered |
+| FR.61 | Real-Time Responder Location Tracking | Functional | FT-061, UT-019 | Functional, Unit | High | PASS | Covered |
+| FR.62 | ETA Calculation | Functional | FT-062, UT-019 | Functional, Unit | High | PASS | Covered |
