@@ -360,3 +360,16 @@ Table 6.8: RTM showing requirement-to-test case mapping (Part 5 - Caregivers, Al
 | FR.42 | Caregiver Monitors Live Tracking | Functional | FT-042, IT-012 | Functional, Integration | Medium | PASS | Covered |
 | FR.43 | Caregiver Emergency Status Updates | Functional | FT-043 | Functional | Medium | PASS | Covered |
 | FR.44 | Caregiver Chat | Functional | FT-044 | Functional | Medium | PASS | Covered |
+
+[Date: 2026-11-17]
+Table 6.8: RTM showing requirement-to-test case mapping (Part 6 - Admin Actions, RBAC & Alerts)
+| Req ID | Requirement Description | Type | Test Case(s) | Test Type | Priority | Status | Coverage |
+| FR.45 | Restrict Caregiver from Reassignment | Functional | FT-045, ST-010 | Functional, Security | Medium | PASS | Covered |
+| FR.46 | Admin Create/Manage User Accounts | Functional | FT-046 | Functional | High | PASS | Covered |
+| FR.47 | Admin Verify/Approve Responders | Functional | FT-047, UT-018 | Functional, Unit | High | PASS | Covered |
+| FR.48 | Admin Reject Invalid Responders | Functional | FT-048 | Functional | High | PASS | Covered |
+| FR.49 | Admin Monitors Active Emergencies | Functional | FT-049 | Functional | High | PASS | Covered |
+| FR.50 | Admin System Analytics and Reports | Functional | FT-050 | Functional | Medium | PASS | Covered |
+| FR.51 | Admin Monitors Responder Performance | Functional | FT-051, IT-014 | Functional, Integration | Medium | PARTIAL PASS | Covered |
+| FR.52 | Admin Access to Emergency Logs | Functional | FT-052 | Functional | Medium | PASS | Covered |
+| FR.53 | Admin Handles System Alerts | Functional | FT-053 | Functional | Medium | PASS | Covered |
