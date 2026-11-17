@@ -347,3 +347,16 @@ Table 6.8: RTM showing requirement-to-test case mapping (Part 4 - Responder Assi
 | FR.33 | Auto-Reject for Other Responders | Functional | FT-033, FT-058 | Functional | High | PASS | Covered |
 | FR.34 | Medical Data Access Restricted to Active Emergency | Functional | FT-034, ST-009 | Functional, Security | High | FAIL | Covered |
 | FR.35 | Real-Time Navigation Support | Functional | FT-035 | Functional | High | PASS | Covered |
+
+[Date: 2026-11-17]
+Table 6.8: RTM showing requirement-to-test case mapping (Part 5 - Caregivers, Alerts & Group Chat)
+| Req ID | Requirement Description | Type | Test Case(s) | Test Type | Priority | Status | Coverage |
+| FR.36 | Voice Emergency Alerts | Functional | FT-036, IT-011 | Functional, Integration | Medium | PASS | Covered |
+| FR.37 | Responder Availability Status | Functional | FT-037, UT-016 | Functional, Unit | Medium | PASS | Covered |
+| FR.38 | Responder Chat during Emergency | Functional | FT-038 | Functional | High | PASS | Covered |
+| FR.39 | Add/Manage Caregivers | Functional | FT-039, UT-017 | Functional, Unit | Medium | PASS | Covered |
+| FR.40 | Caregiver Notified on SOS | Functional | FT-040, IT-005 | Functional, Integration | High | PASS | Covered |
+| FR.41 | Caregiver Receives Location/Details | Functional | FT-041 | Functional | High | PASS | Covered |
+| FR.42 | Caregiver Monitors Live Tracking | Functional | FT-042, IT-012 | Functional, Integration | Medium | PASS | Covered |
+| FR.43 | Caregiver Emergency Status Updates | Functional | FT-043 | Functional | Medium | PASS | Covered |
+| FR.44 | Caregiver Chat | Functional | FT-044 | Functional | Medium | PASS | Covered |
