@@ -88,6 +88,7 @@ export const createEmergency = async (data: {
   const fallbackSummary =
     (isDeaf ? 'ATTENTION: PATIENT IS DEAF AND UNABLE TO SPEAK. ' : '') +
     `Emergency Type: ${data.emergencyType || 'MEDICAL'}. ` +
+    (medicalProfile?.bloodType ? `Blood Type: ${medicalProfile.bloodType}. ` : '') +
     (allergies.length > 0 ? `Patient has allergies: ${allergies.join(', ')}. ` : '') +
     (chronic.length > 0 ? `Chronic conditions: ${chronic.join(', ')}.` : '');
 

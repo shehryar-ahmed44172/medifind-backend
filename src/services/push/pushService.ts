@@ -76,6 +76,37 @@ const emitToUser = async (message: PushRow) => {
   io.to(userRoom(message.userId)).emit('push', toEvent(message));
 };
 
+/**
+ * An SOS alert is only worth showing while its emergency still needs a responder.
+ * Alerts for an SOS that was accepted, cancelled or resolved in the meantime are
+ * marked EXPIRED and left out, so a responder who comes online later is never sent
+ * to an emergency that no longer exists.
+ */
+async function withoutStaleSosAlerts<T extends PushRow>(messages: T[]): Promise<T[]> {
+  const sosId = (m: PushRow) =>
+    m.type === NotificationType.SOS_TRIGGERED ? (m.data as Record<string, string> | null)?.emergencyId : undefined;
+  const ids = [...new Set(messages.map(sosId).filter((id): id is string => !!id))];
+  if (ids.length === 0) return messages;
+
+  const active = await prisma.emergency.findMany({
+    where: { id: { in: ids }, status: 'ACTIVE' },
+    select: { id: true },
+  });
+  const activeIds = new Set(active.map(e => e.id));
+  const stale = messages.filter(m => {
+    const id = sosId(m);
+    return !!id && !activeIds.has(id);
+  });
+  if (stale.length === 0) return messages;
+
+  await prisma.pushMessage.updateMany({
+    where: { id: { in: stale.map(m => m.id) }, status: { in: ['QUEUED', 'SENT'] } },
+    data: { status: 'EXPIRED' },
+  });
+  const staleIds = new Set(stale.map(m => m.id));
+  return messages.filter(m => !staleIds.has(m.id));
+}
+
 /** Queue a push for a user and deliver immediately if the device is connected. */
 export async function queuePush(userId: string, payload: NotificationPayload, notificationLogId?: string) {
   const ttl = EMERGENCY_TYPES.has(payload.type) ? EMERGENCY_TTL_MS : DEFAULT_TTL_MS;
@@ -136,16 +167,16 @@ export async function getPending(userId: string) {
     orderBy: { createdAt: 'asc' },
     take: 100,
   });
-  return messages.map(toEvent);
+  return (await withoutStaleSosAlerts(messages)).map(toEvent);
 }
 
 /** Replay everything the device missed while it was disconnected. */
 async function replayPending(socket: Socket, userId: string) {
-  const messages = await prisma.pushMessage.findMany({
+  const messages = await withoutStaleSosAlerts(await prisma.pushMessage.findMany({
     where: { userId, status: { in: ['QUEUED', 'SENT'] }, expiresAt: { gt: new Date() } },
     orderBy: { createdAt: 'asc' },
     take: 100,
-  });
+  }));
   if (messages.length === 0) return;
   await prisma.pushMessage.updateMany({
     where: { id: { in: messages.map(m => m.id) }, status: { in: ['QUEUED', 'SENT'] } },
@@ -170,11 +201,11 @@ async function retryUnacknowledged() {
   });
   if (expired.count > 0) logger.warn(`[Push] ${expired.count} message(s) expired undelivered`);
 
-  const stale = await prisma.pushMessage.findMany({
+  const stale = await withoutStaleSosAlerts(await prisma.pushMessage.findMany({
     where: { status: 'SENT', sentAt: { lte: new Date(now.getTime() - RETRY_INTERVAL_MS) } },
     orderBy: { createdAt: 'asc' },
     take: 200,
-  });
+  }));
 
   for (const message of stale) {
     if (await isUserOnline(message.userId)) {

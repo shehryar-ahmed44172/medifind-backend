@@ -144,6 +144,7 @@ export const generateVoiceSummary = async (params: {
   const fallback =
     (isDeaf ? 'ATTENTION: PATIENT IS DEAF AND UNABLE TO SPEAK. ' : '') +
     `Emergency Type: ${emergencyType}. ` +
+    (bloodType && bloodType !== 'Unknown' ? `Blood Type: ${bloodType}. ` : '') +
     (allergies.length > 0 ? `Patient has allergies: ${allergies.join(', ')}. ` : '') +
     (chronicDiseases.length > 0 ? `Chronic conditions: ${chronicDiseases.join(', ')}.` : '');
 
