@@ -368,7 +368,7 @@ if (NODE_ENV !== 'test') server.listen(PORT, HOST, () => {
   // Start the background escalation checker (Module 5 - FR5.8)
   setInterval(() => {
     checkAndEscalate().catch(err => logger.error(`Escalation check failed: ${err.message}`));
-  }, 60000); // Check every minute
+  }, 15000); // Every 15 s, so the 60 s alert and the 120 s auto-cancel happen close to their deadlines
 });
 
 // Export for testing

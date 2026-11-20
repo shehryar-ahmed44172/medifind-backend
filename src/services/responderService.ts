@@ -476,6 +476,17 @@ export const rateResponder = async (
 };
 
 /**
+ * A pending request goes to several responders at once, so until this responder
+ * accepts it keeps only the clinical fields (blood type, allergies, conditions,
+ * medications): family phone numbers and the CNIC stay hidden.
+ */
+const withoutContactsUntilAccepted = (profile: any, accepted: boolean) => {
+  if (accepted || !profile) return profile;
+  const { emergencyContacts, cnic, ...clinical } = profile;
+  return { ...clinical, emergencyContacts: [] };
+};
+
+/**
  * Get active emergency requests for a responder.
  */
 export const getActiveEmergencyRequests = async (responderId: string) => {
@@ -512,7 +523,10 @@ export const getActiveEmergencyRequests = async (responderId: string) => {
         // Contact details only after accepting (pending requests may go to several responders)
         phoneNumber: request.status === 'ACCEPTED' ? emergency.patient.phoneNumber : undefined,
         medicalProfile: emergency.patient.medicalProfile
-          ? decryptSensitiveFields(emergency.patient.medicalProfile as any)
+          ? withoutContactsUntilAccepted(
+              decryptSensitiveFields(emergency.patient.medicalProfile as any),
+              request.status === 'ACCEPTED',
+            )
           : null,
       },
       status: request.status === 'ACCEPTED' ? 'ASSIGNED' : 'ACTIVE',

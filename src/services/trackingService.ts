@@ -6,6 +6,7 @@ import { sendNotification } from './notification';
 import { NotificationType, NotificationChannel } from '../types/notification';
 import { getIo } from '../server';
 import logger from '../utils/logger';
+import prisma from '../lib/prisma';
 import { haversineDistanceKm, estimateEtaMinutes } from '../utils/geoValidation';
 
 /**
@@ -20,6 +21,22 @@ export const submitLocationUpdate = async (data: {
   accuracy?: number;
   status: 'EN_ROUTE' | 'ARRIVED' | 'TREATING' | 'TRANSPORTED';
 }) => {
+  // Only the responder who accepted this emergency may report positions, and only
+  // while it is open. Without this, any responder could move the marker on a
+  // patient's map, or keep posting after the case was resolved or cancelled.
+  const allowed = await prisma.emergencyRequest.findFirst({
+    where: {
+      emergencyId: data.emergencyId,
+      responderId: data.responderId,
+      status: 'ACCEPTED',
+      emergency: { status: { in: ['ASSIGNED', 'ARRIVED'] } },
+    },
+    select: { id: true },
+  });
+  if (!allowed) {
+    throw new Error('Location updates are accepted only from the assigned responder while the emergency is open');
+  }
+
   // Get latest tracking update to check for status change
   const latest = await trackingRepository.getLatestTracking(data.emergencyId);
   const statusChanged = !latest || latest.status !== data.status;

@@ -176,6 +176,9 @@ export const broadcastNotification = async (req: Request, res: Response) => {
       };
 
       const group = roleMap[recipientType] || recipientType;
+      if (!['ALL', 'PATIENT', 'RESPONDER', 'CAREGIVER'].includes(group)) {
+        return sendError(res, 'recipientType must be INDIVIDUAL, ALL, PATIENTS, RESPONDERS or CAREGIVERS', 400);
+      }
       const result = await broadcastToGroup(group, payload);
 
       // ── Admin audit log: one entry per broadcast so the admin can see what they sent ──
