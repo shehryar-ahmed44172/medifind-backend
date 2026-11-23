@@ -386,3 +386,19 @@ Table 6.8: RTM showing requirement-to-test case mapping (Part 7 - Escalation & T
 | FR.60 | Notify Responders on Cancellation | Functional | FT-060, IT-015 | Functional, Integration | Medium | PASS | Covered |
 | FR.61 | Real-Time Responder Location Tracking | Functional | FT-061, UT-019 | Functional, Unit | High | PASS | Covered |
 | FR.62 | ETA Calculation | Functional | FT-062, UT-019 | Functional, Unit | High | PASS | Covered |
+
+[Date: 2026-11-23]
+Table 6.8: RTM showing requirement-to-test case mapping (Part 8 - Chat, Notifications & Final System Validation)
+| Req ID | Requirement Description | Type | Test Case(s) | Test Type | Priority | Status | Coverage |
+| FR.63 | Map-Based Navigation for Responders | Functional | FT-063 | Functional | Medium | PASS | Covered |
+| FR.64 | Live Status Display to Patient/Caregiver | Functional | FT-064 | Functional | Medium | PASS | Covered |
+| FR.65 | Continuous Tracking Until Completion | Functional | FT-065 | Functional | Medium | PASS | Covered |
+| FR.66 | Multi-User Real-Time Chat | Functional | FT-066, IT-007 | Functional, Integration | High | PASS | Covered |
+| FR.67 | Text Messaging during Emergency | Functional | FT-067 | Functional | Medium | PASS | Covered |
+| FR.68 | Image Sharing in Chat | Functional | FT-068 | Functional | Medium | PASS | Covered |
+| FR.69 | Automatic Voice Alerts for Responders | Functional | FT-069, IT-011 | Functional, Integration | Medium | PASS | Covered |
+| FR.70 | Notify Users of All Emergency Updates | Functional | FT-070 | Functional | High | FAIL | Covered |
+
+================================================================================
+End of MediFind Quality Assurance & Testing Traceability Documentation
+================================================================================
