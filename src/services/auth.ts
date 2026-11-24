@@ -140,8 +140,10 @@ export const sendVerificationCode = async (userId: string, email: string, fullNa
   if (process.env.NODE_ENV !== 'production') {
     logger.debug(`[DEV ONLY] Verification OTP for ${email}: ${otp}`);
   }
-  
-  await sendEmail({
+
+  // Not awaited: the code is already saved, and sign-up or responder approval should
+  // not wait on the mail server. sendEmail logs and swallows its own failures.
+  void sendEmail({
     to: email,
     subject: 'Your MediFind verification code',
     ...renderEmail({

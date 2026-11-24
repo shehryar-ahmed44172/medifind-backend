@@ -289,8 +289,9 @@ export const processVerification = async (req: Request, res: Response) => {
         priority: 'high',
       });
 
-      // 3. Confirmation email
-      await sendEmail({
+      // 3. Confirmation email (not awaited, so the admin portal answers at once even
+      // when the mail server is slow or unreachable; sendEmail logs its own failures)
+      void sendEmail({
         to: responder.user.email,
         subject: 'MediFind — Your Responder Application Has Been Approved ✅',
         html: `

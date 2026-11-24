@@ -74,6 +74,71 @@ function getTransporter() {
   return _transporter;
 }
 
+/* ── Brevo transactional email over HTTPS ─────────────────────────────────── */
+async function sendViaBrevo(options: EmailOptions, fromName: string, senderEmail: string): Promise<boolean> {
+  if (!senderEmail) {
+    logger.error('❌ Brevo: no sender address (set BREVO_SENDER_EMAIL or SMTP_USER)');
+    return false;
+  }
+  try {
+    const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: { 'api-key': process.env.BREVO_API_KEY as string, 'content-type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify({
+        sender: { name: fromName, email: senderEmail },
+        to: [{ email: options.to }],
+        subject: options.subject,
+        htmlContent: options.html,
+        textContent: options.text || (options.html ? htmlToText(options.html) : undefined),
+        headers: { 'Auto-Submitted': 'auto-generated', 'X-Auto-Response-Suppress': 'All' },
+      }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    const body = await res.text();
+    if (!res.ok) {
+      logger.error(`❌ Email failed to ${options.to} (Brevo ${res.status}): ${body.slice(0, 200)}`);
+      return false;
+    }
+    logger.info(`✅ Email sent to ${options.to} via Brevo: ${body.slice(0, 80)}`);
+    return true;
+  } catch (error: any) {
+    logger.error(`❌ Email failed to ${options.to} (Brevo): ${error.message}`);
+    return false;
+  }
+}
+
+/* ── Resend over HTTPS ────────────────────────────────────────────────────── */
+// Without a verified domain Resend only delivers to the account owner's own address,
+// so RESEND_FROM must use a domain verified in Resend to reach other users.
+async function sendViaResend(options: EmailOptions, fromName: string): Promise<boolean> {
+  const from = process.env.RESEND_FROM || `${fromName} <onboarding@resend.dev>`;
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        from,
+        to: [options.to],
+        subject: options.subject,
+        html: options.html,
+        text: options.text || (options.html ? htmlToText(options.html) : undefined),
+        headers: { 'Auto-Submitted': 'auto-generated', 'X-Auto-Response-Suppress': 'All' },
+      }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    const body = await res.text();
+    if (!res.ok) {
+      logger.error(`❌ Email failed to ${options.to} (Resend ${res.status}): ${body.slice(0, 200)}`);
+      return false;
+    }
+    logger.info(`✅ Email sent to ${options.to} via Resend: ${body.slice(0, 80)}`);
+    return true;
+  } catch (error: any) {
+    logger.error(`❌ Email failed to ${options.to} (Resend): ${error.message}`);
+    return false;
+  }
+}
+
 /* ── Send an email ────────────────────────────────────────────────────────── */
 export const sendEmail = async (options: EmailOptions): Promise<boolean> => {
   const cfg = getSmtpConfig();
@@ -87,6 +152,15 @@ export const sendEmail = async (options: EmailOptions): Promise<boolean> => {
   if (/@[^@]+\.(test|example|invalid|localhost)$/i.test(options.to.trim())) {
     logger.info(`Email skipped for test address ${options.to}: ${options.subject}`);
     return true;
+  }
+
+  // Hosts that block outbound SMTP (Render's free tier blocks ports 465 and 587) send
+  // through Brevo's HTTPS API instead. Without BREVO_API_KEY nothing changes: SMTP as before.
+  if (process.env.BREVO_API_KEY) {
+    return sendViaBrevo(options, cfg.fromName, process.env.BREVO_SENDER_EMAIL || cfg.user);
+  }
+  if (process.env.RESEND_API_KEY) {
+    return sendViaResend(options, cfg.fromName);
   }
 
   try {

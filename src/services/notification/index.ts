@@ -45,7 +45,10 @@ export async function sendNotification(userId: string, payload: NotificationPayl
         await queuePush(userId, payload, record.id);
         awaitingDeviceAck = true;
       } else if (channel === NotificationChannel.EMAIL) {
-        await sendEmailNotification(userId, payload);
+        // Not awaited: an SOS alert to a caregiver must not wait on the mail server.
+        // In-app and push carry the alert; email is a copy, and its failure is logged.
+        sendEmailNotification(userId, payload).catch(err =>
+          logger.error(`Email copy of notification failed for user ${userId}: ${err.message}`));
       }
     } catch (err: any) {
       success = false;
