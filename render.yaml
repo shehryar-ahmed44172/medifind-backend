@@ -15,7 +15,9 @@ services:
     region: oregon
     branch: main
     healthCheckPath: /health
-    buildCommand: npm ci && npx prisma generate && npm run build
+    # --include=dev: NODE_ENV is production, so a plain `npm ci` would skip
+    # typescript and prisma (devDependencies) and the build would fail.
+    buildCommand: npm ci --include=dev && npx prisma generate && npm run build
     startCommand: npx prisma migrate deploy && npm start
     envVars:
       - key: NODE_ENV
