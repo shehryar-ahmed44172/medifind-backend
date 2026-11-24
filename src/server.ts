@@ -58,7 +58,11 @@ io.engine.on("connection_error", (err) => {
 });
 
 // Middleware
-app.use(helmet());
+// The admin portal is served from another origin (Vercel), so helmet's default
+// Cross-Origin-Resource-Policy "same-origin" made browsers refuse to show uploaded
+// CNIC, report and chat images there ("Cannot preview"). "cross-origin" only lets
+// other sites display a file whose URL they already have; it grants no new access.
+app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 // API auth uses Bearer tokens (no cookies), so credentials are not needed cross-origin
 app.use(cors({ origin: '*' }));
 // Payments — must be mounted BEFORE express.json() so the webhook receives the raw body

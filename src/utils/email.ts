@@ -50,6 +50,12 @@ export function buildTransporter(cfg: { host: string; port: number; secure: bool
     secure: cfg.secure,
     auth:   { user: cfg.user, pass: cfg.pass },
     tls:    { rejectUnauthorized: false },
+    // Fail fast instead of nodemailer's 2-minute default: callers such as responder
+    // approval await the email, and a host that cannot reach the SMTP port left the
+    // admin portal on "Processing..." for minutes.
+    connectionTimeout: 10_000,
+    greetingTimeout:   10_000,
+    socketTimeout:     20_000,
   });
 }
 
