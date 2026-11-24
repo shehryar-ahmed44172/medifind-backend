@@ -678,7 +678,9 @@ export const getDashboardStats = async (req: Request, res: Response) => {
       prisma.user.count({ where: { isActive: true, role: { not: 'ADMIN' } } }),
       prisma.emergency.count(),
       prisma.emergency.count({ where: { status: { in: ['ACTIVE', 'ASSIGNED', 'ARRIVED'] } } }),
-      prisma.responder.count({ where: { isVerified: true } }),
+      // Active accounts only, like the user count above: a deactivated or deleted
+      // responder keeps its verified flag but is no longer part of the network.
+      prisma.responder.count({ where: { isVerified: true, user: { isActive: true } } }),
       prisma.responder.count({ where: { isVerified: true, isAvailable: true, user: { isActive: true } } }),
       prisma.responder.count({ where: { verificationStatus: 'PENDING' } }),
     ]);
