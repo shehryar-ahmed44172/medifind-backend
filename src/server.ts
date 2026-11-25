@@ -1,4 +1,4 @@
-import express, { Express, Request, Response } from 'express';
+import express, { Express, Request, Response, NextFunction } from 'express';
 import { Server as SocketIOServer } from 'socket.io';
 import http from 'http';
 import cors from 'cors';
@@ -28,6 +28,7 @@ import fileRoutes from './routes/files';
 import callRoutes from './routes/calls';
 import { registerCallHandlers } from './services/callService';
 import path from 'path';
+import { ensureLocal, objectStoreEnabled } from './utils/objectStore';
 import { verifyAccessToken } from './utils/jwt';
 import prisma from './lib/prisma';
 import { TokenPayload } from './types/auth';
@@ -315,6 +316,18 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/notifications', notificationRoutes);
 
 // Profile images and registration docs are non-sensitive — serve publicly
+// On a host without a persistent disk, bring a missing file back from R2 first
+app.use('/uploads', async (req: Request, _res: Response, next: NextFunction) => {
+  if (!objectStoreEnabled() || (req.method !== 'GET' && req.method !== 'HEAD')) return next();
+  try {
+    const key = decodeURIComponent(req.path).replace(/^\/+/, '');
+    if (!/^(profile|documents|chat)\/[^/]+$/.test(key)) return next();
+    const restored = await ensureLocal(key);
+    // Chat files uploaded before the chat folder existed were stored under documents
+    if (!restored && key.startsWith('chat/')) await ensureLocal(`documents/${key.slice(5)}`);
+  } catch { /* fall through to the static handlers */ }
+  next();
+});
 app.use('/uploads/profile',   express.static(path.join(process.cwd(), 'uploads', 'profile')));
 app.use('/uploads/documents', express.static(path.join(process.cwd(), 'uploads', 'documents')));
 app.use('/uploads/chat',      express.static(path.join(process.cwd(), 'uploads', 'chat')));

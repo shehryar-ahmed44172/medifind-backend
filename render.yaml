@@ -70,6 +70,17 @@ services:
       - key: PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK
         value: "1"
 
+      # Uploads (CNIC, profile photos, chat files, reports). The free plan has no
+      # persistent disk, so set these to keep a copy in a Cloudflare R2 bucket.
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET
+        sync: false
+
       # AI symptom suggestions
       - key: GEMINI_API_KEY
         sync: false

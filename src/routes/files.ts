@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { authMiddleware } from '../middleware/authMiddleware';
 import prisma from '../lib/prisma';
+import { ensureLocal } from '../utils/objectStore';
 
 const router = Router();
 
@@ -22,7 +23,8 @@ router.get('/reports/:filename', async (req: Request, res: Response) => {
   const safeName = path.basename(req.params.filename);
   const filePath = path.join(process.cwd(), 'uploads', 'reports', safeName);
 
-  if (!fs.existsSync(filePath)) {
+  // After a restart on a host without a disk the file may only be in R2
+  if (!fs.existsSync(filePath) && !(await ensureLocal(`reports/${safeName}`))) {
     return res.status(404).json({ error: 'File not found' });
   }
 

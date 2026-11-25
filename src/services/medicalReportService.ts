@@ -4,6 +4,7 @@ import { MedicalReportType } from '@prisma/client';
 import prisma from '../lib/prisma';
 import fs from 'fs';
 import path from 'path';
+import { removeObject } from '../utils/objectStore';
 import logger from '../utils/logger';
 
 export const uploadReport = async (
@@ -120,6 +121,7 @@ export const deleteReport = async (reportId: string, userId: string) => {
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
     }
+    await removeObject(`reports/${filename}`);
   } catch (err: any) {
     logger.error(`Failed to delete file from disk: ${err.message}`);
   }

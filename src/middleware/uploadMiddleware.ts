@@ -1,6 +1,7 @@
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import { putFromDisk, objectStoreEnabled } from '../utils/objectStore';
 
 // Ensure uploads directory exists
 const uploadDir = path.join(process.cwd(), 'uploads');
@@ -9,7 +10,7 @@ if (!fs.existsSync(uploadDir)) {
 }
 
 // Set up storage engine
-const storage = multer.diskStorage({
+const diskStorage = multer.diskStorage({
   destination: function (req, file, cb) {
     let subDir = '';
     
@@ -34,6 +35,25 @@ const storage = multer.diskStorage({
     cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
   },
 });
+
+// Writes to disk as before, then (when R2 is configured) copies the file to R2
+// before the request continues, so an upload that succeeds survives a restart.
+const storage: multer.StorageEngine = {
+  _handleFile(req, file, cb) {
+    diskStorage._handleFile(req, file, (err, info) => {
+      if (err || !info?.path || !objectStoreEnabled()) return cb(err, info);
+      putFromDisk(info.path, file.mimetype)
+        .then(() => cb(null, info))
+        .catch((e) => {
+          fs.unlink(info.path!, () => undefined);
+          cb(new Error(`Could not store the file: ${e?.message || e}`));
+        });
+    });
+  },
+  _removeFile(req, file, cb) {
+    diskStorage._removeFile(req, file, cb);
+  },
+};
 
 // File filter: images, PDFs, audio and Word documents only
 const ALLOWED_EXTENSIONS = [
