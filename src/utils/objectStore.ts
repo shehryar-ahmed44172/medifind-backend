@@ -25,6 +25,19 @@ export const UPLOADS_ROOT = path.join(process.cwd(), 'uploads');
 let bucket = '';
 let cached: S3Client | null | undefined;
 
+function toEndpoint(value: string): string {
+  if (!value) return '';
+  if (/^https?:\/\//i.test(value)) {
+    try {
+      return new URL(value).origin;
+    } catch {
+      return '';
+    }
+  }
+  if (value.includes('.')) return `https://${value.replace(/\/.*$/, '')}`;
+  return `https://${value}.r2.cloudflarestorage.com`;
+}
+
 // Built on first use so the values from .env (dotenv) are already loaded
 function getClient(): S3Client | null {
   if (cached !== undefined) return cached;
@@ -32,9 +45,10 @@ function getClient(): S3Client | null {
   const accessKeyId = process.env.R2_ACCESS_KEY_ID?.trim();
   const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY?.trim();
   bucket = process.env.R2_BUCKET?.trim() || '';
-  // R2_ENDPOINT overrides the default endpoint (tests, or a jurisdiction endpoint)
-  const endpoint =
-    process.env.R2_ENDPOINT?.trim() || (accountId ? `https://${accountId}.r2.cloudflarestorage.com` : '');
+  // R2_ENDPOINT overrides the default endpoint (tests, or a jurisdiction endpoint).
+  // Cloudflare's dashboard shows the S3 API as a full URL (sometimes with the
+  // bucket on the end), so a URL pasted into R2_ACCOUNT_ID is accepted too.
+  const endpoint = toEndpoint(process.env.R2_ENDPOINT?.trim() || accountId || '');
   cached =
     endpoint && accessKeyId && secretAccessKey && bucket
       ? new S3Client({

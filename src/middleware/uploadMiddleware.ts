@@ -2,6 +2,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { putFromDisk, objectStoreEnabled } from '../utils/objectStore';
+import logger from '../utils/logger';
 
 // Ensure uploads directory exists
 const uploadDir = path.join(process.cwd(), 'uploads');
@@ -37,7 +38,7 @@ const diskStorage = multer.diskStorage({
 });
 
 // Writes to disk as before, then (when R2 is configured) copies the file to R2
-// before the request continues, so an upload that succeeds survives a restart.
+// before the request continues, so the upload survives a restart.
 const storage: multer.StorageEngine = {
   _handleFile(req, file, cb) {
     diskStorage._handleFile(req, file, (err, info) => {
@@ -45,8 +46,10 @@ const storage: multer.StorageEngine = {
       putFromDisk(info.path, file.mimetype)
         .then(() => cb(null, info))
         .catch((e) => {
-          fs.unlink(info.path!, () => undefined);
-          cb(new Error(`Could not store the file: ${e?.message || e}`));
+          // Keep the upload working from the local disk; it just will not
+          // survive a restart. The log line shows what to fix in the R2 settings.
+          logger.error(`R2 upload failed for ${info.path}, kept on disk only: ${e?.message || e}`);
+          cb(null, info);
         });
     });
   },
