@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { PasswordResetTokenPayload } from '../types/passwordReset';
+import { frontendUrl } from './origins';
 
 const RESET_TOKEN_SECRET = process.env.RESET_TOKEN_SECRET || 'reset-secret-change-me';
 const RESET_TOKEN_EXPIRY = 30 * 60 * 1000; // 30 minutes in milliseconds
@@ -68,7 +69,7 @@ export function verifyResetTokenHash(
  */
 export function generateResetLink(
 	token: string,
-	baseUrl: string = process.env.APP_URL || 'http://localhost:3100'
+	baseUrl: string = frontendUrl()
 ): string {
 	return `${baseUrl}/reset-password?token=${encodeURIComponent(token)}`;
 }

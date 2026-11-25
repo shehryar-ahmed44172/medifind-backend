@@ -3,6 +3,7 @@ import { Server as SocketIOServer } from 'socket.io';
 import http from 'http';
 import cors from 'cors';
 import helmet from 'helmet';
+import { allowedOrigins } from './utils/origins';
 import morgan from 'morgan';
 import 'dotenv/config';
 import logger from './utils/logger';
@@ -44,7 +45,7 @@ const HOST = process.env.HOST || '0.0.0.0';
 // Socket.io setup
 const io = new SocketIOServer(server, {
   cors: {
-    origin: '*',
+    origin: allowedOrigins(),
     methods: ['GET', 'POST'],
   },
   pingInterval: parseInt(process.env.SOCKET_IO_PING_INTERVAL || '25000'),
@@ -64,7 +65,7 @@ io.engine.on("connection_error", (err) => {
 // other sites display a file whose URL they already have; it grants no new access.
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 // API auth uses Bearer tokens (no cookies), so credentials are not needed cross-origin
-app.use(cors({ origin: '*' }));
+app.use(cors({ origin: allowedOrigins() }));
 // Payments — must be mounted BEFORE express.json() so the webhook receives the raw body
 app.use('/api/payments', paymentRoutes);
 

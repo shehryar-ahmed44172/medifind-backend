@@ -41,13 +41,23 @@ services:
       - key: JWT_REFRESH_EXPIRATION
         value: 30d
 
-      # Where password-reset and verification links point (the Vercel URL)
+      # Where password-reset links point (the web portal); FRONTEND_URL wins over APP_URL
+      - key: FRONTEND_URL
+        sync: false
       - key: APP_URL
         sync: false
       - key: MOBILE_APP_ORIGIN
         sync: false
+      # Browser origins allowed to call the API, comma-separated (empty = all)
+      - key: CORS_ORIGINS
+        sync: false
 
-      # Email delivery
+      # Email delivery. The free plan blocks outbound SMTP, so set BREVO_API_KEY
+      # (and BREVO_SENDER_EMAIL if the verified sender differs from SMTP_USER).
+      - key: BREVO_API_KEY
+        sync: false
+      - key: BREVO_SENDER_EMAIL
+        sync: false
       - key: SMTP_HOST
         sync: false
       - key: SMTP_PORT
@@ -56,6 +66,9 @@ services:
         sync: false
       - key: SMTP_PASS
         sync: false
+      # Prisma's migration lock times out on Neon's pooled connection
+      - key: PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK
+        value: "1"
 
       # AI symptom suggestions
       - key: GEMINI_API_KEY
